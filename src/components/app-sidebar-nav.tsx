@@ -46,6 +46,7 @@ const adminLinks = [
   { label: "Rimborsi", href: "/admin/rimborsi", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Impostazioni", href: "/admin/impostazioni", icon: Settings },
+  { label: "Profilo", href: "/admin/profilo", icon: UserCircle },
 ];
 
 export function AppSidebarNav({ section }: AppSidebarNavProps) {

@@ -1,9 +1,9 @@
 import { AppShell } from "@/components/app-shell";
 import { ProfileCenter } from "@/components/profile-center";
 
-export default function ProfilePage() {
+export default function AdminProfilePage() {
   return (
-    <AppShell section="pm" eyebrow="Profilo" title="Profilo e sicurezza">
+    <AppShell section="admin" eyebrow="Account" title="Profilo Super Admin">
       <ProfileCenter />
     </AppShell>
   );

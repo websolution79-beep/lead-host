@@ -10,6 +10,15 @@
 - Environment variable contract.
 - Local lint/build verification.
 
+## Phase 1B - Authentication, Roles, Profile, Wallet
+
+- Supabase Auth email/password login.
+- Automatic profile, default PM role, and wallet creation from `auth.users`.
+- Super Admin role support and protected admin shell.
+- PM registration entry point.
+- Editable profile, avatar upload, password update, logout.
+- Wallet balance and wallet transaction history foundation.
+
 ## Phase 2 - Owner Landing And Form
 
 - Mobile-first owner landing.

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { PublicNav } from "@/components/public-nav";
+import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
   return (
@@ -12,27 +14,9 @@ export default function LoginPage() {
             <h1 className="mt-3 text-3xl font-semibold text-ink">
               Entra in Lead Host
             </h1>
-            <form className="mt-7 grid gap-4">
-              <label className="grid gap-2 text-sm font-semibold text-ink">
-                Email
-                <input
-                  className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
-                  type="email"
-                  placeholder="nome@azienda.it"
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-semibold text-ink">
-                Password
-                <input
-                  className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
-                  type="password"
-                  placeholder="Password"
-                />
-              </label>
-              <button className="btn btn-primary mt-2" type="button">
-                Accedi
-              </button>
-            </form>
+            <Suspense fallback={null}>
+              <LoginForm />
+            </Suspense>
             <p className="mt-5 text-sm text-muted">
               Sei un Property Manager?{" "}
               <Link className="font-semibold text-green" href="/property-manager">

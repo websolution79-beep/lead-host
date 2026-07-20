@@ -34,6 +34,7 @@
 - `/admin/rimborsi`
 - `/admin/analytics`
 - `/admin/impostazioni`
+- `/admin/profilo`
 
 ## API
 

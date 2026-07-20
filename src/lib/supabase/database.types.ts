@@ -17,6 +17,7 @@ export type Database = {
           first_name: string | null;
           last_name: string | null;
           phone: string | null;
+          avatar_url: string | null;
           status: "active" | "suspended";
           created_at: string;
           updated_at: string;
@@ -28,6 +29,7 @@ export type Database = {
           first_name?: string | null;
           last_name?: string | null;
           phone?: string | null;
+          avatar_url?: string | null;
           status?: "active" | "suspended";
           created_at?: string;
           updated_at?: string;
@@ -39,10 +41,126 @@ export type Database = {
           first_name?: string | null;
           last_name?: string | null;
           phone?: string | null;
+          avatar_url?: string | null;
           status?: "active" | "suspended";
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
+      };
+      user_roles: {
+        Row: {
+          id: string;
+          profile_id: string;
+          role: "property_manager" | "super_admin";
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          role: "property_manager" | "super_admin";
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          role?: "property_manager" | "super_admin";
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      wallets: {
+        Row: {
+          id: string;
+          profile_id: string;
+          balance_cents: number;
+          currency: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          balance_cents?: number;
+          currency?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          balance_cents?: number;
+          currency?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      property_manager_profiles: {
+        Row: {
+          id: string;
+          profile_id: string;
+          company_name: string;
+          vat_number: string | null;
+          website: string | null;
+          managed_properties_count: number | null;
+          years_experience: number | null;
+          business_description: string | null;
+          operating_model: string | null;
+          verification_status: "not_verified" | "verified" | "suspended";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          company_name: string;
+          vat_number?: string | null;
+          website?: string | null;
+          managed_properties_count?: number | null;
+          years_experience?: number | null;
+          business_description?: string | null;
+          operating_model?: string | null;
+          verification_status?: "not_verified" | "verified" | "suspended";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          company_name?: string;
+          vat_number?: string | null;
+          website?: string | null;
+          managed_properties_count?: number | null;
+          years_experience?: number | null;
+          business_description?: string | null;
+          operating_model?: string | null;
+          verification_status?: "not_verified" | "verified" | "suspended";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      wallet_transactions: {
+        Row: {
+          id: string;
+          wallet_id: string;
+          profile_id: string;
+          type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+          status: "pending" | "completed" | "failed" | "cancelled";
+          amount_cents: number;
+          balance_after_cents: number | null;
+          description: string | null;
+          provider: string | null;
+          provider_reference: string | null;
+          lead_purchase_id: string | null;
+          metadata: Json;
+          created_at: string;
+          completed_at: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
       };
       leads: {
         Row: {
@@ -117,6 +235,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       lead_purchases: {
         Row: {
@@ -142,6 +261,7 @@ export type Database = {
         };
         Insert: never;
         Update: never;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

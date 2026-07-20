@@ -6,6 +6,8 @@ The initial schema is in `supabase/migrations/202607200001_lead_host_foundation.
 
 - `profiles`: authenticated users and shared identity fields.
 - `user_roles`: application roles, including `property_manager` and `super_admin`.
+- `wallets`: per-profile wallet balance.
+- `wallet_transactions`: wallet top-ups, lead purchases, refunds, and adjustments.
 - `property_manager_profiles`: PM business profile and verification state.
 - `property_manager_services`: services offered by each PM.
 - `property_manager_areas`: geographic coverage per PM service.
@@ -34,6 +36,10 @@ The initial schema is in `supabase/migrations/202607200001_lead_host_foundation.
 ## Purchase Safety
 
 The SQL migration includes `claim_paid_lead_purchase`, a database function intended to be called from the Stripe webhook handler after payment confirmation. It locks the lead row, checks availability and commercial invariants, then inserts the purchase and updates lead counters atomically.
+
+## Auth And Roles
+
+The auth/roles migration creates a trigger on `auth.users` that provisions a `profiles` row, a default `property_manager` role, and an empty wallet. Super Admin access is represented by an additional `super_admin` role in `user_roles`.
 
 ## Public Lead Status Mapping
 

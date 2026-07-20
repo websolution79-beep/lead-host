@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { PublicNav } from "@/components/public-nav";
+import { PmSignupForm } from "@/components/pm-signup-form";
 
 const points = [
   "Registrazione gratuita",
@@ -26,18 +27,21 @@ export default function PropertyManagerLandingPage() {
               Accedi alle richieste di proprietari che cercano un professionista
               e sblocca solo i contatti che vuoi lavorare.
             </p>
-            <Link className="btn btn-primary mt-9" href="/login">
-              Registrati gratis
+            <Link className="btn btn-secondary mt-9" href="/login">
+              Hai gia un account? Accedi
               <ArrowRight size={18} />
             </Link>
           </div>
-          <div className="grid gap-3">
-            {points.map((point) => (
-              <div key={point} className="card flex items-center gap-3 p-4">
-                <CheckCircle2 size={20} className="text-green" />
-                <span className="font-medium text-ink">{point}</span>
-              </div>
-            ))}
+          <div className="grid gap-5">
+            <PmSignupForm />
+            <div className="grid gap-3">
+              {points.map((point) => (
+                <div key={point} className="card flex items-center gap-3 p-4">
+                  <CheckCircle2 size={20} className="text-green" />
+                  <span className="font-medium text-ink">{point}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

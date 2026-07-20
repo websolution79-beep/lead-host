@@ -6,6 +6,7 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
+  UserRound,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { getPurchasedLeadList } from "@/lib/domain/purchased-leads";
@@ -43,6 +44,10 @@ export default function MyLeadsPage() {
                     ? "Contatto in esclusiva"
                     : "Contatto condiviso"}
                 </span>
+                <p className="flex items-center gap-3">
+                  <UserRound size={17} className="text-green" />
+                  {item.ownerContact.firstName} {item.ownerContact.lastName}
+                </p>
                 <p className="flex items-center gap-3">
                   <Phone size={17} className="text-green" />
                   {item.ownerContact.phone}

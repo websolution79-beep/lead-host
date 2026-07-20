@@ -68,7 +68,7 @@ export default async function MyLeadDetailPage({
               </h2>
               <p className="mt-3 flex items-center gap-2 text-muted">
                 <MapPin size={18} />
-                {lead.city}, {lead.province}
+                {lead.address}
               </p>
             </div>
             <span className="inline-flex items-center gap-2 rounded-full bg-mint px-3 py-2 text-sm font-bold text-green">

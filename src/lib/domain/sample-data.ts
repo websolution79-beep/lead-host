@@ -8,6 +8,7 @@ export type MarketplaceLead = {
   city: string;
   district: string;
   address: string;
+  ownerName: string;
   propertyType: string;
   bedrooms: number;
   bathrooms: number;
@@ -32,7 +33,8 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Palermo",
     city: "Palermo",
     district: "Centro",
-    address: "Palermo, Centro",
+    address: "Via Maqueda 31, Palermo",
+    ownerName: "Giulia Ferrara",
     propertyType: "Appartamento",
     bedrooms: 2,
     bathrooms: 1,
@@ -56,7 +58,8 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Roma",
     city: "Roma",
     district: "Prati",
-    address: "Roma, Prati",
+    address: "Via Cola di Rienzo 122, Roma",
+    ownerName: "Marco De Santis",
     propertyType: "Appartamento",
     bedrooms: 1,
     bathrooms: 1,
@@ -80,7 +83,8 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Bari",
     city: "Bari",
     district: "Murat",
-    address: "Bari, Murat",
+    address: "Via Sparano 48, Bari",
+    ownerName: "Antonio Leone",
     propertyType: "Struttura ricettiva",
     bedrooms: 4,
     bathrooms: 4,
@@ -104,7 +108,8 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Milano",
     city: "Milano",
     district: "Navigli",
-    address: "Milano, Navigli",
+    address: "Ripa di Porta Ticinese 43, Milano",
+    ownerName: "Laura Riva",
     propertyType: "Appartamento",
     bedrooms: 1,
     bathrooms: 1,
@@ -128,7 +133,8 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Firenze",
     city: "Firenze",
     district: "Oltrarno",
-    address: "Firenze, Oltrarno",
+    address: "Via dei Serragli 18, Firenze",
+    ownerName: "Francesca Conti",
     propertyType: "Casa indipendente",
     bedrooms: 3,
     bathrooms: 2,
@@ -152,7 +158,8 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Napoli",
     city: "Napoli",
     district: "Chiaia",
-    address: "Napoli, Chiaia",
+    address: "Via Chiaia 91, Napoli",
+    ownerName: "Roberto Esposito",
     propertyType: "Villa",
     bedrooms: 4,
     bathrooms: 3,

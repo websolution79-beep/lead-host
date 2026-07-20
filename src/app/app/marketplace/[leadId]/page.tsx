@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { ArrowLeft, Mail, MapPin, Phone, ShieldCheck, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  UserRound,
+  Users,
+} from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { demoLeads } from "@/lib/domain/sample-data";
 import {
@@ -110,6 +118,10 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           <section className="mt-8 border-t border-ink/10 pt-6">
             <h3 className="text-lg font-semibold text-ink">Contatti</h3>
             <div className="mt-3 grid gap-3 text-muted sm:grid-cols-2">
+              <p className="flex items-center gap-3">
+                <UserRound size={18} />
+                Nome e cognome proprietario riservati
+              </p>
               <p className="flex items-center gap-3">
                 <Phone size={18} />
                 Telefono riservato

@@ -67,7 +67,7 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
       .in("id", propertyIds),
     supabase
       .from("owner_contacts")
-      .select("owner_request_id,precise_address")
+      .select("owner_request_id,first_name,last_name,precise_address")
       .in("owner_request_id", ownerRequestIds),
   ]);
 
@@ -117,8 +117,15 @@ function mapDbLeadToMarketplaceLead(
     | "description"
     | "requested_services"
   >,
-  contact: Pick<OwnerContactRow, "precise_address"> | null,
+  contact: Pick<
+    OwnerContactRow,
+    "first_name" | "last_name" | "precise_address"
+  > | null,
 ): MarketplaceLead {
+  const ownerName =
+    `${contact?.first_name ?? ""} ${contact?.last_name ?? ""}`.trim() ||
+    "Proprietario";
+
   return {
     id: lead.id,
     title: lead.title,
@@ -126,7 +133,11 @@ function mapDbLeadToMarketplaceLead(
     province: property.province ?? "",
     city: property.city ?? "",
     district: property.district ?? property.city ?? "",
-    address: contact?.precise_address ?? property.district ?? property.city ?? "",
+    address: formatAddressWithCity(
+      contact?.precise_address ?? property.district ?? "",
+      property.city,
+    ),
+    ownerName,
     propertyType: property.property_type ?? "Immobile",
     bedrooms: property.bedrooms ?? 0,
     bathrooms: property.bathrooms ?? 0,
@@ -144,4 +155,23 @@ function mapDbLeadToMarketplaceLead(
       property.description ??
       "Il proprietario non ha aggiunto una descrizione facoltativa.",
   };
+}
+
+function formatAddressWithCity(address: string, city: string | null) {
+  const cleanAddress = address.trim();
+  const cleanCity = city?.trim();
+
+  if (!cleanAddress) {
+    return cleanCity ?? "";
+  }
+
+  if (!cleanCity) {
+    return cleanAddress;
+  }
+
+  return cleanAddress.toLocaleLowerCase("it").endsWith(
+    `, ${cleanCity.toLocaleLowerCase("it")}`,
+  )
+    ? cleanAddress
+    : `${cleanAddress}, ${cleanCity}`;
 }

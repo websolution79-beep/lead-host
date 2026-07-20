@@ -2,6 +2,10 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getManagedPropertiesCount,
+  managedPropertiesOptions,
+} from "@/lib/domain/pm-onboarding";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 export function PmSignupForm() {
@@ -11,7 +15,8 @@ export function PmSignupForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [companyName, setCompanyName] = useState("");
+  const [managedPropertiesRange, setManagedPropertiesRange] = useState("");
+  const [primaryCity, setPrimaryCity] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -31,6 +36,8 @@ export function PmSignupForm() {
           first_name: firstName,
           last_name: lastName,
           phone,
+          managed_properties_range: managedPropertiesRange,
+          primary_city: primaryCity,
         },
       },
     });
@@ -48,15 +55,35 @@ export function PmSignupForm() {
         .eq("auth_user_id", data.user.id)
         .single();
 
-      if (profile && companyName.trim()) {
-        await supabase.from("property_manager_profiles").upsert(
+      if (profile) {
+        const profileId = (profile as { id: string }).id;
+        const managedPropertiesCount = getManagedPropertiesCount(managedPropertiesRange);
+        const fallbackCompanyName =
+          [firstName, lastName].filter(Boolean).join(" ").trim() || email.trim();
+
+        const { error: pmProfileError } = await supabase.from("property_manager_profiles").upsert(
           {
-            profile_id: (profile as { id: string }).id,
-            company_name: companyName.trim(),
+            profile_id: profileId,
+            company_name: fallbackCompanyName,
+            managed_properties_count: managedPropertiesCount,
+            managed_properties_range: managedPropertiesRange,
+            primary_city: primaryCity.trim(),
             verification_status: "not_verified",
           },
           { onConflict: "profile_id" },
         );
+
+        if (pmProfileError) {
+          await supabase.from("property_manager_profiles").upsert(
+            {
+              profile_id: profileId,
+              company_name: fallbackCompanyName,
+              managed_properties_count: managedPropertiesCount,
+              verification_status: "not_verified",
+            },
+            { onConflict: "profile_id" },
+          );
+        }
       }
 
       router.push("/app/profilo");
@@ -95,7 +122,7 @@ export function PmSignupForm() {
       <input
         className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
         type="email"
-        placeholder="Email aziendale"
+        placeholder="Email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         required
@@ -105,12 +132,30 @@ export function PmSignupForm() {
         placeholder="Telefono"
         value={phone}
         onChange={(event) => setPhone(event.target.value)}
+        required
       />
+      <label className="grid gap-2 text-sm font-semibold text-ink">
+        Gestisci gia immobili?
+        <select
+          className="min-h-12 rounded-lg border border-ink/12 bg-white px-4 outline-none focus:border-green"
+          value={managedPropertiesRange}
+          onChange={(event) => setManagedPropertiesRange(event.target.value)}
+          required
+        >
+          <option value="">Seleziona una risposta</option>
+          {managedPropertiesOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <input
         className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
-        placeholder="Azienda"
-        value={companyName}
-        onChange={(event) => setCompanyName(event.target.value)}
+        placeholder="Citta principale"
+        value={primaryCity}
+        onChange={(event) => setPrimaryCity(event.target.value)}
+        required
       />
       <input
         className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"

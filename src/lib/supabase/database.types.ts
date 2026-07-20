@@ -100,10 +100,12 @@ export type Database = {
         Row: {
           id: string;
           profile_id: string;
-          company_name: string;
+          company_name: string | null;
           vat_number: string | null;
           website: string | null;
           managed_properties_count: number | null;
+          managed_properties_range: string | null;
+          primary_city: string | null;
           years_experience: number | null;
           business_description: string | null;
           operating_model: string | null;
@@ -114,10 +116,12 @@ export type Database = {
         Insert: {
           id?: string;
           profile_id: string;
-          company_name: string;
+          company_name?: string | null;
           vat_number?: string | null;
           website?: string | null;
           managed_properties_count?: number | null;
+          managed_properties_range?: string | null;
+          primary_city?: string | null;
           years_experience?: number | null;
           business_description?: string | null;
           operating_model?: string | null;
@@ -128,10 +132,12 @@ export type Database = {
         Update: {
           id?: string;
           profile_id?: string;
-          company_name?: string;
+          company_name?: string | null;
           vat_number?: string | null;
           website?: string | null;
           managed_properties_count?: number | null;
+          managed_properties_range?: string | null;
+          primary_city?: string | null;
           years_experience?: number | null;
           business_description?: string | null;
           operating_model?: string | null;

@@ -1,14 +1,10 @@
 import { AppShell } from "@/components/app-shell";
-import { WorkspacePlaceholder } from "@/components/workspace-placeholder";
+import { AdminPropertyManagersConsole } from "@/components/admin-property-managers-console";
 
 export default function AdminPropertyManagersPage() {
   return (
     <AppShell section="admin" eyebrow="Property Manager" title="Property Manager">
-      <WorkspacePlaceholder
-        title="Verifica e controllo"
-        description="Gestione di PM non verificati, verificati e sospesi."
-        items={["Non verificati", "Verificati", "Sospesi", "Aree operative"]}
-      />
+      <AdminPropertyManagersConsole />
     </AppShell>
   );
 }

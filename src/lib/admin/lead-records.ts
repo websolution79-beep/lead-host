@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { getSharedSlotsAvailable } from "@/lib/domain/lead-state";
+import {
+  getVisibleSharedSlotsAvailable,
+  parseLeadDate,
+} from "@/lib/domain/lead-state";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -160,7 +163,14 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
             internalStatus: lead.internal_status,
             publicStatus: lead.public_status,
             sharedSlotsSold: lead.shared_slots_sold,
-            sharedSlotsAvailable: getSharedSlotsAvailable(lead.shared_slots_sold),
+            sharedSlotsAvailable: getVisibleSharedSlotsAvailable({
+              internalStatus: lead.internal_status,
+              sharedSlotsSold: lead.shared_slots_sold,
+              exclusivePurchaseId: lead.exclusive_purchase_id,
+              expiresAt: parseLeadDate(
+                lead.expires_at ?? lead.visible_until ?? new Date(0).toISOString(),
+              ),
+            }),
             sharedPriceCents: lead.shared_price_cents,
             exclusivePriceCents: lead.exclusive_price_cents,
             exclusivePurchaseId: lead.exclusive_purchase_id,

@@ -15,7 +15,7 @@ import {
   LEAD_EXCLUSIVE_PRICE_CENTS,
   LEAD_SHARED_PRICE_CENTS,
   formatPublicStatus,
-  getSharedSlotsAvailable,
+  getVisibleSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
   parseLeadDate,
@@ -49,7 +49,12 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
     exclusivePurchaseId: lead.exclusivePurchaseId,
     expiresAt,
   });
-  const sharedSlotsAvailable = getSharedSlotsAvailable(lead.sharedSlotsSold);
+  const sharedSlotsAvailable = getVisibleSharedSlotsAvailable({
+    internalStatus: lead.internalStatus,
+    sharedSlotsSold: lead.sharedSlotsSold,
+    exclusivePurchaseId: lead.exclusivePurchaseId,
+    expiresAt,
+  });
 
   return (
     <AppShell section="pm" eyebrow="Dettaglio lead" title={lead.title}>

@@ -70,6 +70,30 @@ export function getSharedSlotsAvailable(sharedSlotsSold: number) {
   return Math.max(LEAD_MAX_SHARED_BUYERS - sharedSlotsSold, 0);
 }
 
+export function getVisibleSharedSlotsAvailable(input: {
+  internalStatus: LeadInternalStatus;
+  sharedSlotsSold: number;
+  exclusivePurchaseId?: string | null;
+  expiresAt?: Date;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+
+  if (
+    input.exclusivePurchaseId ||
+    input.internalStatus === "sold_exclusive" ||
+    input.internalStatus === "sold_two_pm" ||
+    input.internalStatus === "withdrawn_after_7_days" ||
+    input.internalStatus === "cancelled" ||
+    input.internalStatus === "refunded" ||
+    (input.expiresAt ? input.expiresAt <= now : false)
+  ) {
+    return 0;
+  }
+
+  return getSharedSlotsAvailable(input.sharedSlotsSold);
+}
+
 export function isExclusiveAvailable(input: {
   internalStatus: LeadInternalStatus;
   sharedSlotsSold: number;

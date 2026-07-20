@@ -7,7 +7,7 @@ import {
 import {
   LEAD_EXCLUSIVE_PRICE_CENTS,
   LEAD_SHARED_PRICE_CENTS,
-  getSharedSlotsAvailable,
+  getVisibleSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
   parseLeadDate,
@@ -230,7 +230,12 @@ export async function POST(request: NextRequest) {
       mode: purchase.mode,
       amountCents,
       balanceCents: newBalanceCents,
-      sharedSlotsAvailable: getSharedSlotsAvailable(leadUpdate.shared_slots_sold),
+      sharedSlotsAvailable: getVisibleSharedSlotsAvailable({
+        internalStatus: leadUpdate.internal_status,
+        sharedSlotsSold: leadUpdate.shared_slots_sold,
+        exclusivePurchaseId: leadUpdate.exclusive_purchase_id,
+        expiresAt,
+      }),
     });
   } catch (error) {
     return propertyManagerApiErrorResponse(error);

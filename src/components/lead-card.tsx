@@ -11,7 +11,7 @@ import {
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import {
   formatPublicStatus,
-  getSharedSlotsAvailable,
+  getVisibleSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
   parseLeadDate,
@@ -38,7 +38,12 @@ export function LeadCard({ lead }: LeadCardProps) {
     exclusivePurchaseId: lead.exclusivePurchaseId,
     expiresAt,
   });
-  const slotsAvailable = getSharedSlotsAvailable(lead.sharedSlotsSold);
+  const slotsAvailable = getVisibleSharedSlotsAvailable({
+    internalStatus: lead.internalStatus,
+    sharedSlotsSold: lead.sharedSlotsSold,
+    exclusivePurchaseId: lead.exclusivePurchaseId,
+    expiresAt,
+  });
 
   return (
     <article

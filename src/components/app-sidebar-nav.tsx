@@ -29,7 +29,7 @@ const pmLinks = [
   { label: "Dashboard", href: "/app", icon: Gauge },
   { label: "Marketplace", href: "/app/marketplace", icon: Map },
   { label: "I miei lead", href: "/app/i-miei-lead", icon: Inbox },
-  { label: "Acquisti", href: "/app/acquisti", icon: CreditCard },
+  { label: "Wallet", href: "/app/acquisti", icon: CreditCard },
   { label: "Notifiche", href: "/app/notifiche", icon: Bell },
   { label: "Profilo", href: "/app/profilo", icon: UserCircle },
   { label: "Assistenza", href: "/app/assistenza", icon: LifeBuoy },
@@ -103,16 +103,6 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       })}
 
       <RoleSwitcher section={section} />
-
-      <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <Building2 size={16} className="text-green" />
-          Lead Host V1
-        </div>
-        <p className="mt-2 text-xs leading-5 text-slate-500">
-          Marketplace pay per lead, dati proprietari protetti server-side.
-        </p>
-      </div>
 
       <Link
         href={supportHref}

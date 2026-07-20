@@ -16,7 +16,7 @@ const pmLinks = [
   { label: "Dashboard", href: "/app" },
   { label: "Marketplace", href: "/app/marketplace" },
   { label: "I miei lead", href: "/app/i-miei-lead" },
-  { label: "Acquisti", href: "/app/acquisti" },
+  { label: "Wallet", href: "/app/acquisti" },
   { label: "Notifiche", href: "/app/notifiche" },
   { label: "Profilo", href: "/app/profilo" },
   { label: "Assistenza", href: "/app/assistenza" },

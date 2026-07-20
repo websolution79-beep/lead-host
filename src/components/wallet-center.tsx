@@ -1,9 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, CreditCard, Wallet } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CreditCard,
+  ExternalLink,
+  ShoppingBag,
+  Wallet,
+} from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
+import { getPurchasedLeadList } from "@/lib/domain/purchased-leads";
 
 type WalletRow = {
   id: string;
@@ -20,11 +29,13 @@ type WalletTransaction = {
   balance_after_cents: number | null;
   description: string | null;
   provider: string | null;
+  lead_purchase_id: string | null;
   created_at: string;
 };
 
 const MIN_TOP_UP_CENTS = 3000;
 const quickTopUps = [3000, 5000, 10000];
+const demoPurchasedLeads = getPurchasedLeadList();
 
 const transactionLabels: Record<WalletTransaction["type"], string> = {
   top_up: "Ricarica wallet",
@@ -38,6 +49,9 @@ export function WalletCenter() {
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [topUpAmount, setTopUpAmount] = useState("30");
+  const [activeTab, setActiveTab] = useState<"movements" | "lead_purchases">(
+    "movements",
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -69,7 +83,7 @@ export function WalletCenter() {
       if (typedWallet) {
         const { data: transactionRows } = await supabase
           .from("wallet_transactions")
-          .select("id,type,status,amount_cents,balance_after_cents,description,provider,created_at")
+          .select("id,type,status,amount_cents,balance_after_cents,description,provider,lead_purchase_id,created_at")
           .eq("wallet_id", typedWallet.id)
           .order("created_at", { ascending: false })
           .limit(30);
@@ -86,6 +100,9 @@ export function WalletCenter() {
   const currency = wallet?.currency ?? "eur";
   const topUpAmountCents = parseTopUpAmountCents(topUpAmount);
   const canTopUp = topUpAmountCents >= MIN_TOP_UP_CENTS;
+  const leadPurchaseTransactions = transactions.filter(
+    (transaction) => transaction.type === "lead_purchase",
+  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
@@ -171,14 +188,33 @@ export function WalletCenter() {
       </section>
 
       <section className="card p-6">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="section-kicker">Movimenti</p>
-            <h2 className="mt-2 text-xl font-semibold text-ink">Transazioni wallet</h2>
+            <p className="section-kicker">Storico</p>
+            <h2 className="mt-2 text-xl font-semibold text-ink">Wallet e acquisti</h2>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {transactions.length} movimenti
+            {activeTab === "movements"
+              ? `${transactions.length} movimenti`
+              : `${leadPurchaseTransactions.length || demoPurchasedLeads.length} acquisti`}
           </span>
+        </div>
+
+        <div className="mt-5 grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2">
+          <button
+            className={tabButtonClassName(activeTab === "movements")}
+            type="button"
+            onClick={() => setActiveTab("movements")}
+          >
+            Movimenti
+          </button>
+          <button
+            className={tabButtonClassName(activeTab === "lead_purchases")}
+            type="button"
+            onClick={() => setActiveTab("lead_purchases")}
+          >
+            Acquisti lead
+          </button>
         </div>
 
         <div className="mt-6 grid gap-3">
@@ -186,7 +222,7 @@ export function WalletCenter() {
             <p className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-muted">
               Carico movimenti...
             </p>
-          ) : transactions.length > 0 ? (
+          ) : activeTab === "movements" && transactions.length > 0 ? (
             transactions.map((transaction) => {
               const isPositive = transaction.amount_cents > 0;
               const Icon = isPositive ? ArrowDownLeft : ArrowUpRight;
@@ -231,17 +267,130 @@ export function WalletCenter() {
               );
             })
           ) : (
+            activeTab === "movements" ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
               <p className="font-semibold text-ink">Nessuna transazione ancora</p>
               <p className="mt-2 text-sm leading-6 text-muted">
                 Qui compariranno ricariche wallet, acquisti lead, rimborsi e rettifiche.
               </p>
             </div>
+            ) : (
+              <LeadPurchasesPanel
+                currency={currency}
+                leadPurchaseTransactions={leadPurchaseTransactions}
+              />
+            )
           )}
         </div>
       </section>
     </div>
   );
+}
+
+function LeadPurchasesPanel({
+  currency,
+  leadPurchaseTransactions,
+}: {
+  currency: string;
+  leadPurchaseTransactions: WalletTransaction[];
+}) {
+  if (leadPurchaseTransactions.length > 0) {
+    return (
+      <>
+        {leadPurchaseTransactions.map((transaction) => (
+          <div
+            key={transaction.id}
+            className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-lg bg-green/10 text-green">
+                <ShoppingBag size={18} />
+              </span>
+              <div>
+                <p className="font-semibold text-ink">
+                  {transaction.description || "Acquisto lead"}
+                </p>
+                <p className="text-sm text-muted">
+                  {formatDateTime(transaction.created_at)} - {transaction.status}
+                </p>
+              </div>
+            </div>
+            <p className="text-right font-semibold text-ink">
+              {formatCurrencyCents(transaction.amount_cents, currency)}
+            </p>
+          </div>
+        ))}
+      </>
+    );
+  }
+
+  if (demoPurchasedLeads.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+        <p className="font-semibold text-ink">Nessun acquisto lead ancora</p>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Qui compariranno i lead acquistati con data, modalita e importo.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {demoPurchasedLeads.map((item) => {
+        const amount = item.purchaseMode === "exclusive" ? 5000 : 2900;
+
+        return (
+          <Link
+            key={item.leadId}
+            className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-green/30 hover:shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+            href={`/app/i-miei-lead/${item.leadId}`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-semibold text-ink group-hover:text-green">
+                  {item.lead.title}
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  {item.purchaseMode === "exclusive"
+                    ? "Contatto in esclusiva"
+                    : "Contatto condiviso"}{" "}
+                  - {formatDateTime(item.purchasedAt)}
+                </p>
+              </div>
+              <ExternalLink size={17} className="shrink-0 text-slate-400 group-hover:text-green" />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                Sbloccato
+              </span>
+              <span className="font-semibold text-ink">
+                {formatCurrencyCents(amount, currency)}
+              </span>
+            </div>
+          </Link>
+        );
+      })}
+    </>
+  );
+}
+
+function tabButtonClassName(isActive: boolean) {
+  return `min-h-10 rounded-lg px-4 text-sm font-semibold transition ${
+    isActive
+      ? "bg-white text-ink shadow-sm"
+      : "text-slate-500 hover:bg-white/70 hover:text-ink"
+  }`;
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function parseTopUpAmountCents(value: string) {

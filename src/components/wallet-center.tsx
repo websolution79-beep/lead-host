@@ -23,7 +23,8 @@ type WalletTransaction = {
   created_at: string;
 };
 
-const quickTopUps = [2900, 5000, 10000];
+const MIN_TOP_UP_CENTS = 3000;
+const quickTopUps = [3000, 5000, 10000];
 
 const transactionLabels: Record<WalletTransaction["type"], string> = {
   top_up: "Ricarica wallet",
@@ -36,6 +37,7 @@ export function WalletCenter() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [topUpAmount, setTopUpAmount] = useState("30");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -82,6 +84,8 @@ export function WalletCenter() {
   }, [supabase]);
 
   const currency = wallet?.currency ?? "eur";
+  const topUpAmountCents = parseTopUpAmountCents(topUpAmount);
+  const canTopUp = topUpAmountCents >= MIN_TOP_UP_CENTS;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
@@ -103,25 +107,67 @@ export function WalletCenter() {
           amministrative.
         </p>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          {quickTopUps.map((amount) => (
-            <button
-              key={amount}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500"
-              type="button"
-              disabled
-            >
-              {formatCurrencyCents(amount, currency)}
-            </button>
-          ))}
+        <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-ink">Scegli importo ricarica</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Importo minimo di ricarica: {formatCurrencyCents(MIN_TOP_UP_CENTS, currency)}.
+          </p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {quickTopUps.map((amount) => {
+              const isSelected = topUpAmountCents === amount;
+
+              return (
+                <button
+                  key={amount}
+                  className={`rounded-lg border px-4 py-3 text-sm font-semibold transition ${
+                    isSelected
+                      ? "border-green bg-green/10 text-green"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-green/40 hover:text-green"
+                  }`}
+                  type="button"
+                  onClick={() => setTopUpAmount(formatAmountInput(amount))}
+                >
+                  {formatCurrencyCents(amount, currency)}
+                </button>
+              );
+            })}
+          </div>
+
+          <label className="mt-4 grid gap-2 text-sm font-semibold text-ink">
+            Importo da caricare
+            <div className="flex min-h-12 items-center rounded-lg border border-ink/12 bg-white px-4 focus-within:border-green">
+              <span className="pr-3 font-semibold text-slate-500">EUR</span>
+              <input
+                className="min-h-11 w-full bg-transparent outline-none"
+                inputMode="decimal"
+                min="30"
+                placeholder="30"
+                value={topUpAmount}
+                onChange={(event) => setTopUpAmount(event.target.value)}
+              />
+            </div>
+          </label>
+
+          {!canTopUp ? (
+            <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              Inserisci almeno {formatCurrencyCents(MIN_TOP_UP_CENTS, currency)}.
+            </p>
+          ) : null}
+
+          <button
+            className="btn btn-primary mt-4 w-full opacity-60"
+            type="button"
+            disabled
+          >
+            <CreditCard size={17} />
+            Ricarica {formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)}
+          </button>
+          <p className="mt-3 text-xs leading-5 text-muted">
+            Il checkout Stripe verra attivato nella fase pagamenti. Intanto puoi gia
+            scegliere la somma da ricaricare.
+          </p>
         </div>
-        <button className="btn btn-primary mt-4 w-full opacity-60" type="button" disabled>
-          <CreditCard size={17} />
-          Ricarica con Stripe
-        </button>
-        <p className="mt-3 text-xs leading-5 text-muted">
-          Ricariche abilitate nella fase Stripe. Lo storico transazioni e gia pronto.
-        </p>
       </section>
 
       <section className="card p-6">
@@ -196,4 +242,19 @@ export function WalletCenter() {
       </section>
     </div>
   );
+}
+
+function parseTopUpAmountCents(value: string) {
+  const normalizedValue = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const amount = Number.parseFloat(normalizedValue);
+
+  if (!Number.isFinite(amount)) {
+    return 0;
+  }
+
+  return Math.round(amount * 100);
+}
+
+function formatAmountInput(amountCents: number) {
+  return String(amountCents / 100);
 }

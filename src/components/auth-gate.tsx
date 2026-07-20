@@ -32,9 +32,7 @@ export function AuthGate({ children, section }: AuthGateProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
-  const [state, setState] = useState<AuthState>(() =>
-    getStateFromCache(section) ?? { status: "loading" },
-  );
+  const [state, setState] = useState<AuthState>({ status: "loading" });
 
   useEffect(() => {
     let isMounted = true;
@@ -107,17 +105,7 @@ export function AuthGate({ children, section }: AuthGateProps) {
   }, [pathname, router, section, supabase]);
 
   if (state.status === "loading") {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center px-5">
-        <div className="card max-w-md p-6 text-center">
-          <p className="section-kicker">Sessione</p>
-          <h1 className="mt-3 text-2xl font-semibold text-ink">Verifico accesso</h1>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            Stiamo controllando sessione, profilo e ruoli.
-          </p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (state.status === "forbidden") {

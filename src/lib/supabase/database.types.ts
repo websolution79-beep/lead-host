@@ -9,6 +9,72 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      billing_profiles: {
+        Row: {
+          id: string;
+          profile_id: string;
+          subject_type: "individual" | "company";
+          first_name: string | null;
+          last_name: string | null;
+          fiscal_code: string | null;
+          company_name: string | null;
+          vat_number: string | null;
+          company_fiscal_code: string | null;
+          address_line: string | null;
+          postal_code: string | null;
+          city: string | null;
+          province: string | null;
+          country: string;
+          sdi_code: string | null;
+          pec: string | null;
+          invoice_email: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          subject_type?: "individual" | "company";
+          first_name?: string | null;
+          last_name?: string | null;
+          fiscal_code?: string | null;
+          company_name?: string | null;
+          vat_number?: string | null;
+          company_fiscal_code?: string | null;
+          address_line?: string | null;
+          postal_code?: string | null;
+          city?: string | null;
+          province?: string | null;
+          country?: string;
+          sdi_code?: string | null;
+          pec?: string | null;
+          invoice_email?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          subject_type?: "individual" | "company";
+          first_name?: string | null;
+          last_name?: string | null;
+          fiscal_code?: string | null;
+          company_name?: string | null;
+          vat_number?: string | null;
+          company_fiscal_code?: string | null;
+          address_line?: string | null;
+          postal_code?: string | null;
+          city?: string | null;
+          province?: string | null;
+          country?: string;
+          sdi_code?: string | null;
+          pec?: string | null;
+          invoice_email?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;

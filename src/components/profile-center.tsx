@@ -1,9 +1,9 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Camera, KeyRound, ShieldCheck, UserCircle, Wallet } from "lucide-react";
+import { Building2, Camera, KeyRound, ReceiptText, UserCircle, Wallet } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
-import { formatCurrencyCents, type AppRole } from "@/lib/auth/roles";
+import { formatCurrencyCents } from "@/lib/auth/roles";
 
 type Profile = {
   id: string;
@@ -21,19 +21,57 @@ type WalletRow = {
   currency: string;
 };
 
+type BillingSubjectType = "individual" | "company";
+
+type BillingProfile = {
+  id: string;
+  profile_id: string;
+  subject_type: BillingSubjectType;
+  first_name: string | null;
+  last_name: string | null;
+  fiscal_code: string | null;
+  company_name: string | null;
+  vat_number: string | null;
+  company_fiscal_code: string | null;
+  address_line: string | null;
+  postal_code: string | null;
+  city: string | null;
+  province: string | null;
+  country: string;
+  sdi_code: string | null;
+  pec: string | null;
+  invoice_email: string | null;
+};
+
 export function ProfileCenter() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [roles, setRoles] = useState<AppRole[]>([]);
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [billingSubjectType, setBillingSubjectType] =
+    useState<BillingSubjectType>("individual");
+  const [billingFirstName, setBillingFirstName] = useState("");
+  const [billingLastName, setBillingLastName] = useState("");
+  const [billingFiscalCode, setBillingFiscalCode] = useState("");
+  const [billingCompanyName, setBillingCompanyName] = useState("");
+  const [billingVatNumber, setBillingVatNumber] = useState("");
+  const [billingCompanyFiscalCode, setBillingCompanyFiscalCode] = useState("");
+  const [billingAddressLine, setBillingAddressLine] = useState("");
+  const [billingPostalCode, setBillingPostalCode] = useState("");
+  const [billingCity, setBillingCity] = useState("");
+  const [billingProvince, setBillingProvince] = useState("");
+  const [billingCountry, setBillingCountry] = useState("IT");
+  const [billingSdiCode, setBillingSdiCode] = useState("");
+  const [billingPec, setBillingPec] = useState("");
+  const [billingInvoiceEmail, setBillingInvoiceEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -53,25 +91,48 @@ export function ProfileCenter() {
 
       if (!typedProfile) return;
 
-      const { data: roleRows } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("profile_id", typedProfile.id);
-
       const { data: walletData } = await supabase
         .from("wallets")
         .select("id,balance_cents,currency")
         .eq("profile_id", typedProfile.id)
         .maybeSingle();
 
+      const { data: billingData } = await supabase
+        .from("billing_profiles")
+        .select("*")
+        .eq("profile_id", typedProfile.id)
+        .maybeSingle();
+
       const typedWallet = walletData as WalletRow | null;
+      const typedBilling = billingData as BillingProfile | null;
 
       setProfile(typedProfile);
-      setRoles(((roleRows ?? []) as { role: AppRole }[]).map((item) => item.role));
       setWallet(typedWallet);
       setFirstName(typedProfile.first_name ?? "");
       setLastName(typedProfile.last_name ?? "");
       setPhone(typedProfile.phone ?? "");
+
+      if (typedBilling) {
+        setBillingSubjectType(typedBilling.subject_type);
+        setBillingFirstName(typedBilling.first_name ?? "");
+        setBillingLastName(typedBilling.last_name ?? "");
+        setBillingFiscalCode(typedBilling.fiscal_code ?? "");
+        setBillingCompanyName(typedBilling.company_name ?? "");
+        setBillingVatNumber(typedBilling.vat_number ?? "");
+        setBillingCompanyFiscalCode(typedBilling.company_fiscal_code ?? "");
+        setBillingAddressLine(typedBilling.address_line ?? "");
+        setBillingPostalCode(typedBilling.postal_code ?? "");
+        setBillingCity(typedBilling.city ?? "");
+        setBillingProvince(typedBilling.province ?? "");
+        setBillingCountry(typedBilling.country ?? "IT");
+        setBillingSdiCode(typedBilling.sdi_code ?? "");
+        setBillingPec(typedBilling.pec ?? "");
+        setBillingInvoiceEmail(typedBilling.invoice_email ?? "");
+      } else {
+        setBillingFirstName(typedProfile.first_name ?? "");
+        setBillingLastName(typedProfile.last_name ?? "");
+        setBillingInvoiceEmail(typedProfile.email);
+      }
     }
 
     loadProfile();
@@ -105,6 +166,91 @@ export function ProfileCenter() {
 
     setProfile(data as Profile);
     setStatusMessage("Profilo aggiornato.");
+  }
+
+  async function handleBillingSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile) return;
+
+    setError("");
+    setStatusMessage("");
+
+    const normalizedSdiCode = billingSdiCode.trim().toUpperCase();
+    const normalizedPec = billingPec.trim().toLowerCase();
+
+    if (billingSubjectType === "individual") {
+      if (
+        !billingFirstName.trim() ||
+        !billingLastName.trim() ||
+        !billingFiscalCode.trim() ||
+        !billingAddressLine.trim() ||
+        !billingPostalCode.trim() ||
+        !billingCity.trim() ||
+        !billingProvince.trim()
+      ) {
+        setError("Per una persona fisica compila nome, cognome, codice fiscale e indirizzo.");
+        return;
+      }
+    }
+
+    if (billingSubjectType === "company") {
+      if (
+        !billingCompanyName.trim() ||
+        !billingVatNumber.trim() ||
+        !billingAddressLine.trim() ||
+        !billingPostalCode.trim() ||
+        !billingCity.trim() ||
+        !billingProvince.trim()
+      ) {
+        setError("Per una societa compila ragione sociale, partita IVA e sede legale.");
+        return;
+      }
+
+      if (!normalizedSdiCode && !normalizedPec) {
+        setError("Per una societa inserisci almeno Codice SDI o PEC.");
+        return;
+      }
+    }
+
+    setIsSavingBilling(true);
+
+    const { error: billingError } = await supabase.from("billing_profiles").upsert(
+      {
+        profile_id: profile.id,
+        subject_type: billingSubjectType,
+        first_name: billingSubjectType === "individual" ? billingFirstName.trim() : null,
+        last_name: billingSubjectType === "individual" ? billingLastName.trim() : null,
+        fiscal_code:
+          billingSubjectType === "individual"
+            ? billingFiscalCode.trim().toUpperCase()
+            : null,
+        company_name: billingSubjectType === "company" ? billingCompanyName.trim() : null,
+        vat_number:
+          billingSubjectType === "company" ? billingVatNumber.trim().toUpperCase() : null,
+        company_fiscal_code:
+          billingSubjectType === "company"
+            ? billingCompanyFiscalCode.trim().toUpperCase() || null
+            : null,
+        address_line: billingAddressLine.trim(),
+        postal_code: billingPostalCode.trim(),
+        city: billingCity.trim(),
+        province: billingProvince.trim().toUpperCase(),
+        country: billingCountry.trim().toUpperCase() || "IT",
+        sdi_code: normalizedSdiCode || null,
+        pec: normalizedPec || null,
+        invoice_email: billingInvoiceEmail.trim().toLowerCase() || profile.email,
+      },
+      { onConflict: "profile_id" },
+    );
+
+    setIsSavingBilling(false);
+
+    if (billingError) {
+      setError("Non sono riuscito a salvare i dati di fatturazione.");
+      return;
+    }
+
+    setStatusMessage("Dati di fatturazione aggiornati.");
   }
 
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
@@ -186,7 +332,8 @@ export function ProfileCenter() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-      <section className="card p-6">
+      <main className="grid gap-6">
+        <section className="card p-6">
         <div className="flex flex-wrap items-center gap-5">
           <div className="relative">
             {profile?.avatar_url ? (
@@ -261,31 +408,167 @@ export function ProfileCenter() {
             {isSaving ? "Salvataggio..." : "Salva profilo"}
           </button>
         </form>
-      </section>
-
-      <aside className="grid gap-6">
-        <section className="card p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-green/10 text-green">
-              <ShieldCheck size={20} />
-            </span>
-            <div>
-              <h2 className="font-semibold text-ink">Ruoli e stato</h2>
-              <p className="text-sm text-muted">{profile?.status === "active" ? "Attivo" : "Sospeso"}</p>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {roles.map((role) => (
-              <span
-                key={role}
-                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
-              >
-                {role === "super_admin" ? "Super Admin" : "Property Manager"}
-              </span>
-            ))}
-          </div>
         </section>
 
+        <section className="card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="section-kicker">Fatturazione</p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">
+                Dati di fatturazione
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                Servono per emettere correttamente fatture e ricevute relative a ricariche
+                wallet e acquisti lead.
+              </p>
+            </div>
+            <span className="flex size-11 items-center justify-center rounded-xl bg-green/10 text-green">
+              <ReceiptText size={22} />
+            </span>
+          </div>
+
+          <form className="mt-6 grid gap-4" onSubmit={handleBillingSubmit}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold ${
+                  billingSubjectType === "individual"
+                    ? "border-green bg-green/10 text-green"
+                    : "border-slate-200 bg-white text-slate-600"
+                }`}
+                type="button"
+                onClick={() => setBillingSubjectType("individual")}
+              >
+                <UserCircle size={17} />
+                Persona Fisica
+              </button>
+              <button
+                className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold ${
+                  billingSubjectType === "company"
+                    ? "border-green bg-green/10 text-green"
+                    : "border-slate-200 bg-white text-slate-600"
+                }`}
+                type="button"
+                onClick={() => setBillingSubjectType("company")}
+              >
+                <Building2 size={17} />
+                Societa
+              </button>
+            </div>
+
+            {billingSubjectType === "individual" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  label="Nome"
+                  value={billingFirstName}
+                  onChange={setBillingFirstName}
+                  required
+                />
+                <TextField
+                  label="Cognome"
+                  value={billingLastName}
+                  onChange={setBillingLastName}
+                  required
+                />
+                <TextField
+                  className="sm:col-span-2"
+                  label="Codice fiscale"
+                  value={billingFiscalCode}
+                  onChange={setBillingFiscalCode}
+                  required
+                />
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  className="sm:col-span-2"
+                  label="Ragione sociale"
+                  value={billingCompanyName}
+                  onChange={setBillingCompanyName}
+                  required
+                />
+                <TextField
+                  label="Partita IVA"
+                  value={billingVatNumber}
+                  onChange={setBillingVatNumber}
+                  required
+                />
+                <TextField
+                  label="Codice fiscale societa"
+                  value={billingCompanyFiscalCode}
+                  onChange={setBillingCompanyFiscalCode}
+                />
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                className="sm:col-span-2"
+                label={billingSubjectType === "company" ? "Sede legale" : "Indirizzo"}
+                value={billingAddressLine}
+                onChange={setBillingAddressLine}
+                required
+              />
+              <TextField
+                label="CAP"
+                value={billingPostalCode}
+                onChange={setBillingPostalCode}
+                required
+              />
+              <TextField
+                label="Citta"
+                value={billingCity}
+                onChange={setBillingCity}
+                required
+              />
+              <TextField
+                label="Provincia"
+                value={billingProvince}
+                onChange={setBillingProvince}
+                required
+              />
+              <TextField
+                label="Paese"
+                value={billingCountry}
+                onChange={setBillingCountry}
+                required
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                label={billingSubjectType === "company" ? "Codice SDI" : "Codice destinatario"}
+                value={billingSdiCode}
+                onChange={setBillingSdiCode}
+                placeholder={billingSubjectType === "individual" ? "0000000 se assente" : "7 caratteri"}
+              />
+              <TextField
+                label="PEC"
+                type="email"
+                value={billingPec}
+                onChange={setBillingPec}
+              />
+              <TextField
+                className="sm:col-span-2"
+                label="Email fatture"
+                type="email"
+                value={billingInvoiceEmail}
+                onChange={setBillingInvoiceEmail}
+              />
+            </div>
+
+            <p className="rounded-lg bg-slate-50 px-4 py-3 text-xs leading-5 text-muted">
+              Per le societa e richiesto almeno uno tra Codice SDI e PEC. Per una persona
+              fisica senza codice destinatario puoi lasciare vuoto o usare 0000000.
+            </p>
+
+            <button className="btn btn-primary" disabled={isSavingBilling} type="submit">
+              {isSavingBilling ? "Salvataggio..." : "Salva dati fatturazione"}
+            </button>
+          </form>
+        </section>
+      </main>
+
+      <aside className="grid gap-6">
         <section className="card p-5">
           <div className="flex items-center gap-3">
             <span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -336,5 +619,37 @@ export function ProfileCenter() {
         </section>
       </aside>
     </div>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  className = "",
+  placeholder,
+  required = false,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+  placeholder?: string;
+  required?: boolean;
+  type?: string;
+}) {
+  return (
+    <label className={`grid gap-2 text-sm font-semibold text-ink ${className}`}>
+      {label}
+      <input
+        className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
+        placeholder={placeholder}
+        required={required}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }

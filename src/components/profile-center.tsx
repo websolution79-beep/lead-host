@@ -236,8 +236,8 @@ export function ProfileCenter() {
         city: billingCity.trim(),
         province: billingProvince.trim().toUpperCase(),
         country: billingCountry.trim().toUpperCase() || "IT",
-        sdi_code: normalizedSdiCode || null,
-        pec: normalizedPec || null,
+        sdi_code: billingSubjectType === "company" ? normalizedSdiCode || null : null,
+        pec: billingSubjectType === "company" ? normalizedPec || null : null,
         invoice_email: billingInvoiceEmail.trim().toLowerCase() || profile.email,
       },
       { onConflict: "profile_id" },
@@ -534,32 +534,35 @@ export function ProfileCenter() {
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField
-                label={billingSubjectType === "company" ? "Codice SDI" : "Codice destinatario"}
-                value={billingSdiCode}
-                onChange={setBillingSdiCode}
-                placeholder={billingSubjectType === "individual" ? "0000000 se assente" : "7 caratteri"}
-              />
-              <TextField
-                label="PEC"
-                type="email"
-                value={billingPec}
-                onChange={setBillingPec}
-              />
-              <TextField
-                className="sm:col-span-2"
-                label="Email fatture"
-                type="email"
-                value={billingInvoiceEmail}
-                onChange={setBillingInvoiceEmail}
-              />
-            </div>
+            {billingSubjectType === "company" ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  label="Codice SDI"
+                  value={billingSdiCode}
+                  onChange={setBillingSdiCode}
+                  placeholder="7 caratteri"
+                />
+                <TextField
+                  label="PEC"
+                  type="email"
+                  value={billingPec}
+                  onChange={setBillingPec}
+                />
+              </div>
+            ) : null}
 
-            <p className="rounded-lg bg-slate-50 px-4 py-3 text-xs leading-5 text-muted">
-              Per le societa e richiesto almeno uno tra Codice SDI e PEC. Per una persona
-              fisica senza codice destinatario puoi lasciare vuoto o usare 0000000.
-            </p>
+            <TextField
+              label="Email fatture"
+              type="email"
+              value={billingInvoiceEmail}
+              onChange={setBillingInvoiceEmail}
+            />
+
+            {billingSubjectType === "company" ? (
+              <p className="rounded-lg bg-slate-50 px-4 py-3 text-xs leading-5 text-muted">
+                Per le societa e richiesto almeno uno tra Codice SDI e PEC.
+              </p>
+            ) : null}
 
             <button className="btn btn-primary" disabled={isSavingBilling} type="submit">
               {isSavingBilling ? "Salvataggio..." : "Salva dati fatturazione"}
@@ -641,7 +644,10 @@ function TextField({
 }) {
   return (
     <label className={`grid gap-2 text-sm font-semibold text-ink ${className}`}>
-      {label}
+      <span>
+        {label}
+        {required ? <span className="text-red-600"> *</span> : null}
+      </span>
       <input
         className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
         placeholder={placeholder}

@@ -98,7 +98,7 @@ export function LeadCard({ lead }: LeadCardProps) {
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 font-semibold text-ink">
               <Users size={16} />
-              Quote condivise
+              Quote disponibili
             </span>
             <span className="font-bold text-ink">{slotsAvailable}/2</span>
           </div>

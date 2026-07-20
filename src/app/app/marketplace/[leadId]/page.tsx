@@ -145,7 +145,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               <div className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 font-semibold text-ink">
                   <Users size={18} />
-                  Quote condivise
+                  Quote disponibili
                 </span>
                 <span className="text-xl font-bold text-ink">
                   {sharedSlotsAvailable}/2

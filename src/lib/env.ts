@@ -1,5 +1,9 @@
+export function getEnv(name: string) {
+  return process.env[name] || undefined;
+}
+
 export function requireEnv(name: string) {
-  const value = process.env[name];
+  const value = getEnv(name);
 
   if (!value) {
     throw new Error(`Missing required environment variable: ${name}`);

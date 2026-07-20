@@ -208,6 +208,110 @@ a {
   }
 }
 
+.admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 8px;
+  background: #f7f8fa;
+  padding: 5px;
+}
+
+.admin-filter-tab {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 9px 12px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-filter-tab-active {
+  border-color: rgba(4, 120, 87, 0.22);
+  background: #ffffff;
+  color: #047857;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
+.admin-leads-header,
+.admin-leads-row {
+  display: grid;
+  grid-template-columns:
+    minmax(160px, 0.95fr)
+    minmax(220px, 1.35fr)
+    minmax(120px, 0.7fr)
+    minmax(120px, 0.75fr)
+    minmax(140px, 0.85fr)
+    minmax(92px, 0.45fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.admin-leads-header {
+  border-bottom: 1px solid rgba(226, 232, 240, 0.95);
+  background: #f7f8fa;
+  padding: 12px 16px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-leads-row {
+  width: 100%;
+  padding: 16px;
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-leads-row:hover {
+  background: #f7f8fa;
+}
+
+@media (max-width: 1180px) {
+  .admin-leads-header {
+    display: none;
+  }
+
+  .admin-leads-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 959px) {
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-filter-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .premium-shell {
   background:
     radial-gradient(circle at 10% 0%, rgba(16, 185, 129, 0.1), transparent 28rem),

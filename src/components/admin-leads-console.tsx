@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   BadgeCheck,
+  ChevronRight,
   CheckCircle2,
   Clock3,
   Eye,
+  ListChecks,
   Search,
   ShieldCheck,
   ShoppingBag,
-  SlidersHorizontal,
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -70,10 +71,9 @@ export function AdminLeadsConsole() {
     return query.trim() ? haystack.includes(query.trim().toLowerCase()) : true;
   });
 
-  const selectedRecord =
-    records.find((record) => record.ownerRequestId === selectedId) ??
-    filteredRecords[0] ??
-    null;
+  const selectedRecord = selectedId
+    ? records.find((record) => record.ownerRequestId === selectedId) ?? null
+    : null;
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -118,7 +118,6 @@ export function AdminLeadsConsole() {
         rejected: 0,
       },
     );
-    setSelectedId((current) => current ?? payload.records?.[0]?.ownerRequestId ?? null);
     setLoading(false);
   }, [getAccessToken]);
 
@@ -195,7 +194,7 @@ export function AdminLeadsConsole() {
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="admin-kpi-grid">
         <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="green" />
         <StatCard
           icon={BadgeCheck}
@@ -213,18 +212,18 @@ export function AdminLeadsConsole() {
       </div>
 
       <div className="card p-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div>
+        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+          <div className="min-w-0">
             <p className="section-kicker flex items-center gap-2">
-              <SlidersHorizontal size={15} />
-              Pipeline lead
+              <ListChecks size={15} />
+              Gestione richieste
             </p>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Approva le richieste proprietario, monitora slot e acquisti.
-            </p>
+            <h2 className="mt-2 text-xl font-semibold text-ink">
+              Lead proprietari da verificare e pubblicare
+            </h2>
           </div>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div className="grid grid-cols-2 gap-2 sm:flex">
+          <div className="grid gap-3 lg:grid-cols-[auto_280px] lg:items-center">
+            <div className="admin-filter-tabs">
               {[
                 ["pending", "Pending"],
                 ["published", "Marketplace"],
@@ -234,8 +233,8 @@ export function AdminLeadsConsole() {
               ].map(([value, label]) => (
                 <button
                   key={value}
-                  className={`icon-button min-h-10 ${
-                    filter === value ? "border-green/50 bg-mint text-green" : ""
+                  className={`admin-filter-tab ${
+                    filter === value ? "admin-filter-tab-active" : ""
                   }`}
                   type="button"
                   onClick={() => setFilter(value as FilterState)}
@@ -244,7 +243,7 @@ export function AdminLeadsConsole() {
                 </button>
               ))}
             </div>
-            <label className="relative block min-w-0 sm:min-w-72">
+            <label className="relative block min-w-0">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
                 size={17}
@@ -266,14 +265,21 @@ export function AdminLeadsConsole() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+      <div
+        className={
+          selectedRecord
+            ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]"
+            : "grid gap-5"
+        }
+      >
         <div className="card overflow-hidden">
-          <div className="grid grid-cols-[1.15fr_0.8fr_0.75fr_0.65fr_0.75fr] gap-4 border-b border-slate-200 bg-fog px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-muted max-lg:hidden">
-            <span>Lead</span>
+          <div className="admin-leads-header">
+            <span>Richiesta</span>
+            <span>Immobile</span>
             <span>Stato</span>
-            <span>Slot</span>
-            <span>Esclusiva</span>
-            <span>Acquirenti</span>
+            <span>Disponibilita</span>
+            <span>Acquisti</span>
+            <span></span>
           </div>
 
           {loading ? (
@@ -283,7 +289,7 @@ export function AdminLeadsConsole() {
               {filteredRecords.map((record) => (
                 <button
                   key={record.ownerRequestId}
-                  className={`grid w-full gap-3 px-4 py-4 text-left transition hover:bg-fog/70 lg:grid-cols-[1.15fr_0.8fr_0.75fr_0.65fr_0.75fr] lg:items-center ${
+                  className={`admin-leads-row ${
                     selectedRecord?.ownerRequestId === record.ownerRequestId
                       ? "bg-mint/35"
                       : "bg-white"
@@ -292,27 +298,58 @@ export function AdminLeadsConsole() {
                   onClick={() => setSelectedId(record.ownerRequestId)}
                 >
                   <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">
+                      {formatOwner(record)}
+                    </p>
+                    <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                      LH-{record.ownerRequestId.slice(0, 8).toUpperCase()}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
                     <p className="font-semibold text-ink">
                       {record.lead?.title ?? buildDefaultTitle(record)}
                     </p>
                     <p className="mt-1 truncate text-sm text-muted">
-                      {record.property?.city ?? "Citta non indicata"},{" "}
-                      {record.property?.province ?? "provincia n/d"} -{" "}
-                      {formatOwner(record)}
+                      {[
+                        record.property?.propertyType,
+                        record.property?.city,
+                        record.property?.province,
+                      ]
+                        .filter(Boolean)
+                        .join(" - ")}
                     </p>
                   </div>
                   <StatusBadge record={record} />
-                  <p className="text-sm font-semibold text-ink">
-                    {record.lead ? `${record.lead.sharedSlotsAvailable}/2` : "2/2"}
-                  </p>
-                  <p className="text-sm font-semibold text-ink">
-                    {record.lead?.exclusivePurchaseId ? "Venduta" : "Disponibile"}
-                  </p>
-                  <p className="text-sm font-semibold text-ink">
-                    {record.purchases.length > 0
-                      ? `${record.purchases.length} PM`
-                      : "Nessuno"}
-                  </p>
+
+                  <div className="grid gap-1 text-sm">
+                    <span className="font-semibold text-ink">
+                      {record.lead ? `${record.lead.sharedSlotsAvailable}/2 slot` : "2/2 slot"}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {record.lead?.exclusivePurchaseId
+                        ? "Esclusiva venduta"
+                        : "Esclusiva libera"}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-1 text-sm">
+                    <span className="font-semibold text-ink">
+                      {record.purchases.length > 0
+                        ? `${record.purchases.length} PM`
+                        : "Nessuno"}
+                    </span>
+                    <span className="text-xs text-muted">
+                      {record.purchases[0]?.buyerCompany ??
+                        record.purchases[0]?.buyerName ??
+                        "Non acquistato"}
+                    </span>
+                  </div>
+
+                  <span className="inline-flex items-center justify-end gap-1 text-sm font-bold text-green">
+                    Dettaglio
+                    <ChevronRight size={16} />
+                  </span>
                 </button>
               ))}
             </div>
@@ -326,14 +363,16 @@ export function AdminLeadsConsole() {
           )}
         </div>
 
-        <LeadDetailPanel
-          record={selectedRecord}
-          rejectReason={rejectReason}
-          onRejectReasonChange={setRejectReason}
-          onApprove={approve}
-          onReject={reject}
-          actionLoading={actionLoading}
-        />
+        {selectedRecord ? (
+          <LeadDetailPanel
+            record={selectedRecord}
+            rejectReason={rejectReason}
+            onRejectReasonChange={setRejectReason}
+            onApprove={approve}
+            onReject={reject}
+            actionLoading={actionLoading}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -347,21 +386,13 @@ function LeadDetailPanel({
   onReject,
   actionLoading,
 }: {
-  record: AdminLeadRecord | null;
+  record: AdminLeadRecord;
   rejectReason: string;
   onRejectReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
   onReject: (record: AdminLeadRecord) => void;
   actionLoading: string | null;
 }) {
-  if (!record) {
-    return (
-      <aside className="card p-5">
-        <p className="text-sm text-muted">Seleziona un lead per vedere il dettaglio.</p>
-      </aside>
-    );
-  }
-
   const canApprove = isPending(record) || record.requestStatus === "approved";
   const isBusy = actionLoading === record.ownerRequestId;
 

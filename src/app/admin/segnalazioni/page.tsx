@@ -1,14 +1,10 @@
 import { AppShell } from "@/components/app-shell";
-import { WorkspacePlaceholder } from "@/components/workspace-placeholder";
+import { AdminReportsConsole } from "@/components/admin-reports-console";
 
 export default function AdminReportsPage() {
   return (
     <AppShell section="admin" eyebrow="Segnalazioni" title="Segnalazioni">
-      <WorkspacePlaceholder
-        title="Revisione manuale"
-        description="Le segnalazioni non generano rimborso automatico."
-        items={["Numero inesistente", "Email inesistente", "Duplicato", "Immobile inesistente", "Altro"]}
-      />
+      <AdminReportsConsole />
     </AppShell>
   );
 }

@@ -473,6 +473,39 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      reports: {
+        Row: {
+          id: string;
+          lead_purchase_id: string;
+          property_manager_id: string;
+          reason: string;
+          details: string | null;
+          status: "pending" | "reviewing" | "resolved" | "rejected";
+          created_at: string;
+          reviewed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          lead_purchase_id: string;
+          property_manager_id: string;
+          reason: string;
+          details?: string | null;
+          status?: "pending" | "reviewing" | "resolved" | "rejected";
+          created_at?: string;
+          reviewed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          lead_purchase_id?: string;
+          property_manager_id?: string;
+          reason?: string;
+          details?: string | null;
+          status?: "pending" | "reviewing" | "resolved" | "rejected";
+          created_at?: string;
+          reviewed_at?: string | null;
+        };
+        Relationships: [];
+      };
       wallet_transactions: {
         Row: {
           id: string;

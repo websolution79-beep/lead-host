@@ -5,7 +5,7 @@ import { OwnerRequestForm } from "@/components/owner-request-form";
 
 const assurances = [
   "Richiesta gratuita e senza obblighi",
-  "Contatti visibili solo dopo verifica e acquisto",
+  "Dati condivisi solo con massimo 2 Consulenti esperti verificati",
   "Massimo 2 Property Manager interessati",
 ];
 

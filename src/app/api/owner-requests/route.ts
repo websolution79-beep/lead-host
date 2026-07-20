@@ -7,8 +7,7 @@ const ownerRequestSchema = z.object({
   region: z.string().min(1),
   province: z.string().min(1),
   city: z.string().min(1),
-  district: z.string().trim().min(1).max(120),
-  postalCode: z.string().trim().max(12).optional().default(""),
+  address: z.string().trim().min(3).max(180),
   propertyType: z.enum([
     "Appartamento",
     "Villa",
@@ -104,8 +103,6 @@ export async function POST(request: Request) {
       region: data.region,
       province: data.province,
       city: data.city,
-      district: data.district,
-      postal_code: data.postalCode || null,
       property_type: data.propertyType,
       bedrooms: data.bedrooms,
       bathrooms: data.bathrooms,
@@ -120,6 +117,7 @@ export async function POST(request: Request) {
       last_name: data.lastName,
       email: data.email,
       phone: data.phone,
+      precise_address: data.address,
     },
   };
 
@@ -156,14 +154,13 @@ export async function POST(request: Request) {
         last_name: data.lastName,
         email: data.email,
         phone: data.phone,
+        precise_address: data.address,
       }),
       supabase.from("properties").insert({
         owner_request_id: requestId,
         region: data.region,
         province: data.province,
         city: data.city,
-        postal_code: data.postalCode || null,
-        district: data.district,
         property_type: data.propertyType,
         bedrooms: data.bedrooms,
         bathrooms: data.bathrooms,

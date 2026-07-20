@@ -67,8 +67,9 @@ const steps = [
   },
   {
     icon: UserRound,
-    title: "Come vuoi essere contattato",
-    description: "I contatti saranno visibili solo dopo verifica e acquisto.",
+    title: "Ti manca un ultimo step",
+    description:
+      "I tuoi dati saranno visibili solo ad un massimo di 2 Consulenti esperti verificati.",
   },
 ];
 
@@ -76,8 +77,7 @@ type FormState = {
   region: string;
   province: string;
   city: string;
-  district: string;
-  postalCode: string;
+  address: string;
   propertyType: string;
   bedrooms: string;
   bathrooms: string;
@@ -98,8 +98,7 @@ const initialFormState: FormState = {
   region: "",
   province: "",
   city: "",
-  district: "",
-  postalCode: "",
+  address: "",
   propertyType: "",
   bedrooms: "",
   bathrooms: "",
@@ -310,16 +309,10 @@ export function OwnerRequestForm() {
               disabled={!form.province}
             />
             <TextField
-              label="Zona / quartiere"
-              value={form.district}
-              placeholder="Es. Centro storico"
-              onChange={(value) => updateField("district", value)}
-            />
-            <TextField
-              label="CAP facoltativo"
-              value={form.postalCode}
-              placeholder="Es. 00100"
-              onChange={(value) => updateField("postalCode", value)}
+              label="Indirizzo"
+              value={form.address}
+              placeholder="Es. Via Roma 10"
+              onChange={(value) => updateField("address", value)}
             />
           </div>
         ) : null}
@@ -423,7 +416,7 @@ export function OwnerRequestForm() {
               />
               <ConsentCheckbox
                 checked={form.dataSharingConsent}
-                label="Accetto che i miei contatti possano essere condivisi con massimo 2 Property Manager interessati."
+                label="Accetto che i miei contatti possano essere condivisi con massimo 2 Consulenti esperti verificati."
                 onChange={(checked) => updateField("dataSharingConsent", checked)}
               />
             </div>
@@ -617,8 +610,8 @@ function ConsentCheckbox({
 
 function validateStep(step: number, form: FormState) {
   if (step === 0) {
-    if (!form.region || !form.province || !form.city || !form.district.trim()) {
-      return "Completa regione, provincia, citta e zona.";
+    if (!form.region || !form.province || !form.city || !form.address.trim()) {
+      return "Completa regione, provincia, citta e indirizzo.";
     }
   }
 
@@ -644,7 +637,7 @@ function validateStep(step: number, form: FormState) {
       !form.email.trim() ||
       !form.phone.trim()
     ) {
-      return "Inserisci nome, cognome, email e telefono.";
+      return "Tutti i campi dovranno essere compilati per l'invio della richiesta.";
     }
     if (!form.privacyConsent || !form.dataSharingConsent) {
       return "Per inviare la richiesta servono entrambi i consensi.";

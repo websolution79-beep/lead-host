@@ -53,7 +53,7 @@ const steps = [
   {
     icon: MapPin,
     title: "Dove si trova l'immobile",
-    description: "Usiamo gli stessi dati geografici del marketplace Lead Host.",
+    description: "Ci aiuterà a trovare il consulente migliore per la tua zona.",
   },
   {
     icon: Home,

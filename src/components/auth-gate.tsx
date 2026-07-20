@@ -16,20 +16,41 @@ type AuthState =
   | { status: "authorized" }
   | { status: "forbidden"; roles: AppRole[] };
 
+type CachedAuth = {
+  userId: string;
+  profileId: string;
+  roles: AppRole[];
+  status: "active" | "suspended";
+  verifiedAt: number;
+};
+
+const AUTH_CACHE_TTL_MS = 5 * 60 * 1000;
+const AUTH_CACHE_KEY = "lead-host-auth-cache";
+let authCache: CachedAuth | null = null;
+
 export function AuthGate({ children, section }: AuthGateProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
-  const [state, setState] = useState<AuthState>({ status: "loading" });
+  const [state, setState] = useState<AuthState>(() =>
+    getStateFromCache(section) ?? { status: "loading" },
+  );
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadSession() {
+      const cachedState = getStateFromCache(section);
+
+      if (cachedState && isMounted) {
+        setState(cachedState);
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData.session?.user;
 
       if (!user) {
+        clearAuthCache();
         router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
         return;
       }
@@ -42,6 +63,7 @@ export function AuthGate({ children, section }: AuthGateProps) {
       const profile = profileData as { id: string; status: "active" | "suspended" } | null;
 
       if (!profile || profile.status === "suspended") {
+        clearAuthCache();
         if (isMounted) setState({ status: "forbidden", roles: [] });
         return;
       }
@@ -53,6 +75,13 @@ export function AuthGate({ children, section }: AuthGateProps) {
 
       const roles = ((roleRows ?? []) as { role: AppRole }[]).map((item) => item.role);
       const canAccessAdmin = section !== "admin" || hasRole(roles, "super_admin");
+      writeAuthCache({
+        userId: user.id,
+        profileId: profile.id,
+        roles,
+        status: profile.status,
+        verifiedAt: Date.now(),
+      });
 
       if (isMounted) {
         setState(canAccessAdmin ? { status: "authorized" } : { status: "forbidden", roles });
@@ -65,8 +94,10 @@ export function AuthGate({ children, section }: AuthGateProps) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
+        clearAuthCache();
         router.replace("/login");
       }
+
     });
 
     return () => {
@@ -110,4 +141,66 @@ export function AuthGate({ children, section }: AuthGateProps) {
   }
 
   return children;
+}
+
+function getStateFromCache(section: AuthGateProps["section"]): AuthState | null {
+  const cache = readAuthCache();
+
+  if (!cache || cache.status !== "active") {
+    return null;
+  }
+
+  if (Date.now() - cache.verifiedAt > AUTH_CACHE_TTL_MS) {
+    clearAuthCache();
+    return null;
+  }
+
+  if (section === "admin" && !hasRole(cache.roles, "super_admin")) {
+    return { status: "forbidden", roles: cache.roles };
+  }
+
+  return { status: "authorized" };
+}
+
+function readAuthCache() {
+  if (authCache) {
+    return authCache;
+  }
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawCache = window.sessionStorage.getItem(AUTH_CACHE_KEY);
+
+    if (!rawCache) {
+      return null;
+    }
+
+    authCache = JSON.parse(rawCache) as CachedAuth;
+
+    return authCache;
+  } catch {
+    clearAuthCache();
+    return null;
+  }
+}
+
+function writeAuthCache(cache: CachedAuth) {
+  authCache = cache;
+
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(cache));
+}
+
+function clearAuthCache() {
+  authCache = null;
+
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem(AUTH_CACHE_KEY);
+  }
 }

@@ -4,7 +4,7 @@ export async function POST() {
   return NextResponse.json(
     {
       status: "not_implemented",
-      next: "Phase 7 will create Stripe Checkout sessions for shared and exclusive lead purchases.",
+      next: "Gli acquisti lead usano il credito wallet. Stripe sara collegato solo alla ricarica wallet nella fase pagamenti.",
     },
     { status: 501 },
   );

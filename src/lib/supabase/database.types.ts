@@ -490,8 +490,38 @@ export type Database = {
           created_at: string;
           completed_at: string | null;
         };
-        Insert: never;
-        Update: never;
+        Insert: {
+          id?: string;
+          wallet_id: string;
+          profile_id: string;
+          type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+          status?: "pending" | "completed" | "failed" | "cancelled";
+          amount_cents: number;
+          balance_after_cents?: number | null;
+          description?: string | null;
+          provider?: string | null;
+          provider_reference?: string | null;
+          lead_purchase_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          wallet_id?: string;
+          profile_id?: string;
+          type?: "top_up" | "lead_purchase" | "refund" | "adjustment";
+          status?: "pending" | "completed" | "failed" | "cancelled";
+          amount_cents?: number;
+          balance_after_cents?: number | null;
+          description?: string | null;
+          provider?: string | null;
+          provider_reference?: string | null;
+          lead_purchase_id?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          completed_at?: string | null;
+        };
         Relationships: [];
       };
       leads: {
@@ -591,8 +621,48 @@ export type Database = {
           unlocked_at: string | null;
           created_at: string;
         };
-        Insert: never;
-        Update: never;
+        Insert: {
+          id?: string;
+          lead_id: string;
+          property_manager_id: string;
+          purchase_attempt_id?: string | null;
+          mode: "shared" | "exclusive";
+          amount_cents: number;
+          status?:
+            | "initiated"
+            | "reserved"
+            | "checkout_created"
+            | "payment_pending"
+            | "paid"
+            | "contact_unlocked"
+            | "failed"
+            | "expired"
+            | "cancelled"
+            | "refunded";
+          unlocked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          property_manager_id?: string;
+          purchase_attempt_id?: string | null;
+          mode?: "shared" | "exclusive";
+          amount_cents?: number;
+          status?:
+            | "initiated"
+            | "reserved"
+            | "checkout_created"
+            | "payment_pending"
+            | "paid"
+            | "contact_unlocked"
+            | "failed"
+            | "expired"
+            | "cancelled"
+            | "refunded";
+          unlocked_at?: string | null;
+          created_at?: string;
+        };
         Relationships: [];
       };
     };

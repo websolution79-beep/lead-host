@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
-import { getPurchasedLeadList } from "@/lib/domain/purchased-leads";
 
 type WalletRow = {
   id: string;
@@ -30,12 +29,12 @@ type WalletTransaction = {
   description: string | null;
   provider: string | null;
   lead_purchase_id: string | null;
+  metadata: { lead_id?: string } | null;
   created_at: string;
 };
 
 const MIN_TOP_UP_CENTS = 3000;
 const quickTopUps = [3000, 5000, 10000];
-const demoPurchasedLeads = getPurchasedLeadList();
 
 const transactionLabels: Record<WalletTransaction["type"], string> = {
   top_up: "Ricarica wallet",
@@ -83,7 +82,7 @@ export function WalletCenter() {
       if (typedWallet) {
         const { data: transactionRows } = await supabase
           .from("wallet_transactions")
-          .select("id,type,status,amount_cents,balance_after_cents,description,provider,lead_purchase_id,created_at")
+          .select("id,type,status,amount_cents,balance_after_cents,description,provider,lead_purchase_id,metadata,created_at")
           .eq("wallet_id", typedWallet.id)
           .order("created_at", { ascending: false })
           .limit(30);
@@ -196,7 +195,7 @@ export function WalletCenter() {
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
             {activeTab === "movements"
               ? `${transactions.length} movimenti`
-              : `${leadPurchaseTransactions.length || demoPurchasedLeads.length} acquisti`}
+              : `${leadPurchaseTransactions.length} acquisti`}
           </span>
         </div>
 
@@ -294,37 +293,7 @@ function LeadPurchasesPanel({
   currency: string;
   leadPurchaseTransactions: WalletTransaction[];
 }) {
-  if (leadPurchaseTransactions.length > 0) {
-    return (
-      <>
-        {leadPurchaseTransactions.map((transaction) => (
-          <div
-            key={transaction.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-green/10 text-green">
-                <ShoppingBag size={18} />
-              </span>
-              <div>
-                <p className="font-semibold text-ink">
-                  {transaction.description || "Acquisto lead"}
-                </p>
-                <p className="text-sm text-muted">
-                  {formatDateTime(transaction.created_at)} - {transaction.status}
-                </p>
-              </div>
-            </div>
-            <p className="text-right font-semibold text-ink">
-              {formatCurrencyCents(transaction.amount_cents, currency)}
-            </p>
-          </div>
-        ))}
-      </>
-    );
-  }
-
-  if (demoPurchasedLeads.length === 0) {
+  if (leadPurchaseTransactions.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
         <p className="font-semibold text-ink">Nessun acquisto lead ancora</p>
@@ -337,38 +306,57 @@ function LeadPurchasesPanel({
 
   return (
     <>
-      {demoPurchasedLeads.map((item) => {
-        const amount = item.purchaseMode === "exclusive" ? 5000 : 2900;
-
-        return (
-          <Link
-            key={item.leadId}
-            className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-green/30 hover:shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
-            href={`/app/i-miei-lead/${item.leadId}`}
-          >
+      {leadPurchaseTransactions.map((transaction) => {
+        const leadId = transaction.metadata?.lead_id;
+        const content = (
+          <>
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="font-semibold text-ink group-hover:text-green">
-                  {item.lead.title}
-                </p>
-                <p className="mt-1 text-sm text-muted">
-                  {item.purchaseMode === "exclusive"
-                    ? "Contatto in esclusiva"
-                    : "Contatto condiviso"}{" "}
-                  - {formatDateTime(item.purchasedAt)}
-                </p>
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-green/10 text-green">
+                  <ShoppingBag size={18} />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-ink group-hover:text-green">
+                    {transaction.description || "Acquisto lead"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    {formatDateTime(transaction.created_at)} - {transaction.status}
+                  </p>
+                </div>
               </div>
-              <ExternalLink size={17} className="shrink-0 text-slate-400 group-hover:text-green" />
+              {leadId ? (
+                <ExternalLink
+                  size={17}
+                  className="shrink-0 text-slate-400 group-hover:text-green"
+                />
+              ) : null}
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                 Sbloccato
               </span>
               <span className="font-semibold text-ink">
-                {formatCurrencyCents(amount, currency)}
+                {formatCurrencyCents(transaction.amount_cents, currency)}
               </span>
             </div>
+          </>
+        );
+
+        return leadId ? (
+          <Link
+            key={transaction.id}
+            className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-green/30 hover:shadow-[0_18px_50px_rgba(15,23,42,0.08)]"
+            href={`/app/i-miei-lead/${leadId}`}
+          >
+            {content}
           </Link>
+        ) : (
+          <div
+            key={transaction.id}
+            className="group rounded-xl border border-slate-200 bg-white p-4"
+          >
+            {content}
+          </div>
         );
       })}
     </>

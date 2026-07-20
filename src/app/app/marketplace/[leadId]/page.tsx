@@ -9,15 +9,17 @@ import {
   Users,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { LeadPurchaseActions } from "@/components/lead-purchase-actions";
 import { demoLeads } from "@/lib/domain/sample-data";
 import {
+  LEAD_EXCLUSIVE_PRICE_CENTS,
+  LEAD_SHARED_PRICE_CENTS,
   formatPublicStatus,
   getSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
   parseLeadDate,
 } from "@/lib/domain/lead-state";
-import { formatCents } from "@/lib/config/commercial";
 import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
 
 type LeadDetailPageProps = {
@@ -171,26 +173,21 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3">
-            {sharedAvailable ? (
-              <button className="btn btn-primary w-full" type="button">
-                Acquista condiviso - {formatCents(2900)}
-              </button>
-            ) : null}
-            {exclusiveAvailable ? (
-              <button className="btn btn-secondary w-full" type="button">
-                Acquista in esclusiva - {formatCents(5000)}
-              </button>
-            ) : null}
-            {!sharedAvailable && !exclusiveAvailable ? (
-              <div className="rounded-lg bg-fog p-4 text-sm font-semibold text-muted">
-                Questo lead non e piu disponibile per l&apos;acquisto.
-              </div>
-            ) : null}
+          <div className="mt-6">
+            <LeadPurchaseActions
+              leadId={lead.id}
+              sharedAvailable={sharedAvailable}
+              exclusiveAvailable={exclusiveAvailable}
+              sharedPriceCents={lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS}
+              exclusivePriceCents={
+                lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS
+              }
+            />
           </div>
 
           <p className="mt-5 text-xs leading-5 text-muted">
-            I contatti vengono sbloccati solo dopo conferma pagamento server-side.
+            I contatti vengono sbloccati server-side solo se il wallet ha credito
+            sufficiente.
           </p>
         </aside>
       </div>

@@ -19,6 +19,8 @@ export type MarketplaceLead = {
   publicStatus: LeadPublicStatus;
   internalStatus: LeadInternalStatus;
   sharedSlotsSold: number;
+  sharedPriceCents?: number;
+  exclusivePriceCents?: number;
   exclusivePurchaseId: string | null;
   publishedAt: string;
   expiresAt: string;

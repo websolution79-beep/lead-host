@@ -148,6 +148,8 @@ function mapDbLeadToMarketplaceLead(
     publicStatus: lead.public_status,
     internalStatus: lead.internal_status,
     sharedSlotsSold: lead.shared_slots_sold,
+    sharedPriceCents: lead.shared_price_cents,
+    exclusivePriceCents: lead.exclusive_price_cents,
     exclusivePurchaseId: lead.exclusive_purchase_id,
     publishedAt: lead.published_at ?? lead.created_at,
     expiresAt: lead.expires_at ?? lead.visible_until ?? lead.created_at,

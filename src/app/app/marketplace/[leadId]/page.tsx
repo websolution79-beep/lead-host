@@ -5,6 +5,7 @@ import {
   MapPin,
   Phone,
   ShieldCheck,
+  Star,
   UserRound,
   Users,
 } from "lucide-react";
@@ -55,6 +56,8 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
     exclusivePurchaseId: lead.exclusivePurchaseId,
     expiresAt,
   });
+  const isExclusiveSold =
+    lead.internalStatus === "sold_exclusive" || Boolean(lead.exclusivePurchaseId);
 
   return (
     <AppShell section="pm" eyebrow="Dettaglio lead" title={lead.title}>
@@ -158,6 +161,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
                   {sharedSlotsAvailable}/2
                 </span>
               </div>
+              {isExclusiveSold ? <ExclusiveSoldBadge /> : null}
               <p className="mt-2 text-sm leading-6 text-muted">
                 {sharedAvailable
                   ? "Ogni lead condiviso puo essere acquistato da massimo 2 Property Manager."
@@ -197,6 +201,15 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+function ExclusiveSoldBadge() {
+  return (
+    <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#f2c46d] bg-[#fff7e6] px-3 py-1.5 text-xs font-extrabold uppercase leading-tight text-[#9a5b00] shadow-[0_8px_24px_rgba(183,121,31,0.12)]">
+      <Star size={14} fill="currentColor" />
+      Acquistato in esclusiva
+    </span>
   );
 }
 

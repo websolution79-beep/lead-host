@@ -6,6 +6,7 @@ import {
   CalendarClock,
   MapPin,
   Ruler,
+  Star,
   Users,
 } from "lucide-react";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
@@ -44,6 +45,8 @@ export function LeadCard({ lead }: LeadCardProps) {
     exclusivePurchaseId: lead.exclusivePurchaseId,
     expiresAt,
   });
+  const isExclusiveSold =
+    lead.internalStatus === "sold_exclusive" || Boolean(lead.exclusivePurchaseId);
 
   return (
     <article
@@ -107,6 +110,7 @@ export function LeadCard({ lead }: LeadCardProps) {
             </span>
             <span className="font-bold text-ink">{slotsAvailable}/2</span>
           </div>
+          {isExclusiveSold ? <ExclusiveSoldBadge /> : null}
           <p className="mt-2 text-muted">
             {sharedAvailable
               ? `Condiviso ${formatCents(2900)}`
@@ -125,6 +129,15 @@ export function LeadCard({ lead }: LeadCardProps) {
         </Link>
       </div>
     </article>
+  );
+}
+
+function ExclusiveSoldBadge() {
+  return (
+    <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#f2c46d] bg-[#fff7e6] px-2.5 py-1 text-[11px] font-extrabold uppercase leading-tight text-[#9a5b00] shadow-[0_8px_24px_rgba(183,121,31,0.12)]">
+      <Star size={13} fill="currentColor" />
+      Acquistato in esclusiva
+    </span>
   );
 }
 

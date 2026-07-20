@@ -8,7 +8,6 @@ import {
   Building2,
   CreditCard,
   Gauge,
-  Headphones,
   Inbox,
   LifeBuoy,
   Map,
@@ -20,6 +19,7 @@ import {
   UserCircle,
   Users,
 } from "lucide-react";
+import { RoleSwitcher } from "@/components/role-switcher";
 
 type AppSidebarNavProps = {
   section: "pm" | "admin";
@@ -52,9 +52,25 @@ const adminLinks = [
 export function AppSidebarNav({ section }: AppSidebarNavProps) {
   const pathname = usePathname();
   const links = section === "admin" ? adminLinks : pmLinks;
+  const contextLabel = section === "admin" ? "Area Super Admin" : "Area Property Manager";
+  const contextDescription =
+    section === "admin"
+      ? "Gestione piattaforma, lead, PM, pagamenti e analytics."
+      : "Marketplace, lead acquistati, wallet e profilo PM.";
+  const supportHref = section === "admin" ? "/admin/impostazioni" : "/app/assistenza";
+  const supportLabel = section === "admin" ? "Impostazioni" : "Assistenza";
+  const SupportIcon = section === "admin" ? Settings : LifeBuoy;
 
   return (
     <nav className="mt-8 grid gap-1.5">
+      <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Building2 size={16} className="text-green" />
+          {contextLabel}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-slate-500">{contextDescription}</p>
+      </div>
+
       {links.map((link) => {
         const Icon = link.icon;
         const isActive =
@@ -86,6 +102,8 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
         );
       })}
 
+      <RoleSwitcher section={section} />
+
       <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-ink">
           <Building2 size={16} className="text-green" />
@@ -97,11 +115,11 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       </div>
 
       <Link
-        href="/app/assistenza"
+        href={supportHref}
         className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:border-green/30 hover:text-green"
       >
-        <Headphones size={16} />
-        Supporto
+        <SupportIcon size={16} />
+        {supportLabel}
       </Link>
     </nav>
   );

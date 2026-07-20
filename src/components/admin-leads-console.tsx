@@ -237,7 +237,10 @@ export function AdminLeadsConsole() {
                     filter === value ? "admin-filter-tab-active" : ""
                   }`}
                   type="button"
-                  onClick={() => setFilter(value as FilterState)}
+                  onClick={() => {
+                    setFilter(value as FilterState);
+                    setSelectedId(null);
+                  }}
                 >
                   {label}
                 </button>
@@ -252,7 +255,10 @@ export function AdminLeadsConsole() {
                 className="filter-select min-h-11 pl-10"
                 placeholder="Cerca lead, citta o proprietario"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setSelectedId(null);
+                }}
               />
             </label>
           </div>
@@ -287,15 +293,13 @@ export function AdminLeadsConsole() {
           ) : filteredRecords.length > 0 ? (
             <div className="divide-y divide-slate-200">
               {filteredRecords.map((record) => (
-                <button
+                <div
                   key={record.ownerRequestId}
                   className={`admin-leads-row ${
                     selectedRecord?.ownerRequestId === record.ownerRequestId
                       ? "bg-mint/35"
                       : "bg-white"
                   }`}
-                  type="button"
-                  onClick={() => setSelectedId(record.ownerRequestId)}
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-ink">
@@ -342,15 +346,19 @@ export function AdminLeadsConsole() {
                     <span className="text-xs text-muted">
                       {record.purchases[0]?.buyerCompany ??
                         record.purchases[0]?.buyerName ??
-                        "Non acquistato"}
+                      "Non acquistato"}
                     </span>
                   </div>
 
-                  <span className="inline-flex items-center justify-end gap-1 text-sm font-bold text-green">
+                  <button
+                    className="inline-flex items-center justify-end gap-1 text-sm font-bold text-green"
+                    type="button"
+                    onClick={() => setSelectedId(record.ownerRequestId)}
+                  >
                     Dettaglio
                     <ChevronRight size={16} />
-                  </span>
-                </button>
+                  </button>
+                </div>
               ))}
             </div>
           ) : (
@@ -370,6 +378,7 @@ export function AdminLeadsConsole() {
             onRejectReasonChange={setRejectReason}
             onApprove={approve}
             onReject={reject}
+            onClose={() => setSelectedId(null)}
             actionLoading={actionLoading}
           />
         ) : null}
@@ -384,6 +393,7 @@ function LeadDetailPanel({
   onRejectReasonChange,
   onApprove,
   onReject,
+  onClose,
   actionLoading,
 }: {
   record: AdminLeadRecord;
@@ -391,6 +401,7 @@ function LeadDetailPanel({
   onRejectReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
   onReject: (record: AdminLeadRecord) => void;
+  onClose: () => void;
   actionLoading: string | null;
 }) {
   const canApprove = isPending(record) || record.requestStatus === "approved";
@@ -405,7 +416,17 @@ function LeadDetailPanel({
             {record.lead?.title ?? buildDefaultTitle(record)}
           </h2>
         </div>
-        <StatusBadge record={record} />
+        <div className="flex items-center gap-2">
+          <StatusBadge record={record} />
+          <button
+            className="icon-button min-h-9 px-2"
+            type="button"
+            aria-label="Chiudi dettaglio"
+            onClick={onClose}
+          >
+            <XCircle size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 grid gap-3 text-sm">

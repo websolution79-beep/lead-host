@@ -206,8 +206,15 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
 
 function ExclusiveSoldBadge() {
   return (
-    <span className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#f2c46d] bg-[#fff7e6] px-3 py-1.5 text-xs font-extrabold uppercase leading-tight text-[#9a5b00] shadow-[0_8px_24px_rgba(183,121,31,0.12)]">
-      <Star size={14} fill="currentColor" />
+    <span
+      className="mt-3 inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-extrabold uppercase leading-tight shadow-[0_8px_24px_rgba(183,121,31,0.16)]"
+      style={{
+        border: "1px solid #e8a923",
+        backgroundColor: "#fff3c4",
+        color: "#7a3f00",
+      }}
+    >
+      <Star size={14} fill="#f5b301" color="#f5b301" />
       Acquistato in esclusiva
     </span>
   );

@@ -29,11 +29,17 @@ type PropertyManagerProfileRow = {
   id: string;
   profile_id: string;
   company_name: string | null;
+  vat_number: string | null;
+  website: string | null;
   managed_properties_count: number | null;
   managed_properties_range?: string | null;
   primary_city?: string | null;
+  years_experience: number | null;
+  business_description: string | null;
+  operating_model: string | null;
   verification_status: "not_verified" | "verified" | "suspended";
   created_at: string;
+  updated_at: string;
 };
 
 type WalletRow = {
@@ -75,6 +81,9 @@ type ReportRow = {
 };
 
 type AuthMetadata = {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
   managed_properties_range?: string;
   primary_city?: string;
 };
@@ -228,6 +237,19 @@ export async function GET(request: NextRequest) {
           updatedAt: profile.updated_at,
           propertyManagerCreatedAt: pmProfile?.created_at ?? null,
           propertyManagerUpdatedAt: pmProfile?.updated_at ?? null,
+          signupData: {
+            firstName: metadata?.first_name ?? profile.first_name,
+            lastName: metadata?.last_name ?? profile.last_name,
+            email: profile.email,
+            phone: metadata?.phone ?? profile.phone,
+            managedPropertiesRange,
+            managedPropertiesLabel: getManagedPropertiesLabel(
+              managedPropertiesRange,
+              pmProfile?.managed_properties_count,
+            ),
+            primaryCity: primaryCity || null,
+            passwordStatus: "Protetta da Supabase Auth, non visualizzabile.",
+          },
           billingProfile: billingProfile
             ? {
                 subjectType: billingProfile.subject_type,

@@ -12,6 +12,7 @@ import {
   UserCheck,
   Users,
   WalletCards,
+  X,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
@@ -43,6 +44,16 @@ type PropertyManagerRecord = {
   updatedAt: string;
   propertyManagerCreatedAt: string | null;
   propertyManagerUpdatedAt: string | null;
+  signupData: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    phone: string | null;
+    managedPropertiesRange: string | null;
+    managedPropertiesLabel: string;
+    primaryCity: string | null;
+    passwordStatus: string;
+  };
   billingProfile: {
     subjectType: "individual" | "company";
     firstName: string | null;
@@ -126,7 +137,7 @@ export function AdminPropertyManagersConsole() {
         return current;
       }
 
-      return payload.propertyManagers?.[0]?.profileId ?? null;
+      return null;
     });
     setIsLoading(false);
   }
@@ -178,8 +189,9 @@ export function AdminPropertyManagersConsole() {
     (record) =>
       record.verificationStatus === "suspended" || record.profileStatus === "suspended",
   ).length;
-  const selectedRecord =
-    records.find((record) => record.profileId === selectedProfileId) ?? records[0] ?? null;
+  const selectedRecord = selectedProfileId
+    ? records.find((record) => record.profileId === selectedProfileId) ?? null
+    : null;
 
   return (
     <div className="grid gap-6">
@@ -332,6 +344,7 @@ export function AdminPropertyManagersConsole() {
         <PropertyManagerDetail
           record={selectedRecord}
           isBusy={actionProfileId === selectedRecord.profileId}
+          onClose={() => setSelectedProfileId(null)}
           onVerify={() =>
             updatePropertyManager(selectedRecord.profileId, {
               verificationStatus: "verified",
@@ -353,11 +366,13 @@ export function AdminPropertyManagersConsole() {
 function PropertyManagerDetail({
   record,
   isBusy,
+  onClose,
   onVerify,
   onSuspend,
 }: {
   record: PropertyManagerRecord;
   isBusy: boolean;
+  onClose: () => void;
   onVerify: () => void;
   onSuspend: () => void;
 }) {
@@ -404,6 +419,14 @@ function PropertyManagerDetail({
 
         <div className="flex flex-wrap gap-2">
           <button
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+            type="button"
+            disabled={isBusy}
+            onClick={onClose}
+          >
+            <X size={16} className="inline-block" /> Chiudi
+          </button>
+          <button
             className="rounded-lg border border-green/20 bg-green/10 px-4 py-2 text-sm font-semibold text-green disabled:opacity-50"
             type="button"
             disabled={isBusy}
@@ -424,6 +447,20 @@ function PropertyManagerDetail({
 
       <div className="grid gap-6 p-6 xl:grid-cols-[1.05fr_0.95fr]">
         <div className="grid gap-6">
+          <DetailSection icon={UserCheck} title="Dati iscrizione PM">
+            <DetailGrid
+              items={[
+                ["Nome", record.signupData.firstName],
+                ["Cognome", record.signupData.lastName],
+                ["Email", record.signupData.email],
+                ["Telefono", record.signupData.phone],
+                ["Gestisci gia immobili?", record.signupData.managedPropertiesLabel],
+                ["Citta principale", record.signupData.primaryCity],
+                ["Password", record.signupData.passwordStatus],
+              ]}
+            />
+          </DetailSection>
+
           <DetailSection icon={Mail} title="Contatti e account">
             <DetailGrid
               items={[

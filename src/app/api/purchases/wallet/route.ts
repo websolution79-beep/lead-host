@@ -5,8 +5,6 @@ import {
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
 import {
-  LEAD_EXCLUSIVE_PRICE_CENTS,
-  LEAD_SHARED_PRICE_CENTS,
   getVisibleSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
@@ -94,7 +92,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const amountCents = getLeadAmountCents(payload.mode);
+    const amountCents =
+      payload.mode === "exclusive"
+        ? lead.exclusive_price_cents
+        : lead.shared_price_cents;
     const wallet = await getOrCreateWallet({
       supabase,
       profileId: profile.id,
@@ -240,12 +241,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return propertyManagerApiErrorResponse(error);
   }
-}
-
-function getLeadAmountCents(mode: PurchaseMode) {
-  return mode === "exclusive"
-    ? LEAD_EXCLUSIVE_PRICE_CENTS
-    : LEAD_SHARED_PRICE_CENTS;
 }
 
 function getLeadUpdatePayload({

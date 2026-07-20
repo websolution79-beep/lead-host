@@ -30,6 +30,11 @@ type AdminLeadsResponse = {
 
 type FilterState = "all" | "pending" | "published" | "sold" | "rejected";
 
+type ApprovalPriceDraft = {
+  sharedPriceCents: number;
+  exclusivePriceCents: number;
+};
+
 export function AdminLeadsConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
@@ -46,6 +51,9 @@ export function AdminLeadsConsole() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [approvalDrafts, setApprovalDrafts] = useState<Record<string, ApprovalPriceDraft>>(
+    {},
+  );
 
   const filteredRecords = records.filter((record) => {
     if (filter === "pending" && !isPending(record)) return false;
@@ -130,6 +138,8 @@ export function AdminLeadsConsole() {
   }, [loadRecords]);
 
   async function approve(record: AdminLeadRecord) {
+    const priceDraft = getApprovalDraft(record);
+
     setActionLoading(record.ownerRequestId);
     setError(null);
 
@@ -144,6 +154,8 @@ export function AdminLeadsConsole() {
         },
         body: JSON.stringify({
           title: record.lead?.title ?? buildDefaultTitle(record),
+          sharedPriceCents: priceDraft.sharedPriceCents,
+          exclusivePriceCents: priceDraft.exclusivePriceCents,
         }),
       },
     );
@@ -157,6 +169,39 @@ export function AdminLeadsConsole() {
     }
 
     setActionLoading(null);
+  }
+
+  function selectRecord(record: AdminLeadRecord) {
+    setSelectedId(record.ownerRequestId);
+    setApprovalDrafts((current) => ({
+      ...current,
+      [record.ownerRequestId]: current[record.ownerRequestId] ?? {
+        sharedPriceCents: record.pricing.sharedPriceCents,
+        exclusivePriceCents: record.pricing.exclusivePriceCents,
+      },
+    }));
+  }
+
+  function getApprovalDraft(record: AdminLeadRecord) {
+    return (
+      approvalDrafts[record.ownerRequestId] ?? {
+        sharedPriceCents: record.pricing.sharedPriceCents,
+        exclusivePriceCents: record.pricing.exclusivePriceCents,
+      }
+    );
+  }
+
+  function updateApprovalDraft(
+    record: AdminLeadRecord,
+    update: Partial<ApprovalPriceDraft>,
+  ) {
+    setApprovalDrafts((current) => ({
+      ...current,
+      [record.ownerRequestId]: {
+        ...getApprovalDraft(record),
+        ...update,
+      },
+    }));
   }
 
   async function reject(record: AdminLeadRecord) {
@@ -353,7 +398,7 @@ export function AdminLeadsConsole() {
                   <button
                     className="inline-flex items-center justify-end gap-1 text-sm font-bold text-green"
                     type="button"
-                    onClick={() => setSelectedId(record.ownerRequestId)}
+                    onClick={() => selectRecord(record)}
                   >
                     Dettaglio
                     <ChevronRight size={16} />
@@ -379,6 +424,8 @@ export function AdminLeadsConsole() {
             onApprove={approve}
             onReject={reject}
             onClose={() => setSelectedId(null)}
+            approvalDraft={getApprovalDraft(selectedRecord)}
+            onApprovalDraftChange={(update) => updateApprovalDraft(selectedRecord, update)}
             actionLoading={actionLoading}
           />
         ) : null}
@@ -394,6 +441,8 @@ function LeadDetailPanel({
   onApprove,
   onReject,
   onClose,
+  approvalDraft,
+  onApprovalDraftChange,
   actionLoading,
 }: {
   record: AdminLeadRecord;
@@ -402,6 +451,8 @@ function LeadDetailPanel({
   onApprove: (record: AdminLeadRecord) => void;
   onReject: (record: AdminLeadRecord) => void;
   onClose: () => void;
+  approvalDraft: ApprovalPriceDraft;
+  onApprovalDraftChange: (update: Partial<ApprovalPriceDraft>) => void;
   actionLoading: string | null;
 }) {
   const canApprove = isPending(record) || record.requestStatus === "approved";
@@ -495,6 +546,32 @@ function LeadDetailPanel({
           </div>
         </div>
       </section>
+
+      {canApprove ? (
+        <section className="mt-5 border-t border-slate-200 pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-bold text-ink">Prezzi pubblicazione</p>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              {record.pricing.label}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <PriceInput
+              label="Condiviso"
+              valueCents={approvalDraft.sharedPriceCents}
+              onChange={(value) => onApprovalDraftChange({ sharedPriceCents: value })}
+            />
+            <PriceInput
+              label="Esclusivo"
+              valueCents={approvalDraft.exclusivePriceCents}
+              onChange={(value) => onApprovalDraftChange({ exclusivePriceCents: value })}
+            />
+          </div>
+          <p className="mt-2 text-xs leading-5 text-muted">
+            Puoi modificare questi prezzi solo per questo lead prima della pubblicazione.
+          </p>
+        </section>
+      ) : null}
 
       <section className="mt-5 border-t border-slate-200 pt-5">
         <p className="text-sm font-bold text-ink">Acquisti</p>
@@ -639,6 +716,38 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="min-w-0 break-words text-ink">{value || "Non indicato"}</span>
     </div>
   );
+}
+
+function PriceInput({
+  label,
+  valueCents,
+  onChange,
+}: {
+  label: string;
+  valueCents: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-xs font-bold uppercase tracking-[0.12em] text-muted">
+      {label}
+      <div className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-green/60">
+        <span className="pr-2 text-sm font-semibold text-slate-500">EUR</span>
+        <input
+          className="min-h-10 w-full bg-transparent text-sm font-semibold text-ink outline-none"
+          inputMode="decimal"
+          value={valueCents / 100}
+          onChange={(event) => onChange(parseEuroCents(event.target.value))}
+        />
+      </div>
+    </label>
+  );
+}
+
+function parseEuroCents(value: string) {
+  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+  const amount = Number.parseFloat(normalized);
+
+  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
 }
 
 function isPending(record: AdminLeadRecord) {

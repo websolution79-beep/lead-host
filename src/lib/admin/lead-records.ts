@@ -4,6 +4,11 @@ import {
   getVisibleSharedSlotsAvailable,
   parseLeadDate,
 } from "@/lib/domain/lead-state";
+import {
+  fetchCommercialSettings,
+  resolveLeadPricing,
+  type LeadPricingSuggestion,
+} from "@/lib/config/commercial-settings";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -61,10 +66,12 @@ export type AdminLeadRecord = {
     expiresAt: string | null;
     visibleUntil: string | null;
   } | null;
+  pricing: LeadPricingSuggestion;
   purchases: AdminLeadPurchase[];
 };
 
 export async function fetchAdminLeadRecords(supabase: ServiceClient) {
+  const { settings } = await fetchCommercialSettings(supabase);
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
@@ -122,6 +129,20 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     const contact = contactsByRequest.get(request.id) ?? null;
     const property = propertiesByRequest.get(request.id) ?? null;
     const lead = leadsByRequest.get(request.id) ?? null;
+    const suggestedPricing = resolveLeadPricing(settings, {
+      region: property?.region,
+      province: property?.province,
+      city: property?.city,
+    });
+    const pricing = lead
+      ? {
+          sharedPriceCents: lead.shared_price_cents,
+          exclusivePriceCents: lead.exclusive_price_cents,
+          source: "published" as const,
+          label: "Prezzo pubblicato",
+          ruleId: null,
+        }
+      : suggestedPricing;
 
     return {
       ownerRequestId: request.id,
@@ -179,6 +200,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
             visibleUntil: lead.visible_until,
           }
         : null,
+      pricing,
       purchases: lead ? purchasesByLead.get(lead.id) ?? [] : [],
     } satisfies AdminLeadRecord;
   });

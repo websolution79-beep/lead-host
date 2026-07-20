@@ -33,8 +33,12 @@ type WalletTransaction = {
   created_at: string;
 };
 
-const MIN_TOP_UP_CENTS = 3000;
-const quickTopUps = [3000, 5000, 10000];
+type CommercialSettingsResponse = {
+  settings?: {
+    minTopUpCents: number;
+    quickTopUpCents: number[];
+  };
+};
 
 const transactionLabels: Record<WalletTransaction["type"], string> = {
   top_up: "Ricarica wallet",
@@ -48,6 +52,8 @@ export function WalletCenter() {
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [topUpAmount, setTopUpAmount] = useState("30");
+  const [minTopUpCents, setMinTopUpCents] = useState(3000);
+  const [quickTopUps, setQuickTopUps] = useState([3000, 5000, 10000]);
   const [activeTab, setActiveTab] = useState<"movements" | "lead_purchases">(
     "movements",
   );
@@ -55,6 +61,23 @@ export function WalletCenter() {
 
   useEffect(() => {
     async function loadWallet() {
+      const settingsResponse = await fetch("/api/settings/commercial", {
+        cache: "no-store",
+      }).catch(() => null);
+
+      if (settingsResponse?.ok) {
+        const payload = (await settingsResponse.json()) as CommercialSettingsResponse;
+        const commercialSettings = payload.settings;
+
+        if (commercialSettings) {
+          setMinTopUpCents(commercialSettings.minTopUpCents);
+          setQuickTopUps(commercialSettings.quickTopUpCents);
+          setTopUpAmount((current) =>
+            current === "30" ? formatAmountInput(commercialSettings.minTopUpCents) : current,
+          );
+        }
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const user = sessionData.session?.user;
 
@@ -98,7 +121,7 @@ export function WalletCenter() {
 
   const currency = wallet?.currency ?? "eur";
   const topUpAmountCents = parseTopUpAmountCents(topUpAmount);
-  const canTopUp = topUpAmountCents >= MIN_TOP_UP_CENTS;
+  const canTopUp = topUpAmountCents >= minTopUpCents;
   const leadPurchaseTransactions = transactions.filter(
     (transaction) => transaction.type === "lead_purchase",
   );
@@ -126,7 +149,7 @@ export function WalletCenter() {
         <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-ink">Scegli importo ricarica</p>
           <p className="mt-1 text-xs leading-5 text-muted">
-            Importo minimo di ricarica: {formatCurrencyCents(MIN_TOP_UP_CENTS, currency)}.
+            Importo minimo di ricarica: {formatCurrencyCents(minTopUpCents, currency)}.
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -157,8 +180,8 @@ export function WalletCenter() {
               <input
                 className="min-h-11 w-full bg-transparent outline-none"
                 inputMode="decimal"
-                min="30"
-                placeholder="30"
+                min={minTopUpCents / 100}
+                placeholder={formatAmountInput(minTopUpCents)}
                 value={topUpAmount}
                 onChange={(event) => setTopUpAmount(event.target.value)}
               />
@@ -167,7 +190,7 @@ export function WalletCenter() {
 
           {!canTopUp ? (
             <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-              Inserisci almeno {formatCurrencyCents(MIN_TOP_UP_CENTS, currency)}.
+              Inserisci almeno {formatCurrencyCents(minTopUpCents, currency)}.
             </p>
           ) : null}
 
@@ -251,7 +274,7 @@ export function WalletCenter() {
                           hour: "2-digit",
                           minute: "2-digit",
                         }).format(new Date(transaction.created_at))}{" "}
-                        · {transaction.status}
+                        - {transaction.status}
                       </p>
                     </div>
                   </div>

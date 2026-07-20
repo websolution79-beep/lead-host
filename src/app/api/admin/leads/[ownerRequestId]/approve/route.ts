@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import {
+  fetchCommercialSettings,
+  resolveLeadPricing,
+} from "@/lib/config/commercial-settings";
 
 type RouteContext = {
   params: Promise<{
@@ -11,6 +15,8 @@ type RouteContext = {
 const approveSchema = z.object({
   title: z.string().trim().max(140).optional(),
   notes: z.string().trim().max(600).optional(),
+  sharedPriceCents: z.number().int().min(100).max(100000).optional(),
+  exclusivePriceCents: z.number().int().min(100).max(200000).optional(),
 });
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -48,6 +54,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const leadTitle = payload.data.title || buildLeadTitle(property);
+    const { settings } = await fetchCommercialSettings(supabase);
+    const suggestedPricing = resolveLeadPricing(settings, property);
+    const sharedPriceCents =
+      payload.data.sharedPriceCents ?? suggestedPricing.sharedPriceCents;
+    const exclusivePriceCents =
+      payload.data.exclusivePriceCents ?? suggestedPricing.exclusivePriceCents;
     const { data: existingLead, error: existingError } = await supabase
       .from("leads")
       .select("id")
@@ -69,11 +81,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
           title: leadTitle,
           internal_status: "available",
           public_status: "available",
+          shared_price_cents: sharedPriceCents,
+          exclusive_price_cents: exclusivePriceCents,
         })
         .select("id")
         .single();
 
       if (insertError || !insertedLead) {
+        if (insertError && isLeadPriceConstraintError(insertError)) {
+          return NextResponse.json(
+            {
+              error:
+                "Database non aggiornato per prezzi configurabili. Applica la migration commercial_settings e riprova.",
+            },
+            { status: 409 },
+          );
+        }
+
         throw insertError ?? new Error("Lead non creato.");
       }
 
@@ -81,10 +105,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     } else {
       const { error: titleError } = await supabase
         .from("leads")
-        .update({ title: leadTitle })
+        .update({
+          title: leadTitle,
+          shared_price_cents: sharedPriceCents,
+          exclusive_price_cents: exclusivePriceCents,
+        })
         .eq("id", leadId);
 
       if (titleError) {
+        if (isLeadPriceConstraintError(titleError)) {
+          return NextResponse.json(
+            {
+              error:
+                "Database non aggiornato per prezzi configurabili. Applica la migration commercial_settings e riprova.",
+            },
+            { status: 409 },
+          );
+        }
+
         throw titleError;
       }
     }
@@ -123,7 +161,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       entity_id: ownerRequestId,
       action: "lead.approved_and_published",
       before: { status: ownerRequest.status },
-      after: { status: "published", lead_id: leadId },
+      after: {
+        status: "published",
+        lead_id: leadId,
+        shared_price_cents: sharedPriceCents,
+        exclusive_price_cents: exclusivePriceCents,
+        pricing_source: suggestedPricing.label,
+      },
     });
 
     return NextResponse.json({ status: "published", lead: publishedLead });
@@ -141,4 +185,11 @@ function buildLeadTitle(property: {
   const place = property.city ?? property.province ?? property.region ?? "Italia";
 
   return `${property.property_type ?? "Immobile"} a ${place}`;
+}
+
+function isLeadPriceConstraintError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "23514" &&
+    (error.message?.includes("lead_prices_fixed") ?? false)
+  );
 }

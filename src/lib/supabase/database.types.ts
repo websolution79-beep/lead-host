@@ -141,6 +141,263 @@ export type Database = {
         };
         Relationships: [];
       };
+      owner_requests: {
+        Row: {
+          id: string;
+          acquisition_channel: "landing" | "meta_lead_ads" | "manual" | "api";
+          status:
+            | "new_from_meta"
+            | "waiting_for_completion"
+            | "completed"
+            | "to_verify"
+            | "approved"
+            | "published"
+            | "not_publishable";
+          completion_token_hash: string | null;
+          completion_token_expires_at: string | null;
+          completion_token_invalidated_at: string | null;
+          privacy_consent_at: string | null;
+          data_sharing_consent_at: string | null;
+          marketing_consent_at: string | null;
+          normalized_payload: Json;
+          duplicate_check: Json;
+          qualification_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          acquisition_channel: "landing" | "meta_lead_ads" | "manual" | "api";
+          status?:
+            | "new_from_meta"
+            | "waiting_for_completion"
+            | "completed"
+            | "to_verify"
+            | "approved"
+            | "published"
+            | "not_publishable";
+          completion_token_hash?: string | null;
+          completion_token_expires_at?: string | null;
+          completion_token_invalidated_at?: string | null;
+          privacy_consent_at?: string | null;
+          data_sharing_consent_at?: string | null;
+          marketing_consent_at?: string | null;
+          normalized_payload?: Json;
+          duplicate_check?: Json;
+          qualification_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          acquisition_channel?: "landing" | "meta_lead_ads" | "manual" | "api";
+          status?:
+            | "new_from_meta"
+            | "waiting_for_completion"
+            | "completed"
+            | "to_verify"
+            | "approved"
+            | "published"
+            | "not_publishable";
+          completion_token_hash?: string | null;
+          completion_token_expires_at?: string | null;
+          completion_token_invalidated_at?: string | null;
+          privacy_consent_at?: string | null;
+          data_sharing_consent_at?: string | null;
+          marketing_consent_at?: string | null;
+          normalized_payload?: Json;
+          duplicate_check?: Json;
+          qualification_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      owner_contacts: {
+        Row: {
+          id: string;
+          owner_request_id: string;
+          first_name: string | null;
+          last_name: string | null;
+          email: string | null;
+          phone: string | null;
+          precise_address: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_request_id: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          precise_address?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_request_id?: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          precise_address?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      properties: {
+        Row: {
+          id: string;
+          owner_request_id: string;
+          region: string | null;
+          province: string | null;
+          city: string | null;
+          postal_code: string | null;
+          district: string | null;
+          property_type: string | null;
+          bedrooms: number | null;
+          bathrooms: number | null;
+          beds: number | null;
+          approximate_area_sqm: number | null;
+          current_status: string[] | null;
+          requested_services: string[];
+          timing: string | null;
+          description: string | null;
+          photo_paths: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_request_id: string;
+          region?: string | null;
+          province?: string | null;
+          city?: string | null;
+          postal_code?: string | null;
+          district?: string | null;
+          property_type?: string | null;
+          bedrooms?: number | null;
+          bathrooms?: number | null;
+          beds?: number | null;
+          approximate_area_sqm?: number | null;
+          current_status?: string[] | null;
+          requested_services?: string[];
+          timing?: string | null;
+          description?: string | null;
+          photo_paths?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_request_id?: string;
+          region?: string | null;
+          province?: string | null;
+          city?: string | null;
+          postal_code?: string | null;
+          district?: string | null;
+          property_type?: string | null;
+          bedrooms?: number | null;
+          bathrooms?: number | null;
+          beds?: number | null;
+          approximate_area_sqm?: number | null;
+          current_status?: string[] | null;
+          requested_services?: string[];
+          timing?: string | null;
+          description?: string | null;
+          photo_paths?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lead_sources: {
+        Row: {
+          id: string;
+          owner_request_id: string | null;
+          channel: "landing" | "meta_lead_ads" | "manual" | "api";
+          external_id: string | null;
+          idempotency_key: string;
+          raw_payload: Json;
+          received_at: string;
+          processed_at: string | null;
+          error_message: string | null;
+        };
+        Insert: {
+          id?: string;
+          owner_request_id?: string | null;
+          channel: "landing" | "meta_lead_ads" | "manual" | "api";
+          external_id?: string | null;
+          idempotency_key: string;
+          raw_payload?: Json;
+          received_at?: string;
+          processed_at?: string | null;
+          error_message?: string | null;
+        };
+        Update: {
+          id?: string;
+          owner_request_id?: string | null;
+          channel?: "landing" | "meta_lead_ads" | "manual" | "api";
+          external_id?: string | null;
+          idempotency_key?: string;
+          raw_payload?: Json;
+          received_at?: string;
+          processed_at?: string | null;
+          error_message?: string | null;
+        };
+        Relationships: [];
+      };
+      marketing_attribution: {
+        Row: {
+          id: string;
+          owner_request_id: string;
+          source: string | null;
+          medium: string | null;
+          campaign: string | null;
+          content: string | null;
+          term: string | null;
+          landing_page: string | null;
+          referrer: string | null;
+          utm_source: string | null;
+          utm_medium: string | null;
+          utm_campaign: string | null;
+          utm_content: string | null;
+          utm_term: string | null;
+          meta_campaign_id: string | null;
+          meta_campaign_name: string | null;
+          meta_adset_id: string | null;
+          meta_adset_name: string | null;
+          meta_ad_id: string | null;
+          meta_ad_name: string | null;
+          meta_form_id: string | null;
+          meta_form_name: string | null;
+          meta_lead_id: string | null;
+          acquired_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_request_id: string;
+          source?: string | null;
+          medium?: string | null;
+          campaign?: string | null;
+          content?: string | null;
+          term?: string | null;
+          landing_page?: string | null;
+          referrer?: string | null;
+          utm_source?: string | null;
+          utm_medium?: string | null;
+          utm_campaign?: string | null;
+          utm_content?: string | null;
+          utm_term?: string | null;
+          acquired_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
       wallet_transactions: {
         Row: {
           id: string;

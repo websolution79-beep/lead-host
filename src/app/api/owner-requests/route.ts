@@ -1,11 +1,229 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { ITALY_GEO } from "@/lib/geo/italy-geo";
 
-export async function POST() {
-  return NextResponse.json(
-    {
-      status: "not_implemented",
-      next: "Phase 2 will persist owner requests through the normalized acquisition pipeline.",
+const ownerRequestSchema = z.object({
+  region: z.string().min(1),
+  province: z.string().min(1),
+  city: z.string().min(1),
+  district: z.string().trim().min(1).max(120),
+  postalCode: z.string().trim().max(12).optional().default(""),
+  propertyType: z.enum([
+    "Appartamento",
+    "Villa",
+    "Casa indipendente",
+    "B&B",
+    "Struttura ricettiva",
+    "Altro",
+  ]),
+  bedrooms: z.coerce.number().int().min(0).max(50),
+  bathrooms: z.coerce.number().int().min(0).max(50),
+  areaSqm: z.coerce.number().int().min(10).max(5000),
+  currentStatus: z.array(z.string()).min(1).max(5),
+  requestedServices: z.array(z.string()).min(1).max(8),
+  timing: z.enum([
+    "Il prima possibile",
+    "Entro 30 giorni",
+    "Entro 3 mesi",
+    "Piu avanti",
+    "Sto solo valutando",
+  ]),
+  description: z.string().trim().max(700).optional().default(""),
+  firstName: z.string().trim().min(2).max(80),
+  lastName: z.string().trim().min(2).max(80),
+  email: z.string().trim().email().max(160),
+  phone: z.string().trim().min(6).max(30),
+  privacyConsent: z.literal(true),
+  dataSharingConsent: z.literal(true),
+  attribution: z
+    .object({
+      landingPage: z.string().max(500).optional(),
+      referrer: z.string().max(500).optional(),
+      utmSource: z.string().max(160).optional(),
+      utmMedium: z.string().max(160).optional(),
+      utmCampaign: z.string().max(160).optional(),
+      utmContent: z.string().max(160).optional(),
+      utmTerm: z.string().max(160).optional(),
+    })
+    .optional(),
+});
+
+const allowedCurrentStatuses = new Set([
+  "Gia su Airbnb/Booking",
+  "Gia usato per affitti brevi",
+  "Mai usato per affitti brevi",
+  "Gestito personalmente",
+  "Affidato a un altro gestore",
+]);
+
+const allowedServices = new Set([
+  "Gestione completa",
+  "Gestione online",
+  "Gestione annunci",
+  "Revenue management",
+  "Comunicazione ospiti",
+  "Check-in / Check-out",
+  "Pulizie",
+  "Non lo so, vorrei essere consigliato",
+]);
+
+export async function POST(request: Request) {
+  const payload = ownerRequestSchema.safeParse(await request.json());
+
+  if (!payload.success) {
+    return NextResponse.json(
+      { error: "Dati richiesta non validi." },
+      { status: 400 },
+    );
+  }
+
+  const data = payload.data;
+
+  if (!isValidGeoSelection(data.region, data.province, data.city)) {
+    return NextResponse.json(
+      { error: "Selezione geografica non valida." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    data.currentStatus.some((item) => !allowedCurrentStatuses.has(item)) ||
+    data.requestedServices.some((item) => !allowedServices.has(item))
+  ) {
+    return NextResponse.json(
+      { error: "Opzioni selezionate non valide." },
+      { status: 400 },
+    );
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const now = new Date().toISOString();
+  const normalizedPayload = {
+    property: {
+      region: data.region,
+      province: data.province,
+      city: data.city,
+      district: data.district,
+      postal_code: data.postalCode || null,
+      property_type: data.propertyType,
+      bedrooms: data.bedrooms,
+      bathrooms: data.bathrooms,
+      approximate_area_sqm: data.areaSqm,
+      current_status: data.currentStatus,
+      requested_services: data.requestedServices,
+      timing: data.timing,
+      description: data.description || null,
     },
-    { status: 501 },
+    contact: {
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      phone: data.phone,
+    },
+  };
+
+  const { data: ownerRequest, error: ownerRequestError } = await supabase
+    .from("owner_requests")
+    .insert({
+      acquisition_channel: "landing",
+      status: "to_verify",
+      privacy_consent_at: now,
+      data_sharing_consent_at: now,
+      normalized_payload: normalizedPayload,
+      duplicate_check: {
+        status: "pending",
+        checked_at: null,
+      },
+    })
+    .select("id,created_at")
+    .single();
+
+  if (ownerRequestError || !ownerRequest) {
+    return NextResponse.json(
+      { error: "Non sono riuscito a salvare la richiesta." },
+      { status: 500 },
+    );
+  }
+
+  const requestId = ownerRequest.id;
+
+  const [contactResult, propertyResult, sourceResult, attributionResult] =
+    await Promise.all([
+      supabase.from("owner_contacts").insert({
+        owner_request_id: requestId,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        phone: data.phone,
+      }),
+      supabase.from("properties").insert({
+        owner_request_id: requestId,
+        region: data.region,
+        province: data.province,
+        city: data.city,
+        postal_code: data.postalCode || null,
+        district: data.district,
+        property_type: data.propertyType,
+        bedrooms: data.bedrooms,
+        bathrooms: data.bathrooms,
+        approximate_area_sqm: data.areaSqm,
+        current_status: data.currentStatus,
+        requested_services: data.requestedServices,
+        timing: data.timing,
+        description: data.description || null,
+      }),
+      supabase.from("lead_sources").insert({
+        owner_request_id: requestId,
+        channel: "landing",
+        idempotency_key: crypto.randomUUID(),
+        raw_payload: data,
+        processed_at: now,
+      }),
+      supabase.from("marketing_attribution").insert({
+        owner_request_id: requestId,
+        source: data.attribution?.utmSource ?? null,
+        medium: data.attribution?.utmMedium ?? null,
+        campaign: data.attribution?.utmCampaign ?? null,
+        content: data.attribution?.utmContent ?? null,
+        term: data.attribution?.utmTerm ?? null,
+        landing_page: data.attribution?.landingPage ?? null,
+        referrer: data.attribution?.referrer ?? null,
+        utm_source: data.attribution?.utmSource ?? null,
+        utm_medium: data.attribution?.utmMedium ?? null,
+        utm_campaign: data.attribution?.utmCampaign ?? null,
+        utm_content: data.attribution?.utmContent ?? null,
+        utm_term: data.attribution?.utmTerm ?? null,
+      }),
+    ]);
+
+  const insertError =
+    contactResult.error ||
+    propertyResult.error ||
+    sourceResult.error ||
+    attributionResult.error;
+
+  if (insertError) {
+    await supabase.from("owner_requests").delete().eq("id", requestId);
+
+    return NextResponse.json(
+      { error: "Richiesta creata, ma dati collegati incompleti." },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({
+    status: "created",
+    ownerRequestId: requestId,
+    reference: `LH-${requestId.slice(0, 8).toUpperCase()}`,
+  });
+}
+
+function isValidGeoSelection(region: string, province: string, city: string) {
+  const selectedRegion = ITALY_GEO.find((item) => item.region === region);
+  const selectedProvince = selectedRegion?.provinces.find(
+    (item) => item.province === province,
   );
+
+  return Boolean((selectedProvince?.cities as string[] | undefined)?.includes(city));
 }

@@ -95,3 +95,7 @@ export function isSharedAvailable(input: {
     mode: "shared",
   });
 }
+
+export function parseLeadDate(value: string) {
+  return value.includes("T") ? new Date(value) : new Date(`${value}T23:59:59`);
+}

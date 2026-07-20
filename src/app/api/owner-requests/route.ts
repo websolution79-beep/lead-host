@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
+import type { Json } from "@/lib/supabase/database.types";
 
 const ownerRequestSchema = z.object({
   region: z.string().min(1),
@@ -121,21 +122,17 @@ export async function POST(request: Request) {
     },
   };
 
-  const { data: ownerRequest, error: ownerRequestError } = await supabase
-    .from("owner_requests")
-    .insert({
+  const { data: ownerRequest, error: ownerRequestError } =
+    await insertPendingOwnerRequest(supabase, {
       acquisition_channel: "landing",
-      status: "to_verify",
       privacy_consent_at: now,
       data_sharing_consent_at: now,
-      normalized_payload: normalizedPayload,
+    normalized_payload: normalizedPayload as Json,
       duplicate_check: {
         status: "pending",
         checked_at: null,
       },
-    })
-    .select("id,created_at")
-    .single();
+    });
 
   if (ownerRequestError || !ownerRequest) {
     return NextResponse.json(
@@ -223,4 +220,40 @@ function isValidGeoSelection(region: string, province: string, city: string) {
   );
 
   return Boolean((selectedProvince?.cities as string[] | undefined)?.includes(city));
+}
+
+async function insertPendingOwnerRequest(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  row: {
+    acquisition_channel: "landing";
+    privacy_consent_at: string;
+    data_sharing_consent_at: string;
+    normalized_payload: Json;
+    duplicate_check: Json;
+  },
+) {
+  const pendingInsert = await supabase
+    .from("owner_requests")
+    .insert({
+      ...row,
+      status: "pending",
+    })
+    .select("id,created_at")
+    .single();
+
+  if (
+    !pendingInsert.error ||
+    !pendingInsert.error.message.includes("owner_request_status")
+  ) {
+    return pendingInsert;
+  }
+
+  return supabase
+    .from("owner_requests")
+    .insert({
+      ...row,
+      status: "to_verify",
+    })
+    .select("id,created_at")
+    .single();
 }

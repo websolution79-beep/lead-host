@@ -7,8 +7,10 @@ import {
   getSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
+  parseLeadDate,
 } from "@/lib/domain/lead-state";
 import { formatCents } from "@/lib/config/commercial";
+import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -16,10 +18,15 @@ type LeadDetailPageProps = {
   }>;
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { leadId } = await params;
-  const lead = demoLeads.find((item) => item.id === leadId) ?? demoLeads[0];
-  const expiresAt = new Date(`${lead.expiresAt}T23:59:59`);
+  const lead =
+    (await getPublishedMarketplaceLeadById(leadId)) ??
+    demoLeads.find((item) => item.id === leadId) ??
+    demoLeads[0];
+  const expiresAt = parseLeadDate(lead.expiresAt);
   const sharedAvailable = isSharedAvailable({
     internalStatus: lead.internalStatus,
     sharedSlotsSold: lead.sharedSlotsSold,

@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { Filter, RotateCcw } from "lucide-react";
 import { LeadCard } from "@/components/lead-card";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
-import { isExclusiveAvailable, isSharedAvailable } from "@/lib/domain/lead-state";
+import {
+  isExclusiveAvailable,
+  isSharedAvailable,
+  parseLeadDate,
+} from "@/lib/domain/lead-state";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
 
 type AvailabilityFilter =
@@ -55,7 +59,7 @@ export function MarketplaceFilters({ leads }: MarketplaceFiltersProps) {
       return true;
     }
 
-    const expiresAt = new Date(`${lead.expiresAt}T23:59:59`);
+    const expiresAt = parseLeadDate(lead.expiresAt);
 
     if (availability === "shared_available") {
       return isSharedAvailable({

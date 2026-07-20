@@ -14,6 +14,7 @@ import {
   getSharedSlotsAvailable,
   isExclusiveAvailable,
   isSharedAvailable,
+  parseLeadDate,
 } from "@/lib/domain/lead-state";
 import { formatCents } from "@/lib/config/commercial";
 
@@ -24,7 +25,7 @@ type LeadCardProps = {
 export function LeadCard({ lead }: LeadCardProps) {
   const detailHref = `/app/marketplace/${lead.id}`;
   const statusStyle = getStatusStyle(lead.publicStatus);
-  const expiresAt = new Date(`${lead.expiresAt}T23:59:59`);
+  const expiresAt = parseLeadDate(lead.expiresAt);
   const sharedAvailable = isSharedAvailable({
     internalStatus: lead.internalStatus,
     sharedSlotsSold: lead.sharedSlotsSold,

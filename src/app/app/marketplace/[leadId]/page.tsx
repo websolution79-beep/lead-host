@@ -94,7 +94,11 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
             </span>
           </div>
 
-          <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Detail
+              label="Data richiesta"
+              value={formatLeadRequestDate(lead.publishedAt)}
+            />
             <Detail label="Camere" value={String(lead.bedrooms)} />
             <Detail label="Bagni" value={String(lead.bathrooms)} />
             <Detail label="Posti letto" value={String(lead.beds)} />
@@ -202,6 +206,14 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
       </div>
     </AppShell>
   );
+}
+
+function formatLeadRequestDate(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(parseLeadDate(value));
 }
 
 function ExclusiveSoldBadge() {

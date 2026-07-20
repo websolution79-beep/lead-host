@@ -19,8 +19,10 @@ type ProfileRow = {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  avatar_url: string | null;
   status: "active" | "suspended";
   created_at: string;
+  updated_at: string;
 };
 
 type PropertyManagerProfileRow = {
@@ -38,6 +40,38 @@ type WalletRow = {
   profile_id: string;
   balance_cents: number;
   currency: string;
+};
+
+type BillingProfileRow = {
+  profile_id: string;
+  subject_type: "individual" | "company";
+  first_name: string | null;
+  last_name: string | null;
+  fiscal_code: string | null;
+  company_name: string | null;
+  vat_number: string | null;
+  company_fiscal_code: string | null;
+  address_line: string | null;
+  postal_code: string | null;
+  city: string | null;
+  province: string | null;
+  country: string;
+  sdi_code: string | null;
+  pec: string | null;
+  invoice_email: string | null;
+  updated_at: string;
+};
+
+type LeadPurchaseRow = {
+  property_manager_id: string;
+  amount_cents: number;
+  mode: "shared" | "exclusive";
+  status: string;
+};
+
+type ReportRow = {
+  property_manager_id: string;
+  status: string;
 };
 
 type AuthMetadata = {
@@ -68,23 +102,30 @@ export async function GET(request: NextRequest) {
       { data: profiles, error: profilesError },
       { data: pmProfiles, error: pmProfilesError },
       { data: wallets, error: walletsError },
+      { data: billingProfiles, error: billingProfilesError },
       { data: authUsers },
     ] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id,auth_user_id,email,first_name,last_name,phone,status,created_at")
+        .select(
+          "id,auth_user_id,email,first_name,last_name,phone,avatar_url,status,created_at,updated_at",
+        )
         .in("id", profileIds),
       supabase.from("property_manager_profiles").select("*").in("profile_id", profileIds),
       supabase
         .from("wallets")
         .select("profile_id,balance_cents,currency")
         .in("profile_id", profileIds),
+      supabase.from("billing_profiles").select("*").in("profile_id", profileIds),
       supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     ]);
 
     if (profilesError) throw profilesError;
     if (pmProfilesError) throw pmProfilesError;
     if (walletsError) throw walletsError;
+    if (billingProfilesError && !isMissingRelationError(billingProfilesError)) {
+      throw billingProfilesError;
+    }
 
     const pmProfilesByProfileId = new Map(
       ((pmProfiles ?? []) as PropertyManagerProfileRow[]).map((item) => [
@@ -95,23 +136,66 @@ export async function GET(request: NextRequest) {
     const walletsByProfileId = new Map(
       ((wallets ?? []) as WalletRow[]).map((item) => [item.profile_id, item]),
     );
+    const billingByProfileId = new Map(
+      ((billingProfilesError ? [] : billingProfiles ?? []) as BillingProfileRow[]).map(
+        (item) => [item.profile_id, item],
+      ),
+    );
     const metadataByAuthUserId = new Map(
       (authUsers.users ?? []).map((user) => [
         user.id,
         (user.user_metadata ?? {}) as AuthMetadata,
       ]),
     );
+    const authUserById = new Map((authUsers.users ?? []).map((user) => [user.id, user]));
+    const pmProfileIds = ((pmProfiles ?? []) as PropertyManagerProfileRow[])
+      .map((item) => item.id)
+      .filter(Boolean);
+
+    const [{ data: purchases, error: purchasesError }, { data: reports, error: reportsError }] =
+      await Promise.all([
+        pmProfileIds.length
+          ? supabase
+              .from("lead_purchases")
+              .select("property_manager_id,amount_cents,mode,status")
+              .in("property_manager_id", pmProfileIds)
+          : Promise.resolve({ data: [], error: null }),
+        pmProfileIds.length
+          ? supabase.from("reports").select("property_manager_id,status").in(
+              "property_manager_id",
+              pmProfileIds,
+            )
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+    if (purchasesError) throw purchasesError;
+    if (reportsError) throw reportsError;
+
+    const purchasesByPmId = groupRowsByPropertyManagerId(
+      (purchases ?? []) as LeadPurchaseRow[],
+    );
+    const reportsByPmId = groupRowsByPropertyManagerId((reports ?? []) as ReportRow[]);
 
     const propertyManagers = ((profiles ?? []) as ProfileRow[])
       .map((profile) => {
         const pmProfile = pmProfilesByProfileId.get(profile.id);
         const wallet = walletsByProfileId.get(profile.id);
+        const billingProfile = billingByProfileId.get(profile.id);
+        const authUser = profile.auth_user_id ? authUserById.get(profile.auth_user_id) : null;
         const metadata = profile.auth_user_id
           ? metadataByAuthUserId.get(profile.auth_user_id)
           : undefined;
         const managedPropertiesRange =
           pmProfile?.managed_properties_range ?? metadata?.managed_properties_range ?? null;
         const primaryCity = pmProfile?.primary_city ?? metadata?.primary_city ?? null;
+        const pmPurchases = pmProfile ? purchasesByPmId.get(pmProfile.id) ?? [] : [];
+        const completedPurchases = pmPurchases.filter((purchase) =>
+          ["paid", "contact_unlocked"].includes(purchase.status),
+        );
+        const pmReports = pmProfile ? reportsByPmId.get(pmProfile.id) ?? [] : [];
+        const openReports = pmReports.filter((report) =>
+          ["pending", "reviewing"].includes(report.status),
+        );
 
         return {
           id: pmProfile?.id ?? null,
@@ -120,6 +204,7 @@ export async function GET(request: NextRequest) {
           firstName: profile.first_name,
           lastName: profile.last_name,
           phone: profile.phone,
+          avatarUrl: profile.avatar_url,
           profileStatus: profile.status,
           verificationStatus: pmProfile?.verification_status ?? "not_verified",
           managedPropertiesRange,
@@ -128,9 +213,56 @@ export async function GET(request: NextRequest) {
             pmProfile?.managed_properties_count,
           ),
           primaryCity: primaryCity || "Non indicata",
+          companyName: pmProfile?.company_name ?? null,
+          vatNumber: pmProfile?.vat_number ?? null,
+          website: pmProfile?.website ?? null,
+          managedPropertiesCount: pmProfile?.managed_properties_count ?? null,
+          yearsExperience: pmProfile?.years_experience ?? null,
+          businessDescription: pmProfile?.business_description ?? null,
+          operatingModel: pmProfile?.operating_model ?? null,
           walletBalanceCents: wallet?.balance_cents ?? 0,
           walletCurrency: wallet?.currency ?? "eur",
+          emailConfirmedAt: authUser?.email_confirmed_at ?? null,
+          lastSignInAt: authUser?.last_sign_in_at ?? null,
           createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+          propertyManagerCreatedAt: pmProfile?.created_at ?? null,
+          propertyManagerUpdatedAt: pmProfile?.updated_at ?? null,
+          billingProfile: billingProfile
+            ? {
+                subjectType: billingProfile.subject_type,
+                firstName: billingProfile.first_name,
+                lastName: billingProfile.last_name,
+                fiscalCode: billingProfile.fiscal_code,
+                companyName: billingProfile.company_name,
+                vatNumber: billingProfile.vat_number,
+                companyFiscalCode: billingProfile.company_fiscal_code,
+                addressLine: billingProfile.address_line,
+                postalCode: billingProfile.postal_code,
+                city: billingProfile.city,
+                province: billingProfile.province,
+                country: billingProfile.country,
+                sdiCode: billingProfile.sdi_code,
+                pec: billingProfile.pec,
+                invoiceEmail: billingProfile.invoice_email,
+                updatedAt: billingProfile.updated_at,
+              }
+            : null,
+          stats: {
+            purchasesCount: completedPurchases.length,
+            exclusivePurchasesCount: completedPurchases.filter(
+              (purchase) => purchase.mode === "exclusive",
+            ).length,
+            sharedPurchasesCount: completedPurchases.filter(
+              (purchase) => purchase.mode === "shared",
+            ).length,
+            totalSpentCents: completedPurchases.reduce(
+              (total, purchase) => total + purchase.amount_cents,
+              0,
+            ),
+            reportsCount: pmReports.length,
+            openReportsCount: openReports.length,
+          },
         };
       })
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
@@ -139,6 +271,23 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+function groupRowsByPropertyManagerId<T extends { property_manager_id: string }>(rows: T[]) {
+  return rows.reduce((map, row) => {
+    const currentRows = map.get(row.property_manager_id) ?? [];
+    currentRows.push(row);
+    map.set(row.property_manager_id, currentRows);
+
+    return map;
+  }, new Map<string, T[]>());
+}
+
+function isMissingRelationError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "PGRST205" ||
+    error.message?.toLowerCase().includes("could not find the table")
+  );
 }
 
 export async function PATCH(request: NextRequest) {

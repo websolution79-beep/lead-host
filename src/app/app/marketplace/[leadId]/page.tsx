@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Mail, Phone, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, Mail, MapPin, Phone, ShieldCheck, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { demoLeads } from "@/lib/domain/sample-data";
 import {
@@ -65,6 +65,10 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               </h2>
               <p className="mt-3 text-muted">
                 {lead.city}, {lead.province}
+              </p>
+              <p className="mt-3 flex items-center gap-2 text-base font-semibold text-ink">
+                <MapPin size={18} />
+                {lead.address}
               </p>
             </div>
             <span className="rounded-full bg-fog px-3 py-2 text-sm font-bold text-ink">

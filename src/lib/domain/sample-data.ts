@@ -7,6 +7,7 @@ export type MarketplaceLead = {
   province: string;
   city: string;
   district: string;
+  address: string;
   propertyType: string;
   bedrooms: number;
   bathrooms: number;
@@ -31,6 +32,7 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Palermo",
     city: "Palermo",
     district: "Centro",
+    address: "Palermo, Centro",
     propertyType: "Appartamento",
     bedrooms: 2,
     bathrooms: 1,
@@ -54,6 +56,7 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Roma",
     city: "Roma",
     district: "Prati",
+    address: "Roma, Prati",
     propertyType: "Appartamento",
     bedrooms: 1,
     bathrooms: 1,
@@ -77,6 +80,7 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Bari",
     city: "Bari",
     district: "Murat",
+    address: "Bari, Murat",
     propertyType: "Struttura ricettiva",
     bedrooms: 4,
     bathrooms: 4,
@@ -100,6 +104,7 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Milano",
     city: "Milano",
     district: "Navigli",
+    address: "Milano, Navigli",
     propertyType: "Appartamento",
     bedrooms: 1,
     bathrooms: 1,
@@ -123,6 +128,7 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Firenze",
     city: "Firenze",
     district: "Oltrarno",
+    address: "Firenze, Oltrarno",
     propertyType: "Casa indipendente",
     bedrooms: 3,
     bathrooms: 2,
@@ -146,6 +152,7 @@ export const demoLeads: MarketplaceLead[] = [
     province: "Napoli",
     city: "Napoli",
     district: "Chiaia",
+    address: "Napoli, Chiaia",
     propertyType: "Villa",
     bedrooms: 4,
     bathrooms: 3,

@@ -7,6 +7,7 @@ type ServiceClient = SupabaseClient<Database>;
 
 type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
 type PropertyRow = Database["public"]["Tables"]["properties"]["Row"];
+type OwnerContactRow = Database["public"]["Tables"]["owner_contacts"]["Row"];
 
 export async function getPublishedMarketplaceLeads() {
   const supabase = createServiceSupabaseClient();
@@ -51,24 +52,36 @@ export async function getPublishedMarketplaceLeadById(id: string) {
 
 async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[]) {
   const propertyIds = Array.from(new Set(leads.map((lead) => lead.property_id)));
+  const ownerRequestIds = Array.from(new Set(leads.map((lead) => lead.owner_request_id)));
 
   if (propertyIds.length === 0) {
     return [];
   }
 
-  const { data: properties, error } = await supabase
-    .from("properties")
-    .select(
-      "id,region,province,city,district,property_type,bedrooms,bathrooms,beds,approximate_area_sqm,timing,description,requested_services",
-    )
-    .in("id", propertyIds);
+  const [propertiesResult, contactsResult] = await Promise.all([
+    supabase
+      .from("properties")
+      .select(
+        "id,region,province,city,district,property_type,bedrooms,bathrooms,beds,approximate_area_sqm,timing,description,requested_services",
+      )
+      .in("id", propertyIds),
+    supabase
+      .from("owner_contacts")
+      .select("owner_request_id,precise_address")
+      .in("owner_request_id", ownerRequestIds),
+  ]);
 
-  if (error) {
-    console.error(error);
+  if (propertiesResult.error || contactsResult.error) {
+    console.error(propertiesResult.error ?? contactsResult.error);
     return [];
   }
 
-  const propertiesById = new Map((properties ?? []).map((item) => [item.id, item]));
+  const propertiesById = new Map(
+    (propertiesResult.data ?? []).map((item) => [item.id, item]),
+  );
+  const contactsByRequestId = new Map(
+    (contactsResult.data ?? []).map((item) => [item.owner_request_id, item]),
+  );
 
   return leads
     .map((lead) => {
@@ -78,7 +91,11 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
         return null;
       }
 
-      return mapDbLeadToMarketplaceLead(lead, property);
+      return mapDbLeadToMarketplaceLead(
+        lead,
+        property,
+        contactsByRequestId.get(lead.owner_request_id) ?? null,
+      );
     })
     .filter((lead): lead is MarketplaceLead => Boolean(lead));
 }
@@ -100,6 +117,7 @@ function mapDbLeadToMarketplaceLead(
     | "description"
     | "requested_services"
   >,
+  contact: Pick<OwnerContactRow, "precise_address"> | null,
 ): MarketplaceLead {
   return {
     id: lead.id,
@@ -108,6 +126,7 @@ function mapDbLeadToMarketplaceLead(
     province: property.province ?? "",
     city: property.city ?? "",
     district: property.district ?? property.city ?? "",
+    address: contact?.precise_address ?? property.district ?? property.city ?? "",
     propertyType: property.property_type ?? "Immobile",
     bedrooms: property.bedrooms ?? 0,
     bathrooms: property.bathrooms ?? 0,
@@ -123,6 +142,6 @@ function mapDbLeadToMarketplaceLead(
     expiresAt: lead.expires_at ?? lead.visible_until ?? lead.created_at,
     ownerDescription:
       property.description ??
-      "Il proprietario ha completato la richiesta. I dettagli operativi saranno confermati dopo l'acquisto.",
+      "Il proprietario non ha aggiunto una descrizione facoltativa.",
   };
 }

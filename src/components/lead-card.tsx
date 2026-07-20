@@ -60,7 +60,7 @@ export function LeadCard({ lead }: LeadCardProps) {
       </Link>
       <p className="mt-3 flex items-center gap-2 text-sm text-muted">
         <MapPin size={16} />
-        {lead.city}, {lead.district}
+        <span className="min-w-0 truncate">{lead.address}</span>
       </p>
 
       <dl className="mt-5 grid grid-cols-2 gap-3 text-sm text-muted">

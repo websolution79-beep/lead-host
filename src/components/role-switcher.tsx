@@ -46,7 +46,7 @@ export function RoleSwitcher({ section }: RoleSwitcherProps) {
   const target = canSwitchToAdmin
     ? { href: "/admin", label: "Vai ad Admin", icon: ShieldCheck }
     : canSwitchToPm
-      ? { href: "/app", label: "Vai a Property Manager", icon: BriefcaseBusiness }
+      ? { href: "/app/marketplace", label: "Vai a Property Manager", icon: BriefcaseBusiness }
       : null;
 
   if (!target) return null;

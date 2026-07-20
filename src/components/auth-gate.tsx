@@ -120,8 +120,8 @@ export function AuthGate({ children, section }: AuthGateProps) {
             Questa area richiede un profilo attivo e il ruolo corretto. Se pensi sia un
             errore, contatta il Super Admin.
           </p>
-          <Link className="btn btn-primary mt-5" href="/app">
-            Torna alla dashboard
+          <Link className="btn btn-primary mt-5" href="/app/marketplace">
+            Torna al marketplace
           </Link>
         </div>
       </div>

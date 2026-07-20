@@ -7,7 +7,6 @@ import {
   Bell,
   Building2,
   CreditCard,
-  Gauge,
   Inbox,
   LifeBuoy,
   Map,
@@ -25,7 +24,6 @@ type AppSidebarNavProps = {
 };
 
 const pmLinks = [
-  { label: "Dashboard", href: "/app", icon: Gauge },
   { label: "Marketplace", href: "/app/marketplace", icon: Map },
   { label: "I miei lead", href: "/app/i-miei-lead", icon: Inbox },
   { label: "Wallet", href: "/app/acquisti", icon: CreditCard },
@@ -35,7 +33,7 @@ const pmLinks = [
 ];
 
 const adminLinks = [
-  { label: "Dashboard", href: "/admin", icon: Gauge },
+  { label: "Dashboard", href: "/admin", icon: BarChart3 },
   { label: "Lead", href: "/admin/leads", icon: Inbox },
   { label: "Acquisizione", href: "/admin/acquisizione", icon: Megaphone },
   { label: "Property Manager", href: "/admin/property-manager", icon: Users },

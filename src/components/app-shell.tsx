@@ -13,7 +13,6 @@ type AppShellProps = {
 };
 
 const pmLinks = [
-  { label: "Dashboard", href: "/app" },
   { label: "Marketplace", href: "/app/marketplace" },
   { label: "I miei lead", href: "/app/i-miei-lead" },
   { label: "Wallet", href: "/app/acquisti" },

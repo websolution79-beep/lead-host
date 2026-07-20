@@ -5,7 +5,7 @@ export function hasRole(roles: AppRole[], role: AppRole) {
 }
 
 export function getDefaultRoute(roles: AppRole[]) {
-  return hasRole(roles, "super_admin") ? "/admin" : "/app";
+  return hasRole(roles, "super_admin") ? "/admin" : "/app/marketplace";
 }
 
 export function formatCurrencyCents(amountCents: number, currency = "eur") {

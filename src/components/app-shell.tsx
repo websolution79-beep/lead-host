@@ -24,9 +24,8 @@ const pmLinks = [
 
 const adminLinks = [
   { label: "Dashboard", href: "/admin" },
-  { label: "Acquisizione", href: "/admin/acquisizione" },
-  { label: "Meta Lead Ads", href: "/admin/acquisizione/meta" },
   { label: "Lead", href: "/admin/leads" },
+  { label: "Acquisizione", href: "/admin/acquisizione" },
   { label: "Property Manager", href: "/admin/property-manager" },
   { label: "Pagamenti", href: "/admin/pagamenti" },
   { label: "Segnalazioni", href: "/admin/segnalazioni" },

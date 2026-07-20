@@ -15,7 +15,6 @@ import {
   ReceiptText,
   Settings,
   ShieldAlert,
-  SlidersHorizontal,
   UserCircle,
   Users,
 } from "lucide-react";
@@ -37,9 +36,8 @@ const pmLinks = [
 
 const adminLinks = [
   { label: "Dashboard", href: "/admin", icon: Gauge },
-  { label: "Acquisizione", href: "/admin/acquisizione", icon: Megaphone },
-  { label: "Meta Lead Ads", href: "/admin/acquisizione/meta", icon: SlidersHorizontal },
   { label: "Lead", href: "/admin/leads", icon: Inbox },
+  { label: "Acquisizione", href: "/admin/acquisizione", icon: Megaphone },
   { label: "Property Manager", href: "/admin/property-manager", icon: Users },
   { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText },
   { label: "Segnalazioni", href: "/admin/segnalazioni", icon: ShieldAlert },

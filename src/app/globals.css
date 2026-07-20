@@ -246,6 +246,41 @@ a {
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
 }
 
+.admin-acquisition-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-radius: 8px;
+  background: #f7f8fa;
+  padding: 5px;
+}
+
+.admin-acquisition-tab {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 9px 14px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 800;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.admin-acquisition-tab-active {
+  border-color: rgba(4, 120, 87, 0.22);
+  background: #ffffff;
+  color: #047857;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+
 .admin-leads-header,
 .admin-leads-row {
   display: grid;
@@ -309,6 +344,11 @@ a {
   .admin-filter-tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-acquisition-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }
 

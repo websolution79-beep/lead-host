@@ -37,13 +37,13 @@ const painPoints = [
 const steps = [
   {
     icon: Eye,
-    title: "Vedi le opportunita",
+    title: "Vedi le opportunità",
     text: "Entri gratis e consulti zona, immobile, richiesta, servizi e descrizione del proprietario.",
   },
   {
     icon: Filter,
-    title: "Filtri cio che conta",
-    text: "Regione, provincia, citta, disponibilita condivisa o possibilita di esclusiva.",
+    title: "Filtri ciò che conta",
+    text: "Regione, provincia, città, disponibilità condivisa o possibilità di esclusiva.",
   },
   {
     icon: MousePointerClick,
@@ -53,7 +53,7 @@ const steps = [
 ];
 
 const leadDetails = [
-  "Citta, indirizzo e zona",
+  "Città, indirizzo e zona",
   "Tipologia, camere, bagni e mq",
   "Tempistica del proprietario",
   "Servizi richiesti",
@@ -75,7 +75,7 @@ const comparison = [
     leadHost: "Non necessario per iniziare",
   },
   {
-    label: "Quando vedi l'opportunita",
+    label: "Quando vedi l'opportunità",
     agency: "Dopo campagne e qualifica",
     diy: "Dopo vari test",
     leadHost: "Subito nel marketplace",
@@ -98,22 +98,22 @@ const faqs = [
   {
     question: "Devo pagare per registrarmi?",
     answer:
-      "No. L'iscrizione PM e gratuita e puoi consultare il marketplace prima di decidere se sbloccare un contatto.",
+      "No. L'iscrizione PM è gratuita e puoi consultare il marketplace prima di decidere se sbloccare un contatto.",
   },
   {
-    question: "Vedro il telefono del proprietario subito?",
+    question: "Vedrò il telefono del proprietario subito?",
     answer:
-      "No. Prima vedi i dati utili per valutare l'opportunita. Nome, email e telefono vengono sbloccati solo dopo l'acquisto tramite wallet.",
+      "No. Prima vedi i dati utili per valutare l'opportunità. Nome, email e telefono vengono sbloccati solo dopo l'acquisto tramite wallet.",
   },
   {
     question: "Posso evitare contatti condivisi?",
     answer:
-      "Si. Quando un lead e ancora libero puoi scegliere l'esclusiva e impedire ad altri PM di acquistarlo.",
+      "Sì. Quando un lead è ancora libero puoi scegliere l'esclusiva e impedire ad altri PM di acquistarlo.",
   },
   {
     question: "Serve una campagna pubblicitaria?",
     answer:
-      "No per iniziare. Lead Host nasce proprio per darti accesso a richieste gia raccolte e leggibili senza costruire un funnel da zero.",
+      "No per iniziare. Lead Host nasce proprio per darti accesso a richieste già raccolte e leggibili senza costruire un funnel da zero.",
   },
 ];
 
@@ -122,8 +122,8 @@ export default function Home() {
     <main className="bg-white pb-20 sm:pb-0">
       <section className="relative min-h-[88svh] overflow-hidden bg-graphite text-white">
         <Image
-          src="/images/lead-host-hero.png"
-          alt="Interno moderno con dashboard Lead Host"
+          src="/images/lead-host-pm-hero.png"
+          alt="Appartamento per affitti brevi con strumenti di property management"
           fill
           className="object-cover"
           priority
@@ -140,12 +140,12 @@ export default function Home() {
             </div>
 
             <h1 className="mt-7 max-w-4xl text-4xl font-semibold leading-[1.03] text-white sm:text-6xl lg:text-7xl">
-              Acquisisci nuovi immobili senza pagare marketing al buio.
+              Trova immobili da gestire senza pagare marketing al buio.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/88 sm:text-xl">
-              Con Lead Host vedi prima la richiesta del proprietario, la zona,
-              l'immobile e la descrizione. Ti iscrivi gratis e sblocchi solo i
-              contatti che vuoi davvero lavorare.
+              Lead Host ti mostra richieste di proprietari interessati agli
+              affitti brevi: vedi zona, immobile e descrizione prima di decidere
+              se sbloccare il contatto. Iscrizione gratuita.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -192,7 +192,7 @@ export default function Home() {
             <p className="mt-5 max-w-xl text-base leading-7 text-muted sm:text-lg">
               Funnel, landing page, ads e report possono funzionare, ma spesso
               richiedono tempo, budget e fiducia prima di mostrarti una richiesta
-              concreta. Qui il processo si ribalta: prima vedi l'opportunita,
+              concreta. Qui il processo si ribalta: prima vedi l'opportunità,
               poi decidi.
             </p>
           </div>
@@ -216,7 +216,7 @@ export default function Home() {
           <div className="max-w-3xl">
             <p className="section-kicker">Come funziona</p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight text-ink sm:text-5xl">
-              Parti da proprietari gia interessati, non da campagne da
+              Parti da proprietari già interessati, non da campagne da
               inventare.
             </h2>
           </div>
@@ -254,12 +254,12 @@ export default function Home() {
           <div>
             <p className="section-kicker">Prima dello sblocco</p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight text-ink sm:text-5xl">
-              Sai gia se vale la pena contattare quel proprietario.
+              Sai già se vale la pena contattare quel proprietario.
             </h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-muted sm:text-lg">
-              Il contatto resta riservato, ma il PM puo leggere abbastanza per
-              capire se la richiesta e coerente con zona, modello operativo e
-              qualita dell'immobile cercato.
+              Il contatto resta riservato, ma il PM può leggere abbastanza per
+              capire se la richiesta è coerente con zona, modello operativo e
+              qualità dell'immobile cercato.
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {leadDetails.map((detail) => (
@@ -280,11 +280,11 @@ export default function Home() {
           <div className="max-w-3xl">
             <p className="section-kicker">Confronto</p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight text-ink sm:text-5xl">
-              La differenza e quando inizi a pagare.
+              La differenza è quando inizi a pagare.
             </h2>
             <p className="mt-5 text-base leading-7 text-muted sm:text-lg">
-              Lead Host non sostituisce una strategia marketing completa. Ti da
-              pero una strada piu immediata per vedere richieste reali prima di
+              Lead Host non sostituisce una strategia marketing completa. Ti dà
+              però una strada più immediata per vedere richieste reali prima di
               impegnare budget su funnel e campagne.
             </p>
           </div>
@@ -300,12 +300,12 @@ export default function Home() {
               Condiviso o esclusiva
             </p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
-              Scegli quanto proteggere ogni opportunita.
+              Scegli quanto proteggere ogni opportunità.
             </h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-white/72 sm:text-lg">
               Se vuoi lavorare a volume puoi acquistare lead condivisi. Se vuoi
               bloccare una richiesta strategica, puoi scegliere l'esclusiva
-              quando e ancora disponibile.
+              quando è ancora disponibile.
             </p>
           </div>
 
@@ -314,15 +314,15 @@ export default function Home() {
               <Users className="text-emerald-300" size={26} />
               <h3 className="mt-5 text-xl font-semibold">Contatto condiviso</h3>
               <p className="mt-3 leading-7 text-white/68">
-                Ottimo per testare piu zone, lavorare piu richieste e mantenere
-                flessibilita.
+                Ottimo per testare più zone, lavorare più richieste e mantenere
+                flessibilità.
               </p>
             </div>
             <div className="border border-amber-300/34 bg-amber-300/10 p-6">
               <Star className="text-amber-300" fill="#fbbf24" size={26} />
               <h3 className="mt-5 text-xl font-semibold">Contatto in esclusiva</h3>
               <p className="mt-3 leading-7 text-white/72">
-                Blocchi il lead e nessun altro PM potra acquistare quel contatto.
+                Blocchi il lead e nessun altro PM potrà acquistare quel contatto.
               </p>
             </div>
           </div>
@@ -396,7 +396,7 @@ function LeadPreviewStrip() {
         {
           icon: BriefcaseBusiness,
           title: "Richieste proprietari",
-          text: "Non liste fredde: opportunita con immobile, descrizione e tempistica.",
+          text: "Non liste fredde: opportunità con immobile, descrizione e tempistica.",
         },
         {
           icon: ShieldCheck,
@@ -430,7 +430,7 @@ function MarketplaceMockup() {
         <div>
           <p className="section-kicker">Marketplace</p>
           <h3 className="mt-1 text-xl font-semibold text-ink">
-            Opportunita disponibili
+            Opportunità disponibili
           </h3>
         </div>
         <span className="rounded-full bg-mint px-3 py-1 text-sm font-bold text-green">

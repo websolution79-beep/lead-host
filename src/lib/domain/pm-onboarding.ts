@@ -16,7 +16,7 @@ export const managedPropertiesOptions = [
   },
   {
     value: "more_than_ten",
-    label: "Gestisco piu di 10 immobili",
+    label: "Gestisco più di 10 immobili",
     countValue: 11,
   },
 ] as const;
@@ -39,7 +39,7 @@ export function getManagedPropertiesLabel(value: string | null | undefined, coun
   if (count === 0) return "Sto iniziando ora";
   if (count && count <= 3) return "Gestisco da 1 a 3 immobili";
   if (count && count <= 10) return "Gestisco da 4 a 10 immobili";
-  if (count && count > 10) return "Gestisco piu di 10 immobili";
+  if (count && count > 10) return "Gestisco più di 10 immobili";
 
   return "Non indicato";
 }

@@ -92,7 +92,7 @@ export function PmSignupForm() {
     }
 
     setMessage(
-      "Account creato. Se la conferma email e attiva, apri la mail ricevuta e poi accedi.",
+      "Account creato. Se la conferma email è attiva, apri la mail ricevuta e poi accedi.",
     );
     setIsSubmitting(false);
   }
@@ -105,7 +105,7 @@ export function PmSignupForm() {
           Crea il tuo account gratuito
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          Nessun abbonamento obbligatorio. Potrai consultare le opportunita
+          Nessun abbonamento obbligatorio. Potrai consultare le opportunità
           prima di sbloccare qualsiasi contatto.
         </p>
       </div>
@@ -141,7 +141,7 @@ export function PmSignupForm() {
         required
       />
       <label className="grid gap-2 text-sm font-semibold text-ink">
-        Gestisci gia immobili?
+        Gestisci già immobili?
         <select
           className="min-h-12 rounded-lg border border-ink/12 bg-white px-4 outline-none focus:border-green"
           value={managedPropertiesRange}
@@ -158,7 +158,7 @@ export function PmSignupForm() {
       </label>
       <input
         className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
-        placeholder="Citta principale"
+        placeholder="Città principale"
         value={primaryCity}
         onChange={(event) => setPrimaryCity(event.target.value)}
         required

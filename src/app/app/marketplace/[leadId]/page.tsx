@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft,
   Mail,
@@ -23,6 +23,7 @@ import {
   parseLeadDate,
 } from "@/lib/domain/lead-state";
 import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
+import { getServerSessionUser } from "@/lib/auth/server-session";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -34,6 +35,12 @@ export const dynamic = "force-dynamic";
 
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { leadId } = await params;
+  const user = await getServerSessionUser();
+
+  if (!user) {
+    redirect(`/login?redirect=/app/marketplace/${leadId}`);
+  }
+
   const lead =
     (await getPublishedMarketplaceLeadById(leadId)) ??
     demoLeads.find((item) => item.id === leadId);

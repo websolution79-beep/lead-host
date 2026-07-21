@@ -30,6 +30,24 @@ export function LoginForm() {
       return;
     }
 
+    if (data.session) {
+      const sessionResponse = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
+          expiresAt: data.session.expires_at,
+        }),
+      });
+
+      if (!sessionResponse.ok) {
+        setError("Accesso riuscito, ma non sono riuscito a inizializzare la sessione.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const { data: profileData } = await supabase
       .from("profiles")
       .select("id")

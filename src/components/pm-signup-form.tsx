@@ -49,6 +49,22 @@ export function PmSignupForm() {
     }
 
     if (data.session && data.user) {
+      const sessionResponse = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: data.session.access_token,
+          refreshToken: data.session.refresh_token,
+          expiresAt: data.session.expires_at,
+        }),
+      });
+
+      if (!sessionResponse.ok) {
+        setError("Account creato, ma non sono riuscito a inizializzare la sessione.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("id")

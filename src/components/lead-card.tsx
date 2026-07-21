@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import {
+  LEAD_EXCLUSIVE_PRICE_CENTS,
+  LEAD_SHARED_PRICE_CENTS,
   formatPublicStatus,
   getVisibleSharedSlotsAvailable,
   isExclusiveAvailable,
@@ -47,6 +49,9 @@ export function LeadCard({ lead }: LeadCardProps) {
   });
   const isExclusiveSold =
     lead.internalStatus === "sold_exclusive" || Boolean(lead.exclusivePurchaseId);
+  const sharedPriceCents = lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS;
+  const exclusivePriceCents =
+    lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS;
 
   return (
     <article
@@ -113,12 +118,12 @@ export function LeadCard({ lead }: LeadCardProps) {
           {isExclusiveSold ? <ExclusiveSoldBadge /> : null}
           <p className="mt-2 text-muted">
             {sharedAvailable
-              ? `Condiviso ${formatCents(2900)}`
+              ? `Condiviso ${formatCents(sharedPriceCents)}`
               : "Condivisione non disponibile"}
           </p>
           <p className="mt-1 text-muted">
             {exclusiveAvailable
-              ? `Esclusiva ${formatCents(5000)} disponibile`
+              ? `Esclusiva ${formatCents(exclusivePriceCents)} disponibile`
               : "Esclusiva non disponibile"}
           </p>
         </div>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Mail,
@@ -35,8 +36,12 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { leadId } = await params;
   const lead =
     (await getPublishedMarketplaceLeadById(leadId)) ??
-    demoLeads.find((item) => item.id === leadId) ??
-    demoLeads[0];
+    demoLeads.find((item) => item.id === leadId);
+
+  if (!lead) {
+    notFound();
+  }
+
   const expiresAt = parseLeadDate(lead.expiresAt);
   const sharedAvailable = isSharedAvailable({
     internalStatus: lead.internalStatus,

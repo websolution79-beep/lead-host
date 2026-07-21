@@ -2,7 +2,9 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { ACCESS_TOKEN_COOKIE } from "@/lib/auth/session-cookies";
 import { requireEnv } from "@/lib/env";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
+import type { AppRole } from "@/lib/auth/roles";
 
 export async function getServerSessionUser() {
   const cookieStore = await cookies();
@@ -33,4 +35,36 @@ export async function getServerSessionUser() {
   }
 
   return user;
+}
+
+export async function getServerSessionProfile() {
+  const user = await getServerSessionUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const supabase = createServiceSupabaseClient();
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (profileError || !profile || profile.status !== "active") {
+    return null;
+  }
+
+  const { data: roleRows, error: rolesError } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("profile_id", profile.id);
+
+  if (rolesError) {
+    return null;
+  }
+
+  const roles = ((roleRows ?? []) as { role: AppRole }[]).map((item) => item.role);
+
+  return { user, profile, roles };
 }

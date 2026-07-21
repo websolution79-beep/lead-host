@@ -19,6 +19,8 @@ type AcquisitionTab = "overview" | "owners" | "meta" | "manual";
 
 type AcquisitionAdminConsoleProps = {
   initialTab?: string;
+  ownerLandingUrl: string;
+  ownerEmbedUrl: string;
   metaEndpointUrl: string;
   metaConfig: {
     appId: boolean;
@@ -37,6 +39,8 @@ const tabs: { id: AcquisitionTab; label: string; icon: typeof Megaphone }[] = [
 
 export function AcquisitionAdminConsole({
   initialTab,
+  ownerLandingUrl,
+  ownerEmbedUrl,
   metaEndpointUrl,
   metaConfig,
 }: AcquisitionAdminConsoleProps) {
@@ -49,7 +53,7 @@ export function AcquisitionAdminConsole({
 
   const activeContent = useMemo(() => {
     if (activeTab === "owners") {
-      return <OwnersTab />;
+      return <OwnersTab landingUrl={ownerLandingUrl} embedUrl={ownerEmbedUrl} />;
     }
 
     if (activeTab === "meta") {
@@ -68,7 +72,7 @@ export function AcquisitionAdminConsole({
     }
 
     return <OverviewTab metaReady={metaReady} configuredItems={configuredItems} />;
-  }, [activeTab, configuredItems, metaConfig, metaEndpointUrl, metaReady]);
+  }, [activeTab, configuredItems, metaConfig, metaEndpointUrl, metaReady, ownerEmbedUrl, ownerLandingUrl]);
 
   return (
     <div className="grid gap-5">
@@ -166,20 +170,25 @@ function OverviewTab({
   );
 }
 
-function OwnersTab() {
+function OwnersTab({ landingUrl, embedUrl }: { landingUrl: string; embedUrl: string }) {
+  const trackedEmbedUrl = `${embedUrl}?utm_source=landing-esterna&utm_medium=iframe&utm_campaign=nome-campagna`;
+  const iframeCode = `<iframe src="${trackedEmbedUrl}" width="100%" height="920" style="border:0;max-width:100%;" loading="lazy" title="Richiesta proprietario Lead Host"></iframe>`;
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+    <div className="grid gap-5">
+      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
       <div>
         <p className="section-kicker">Form proprietari</p>
         <h2 className="mt-2 text-2xl font-semibold text-ink">
-          Canale landing Lead Host
+          Canale landing ed embed proprietari
         </h2>
         <p className="mt-3 max-w-3xl leading-7 text-muted">
           Il form proprietari salva richiesta, immobile, contatti, consenso privacy e
           attribuzione marketing. I lead arrivano in stato pending nella pagina Lead.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <InfoTile title="Origine" text="/proprietari" />
+          <InfoTile title="Landing interna" text="/proprietari" />
+          <InfoTile title="Embed iframe" text="/embed/richiesta-proprietario" />
           <InfoTile title="Destinazione" text="owner_requests + properties" />
           <InfoTile title="Stato iniziale" text="Pending" />
           <InfoTile title="Azioni admin" text="Approva, pubblica o scarta" />
@@ -195,6 +204,34 @@ function OwnersTab() {
           Nel marketplace restano riservati nome, cognome, telefono ed email del
           proprietario fino all&apos;acquisto del lead.
         </p>
+      </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="flex items-center gap-2 text-sm font-bold text-ink">
+            <Globe2 size={17} className="text-green" />
+            URL disponibili
+          </p>
+          <div className="mt-4 grid gap-3">
+            <CodeBlock label="Landing proprietari" value={landingUrl} />
+            <CodeBlock label="Form embeddabile" value={embedUrl} />
+            <CodeBlock label="Embed con tracking" value={trackedEmbedUrl} />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <p className="flex items-center gap-2 text-sm font-bold text-ink">
+            <Code2 size={17} className="text-green" />
+            Codice iframe
+          </p>
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-950 p-4 text-sm font-semibold text-white">
+            <code className="break-all">{iframeCode}</code>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            Cambia i parametri UTM per distinguere dominio, campagna o landing esterna.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -369,6 +406,19 @@ function InfoTile({ title, text }: { title: string; text: string }) {
         {title}
       </p>
       <p className="mt-1 text-sm font-semibold text-ink">{text}</p>
+    </div>
+  );
+}
+
+function CodeBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">
+        {label}
+      </p>
+      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-ink">
+        <code className="break-all">{value}</code>
+      </div>
     </div>
   );
 }

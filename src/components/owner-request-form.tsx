@@ -115,7 +115,11 @@ const initialFormState: FormState = {
   dataSharingConsent: false,
 };
 
-export function OwnerRequestForm() {
+type OwnerRequestFormProps = {
+  variant?: "page" | "embed";
+};
+
+export function OwnerRequestForm({ variant = "page" }: OwnerRequestFormProps) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [error, setError] = useState("");
@@ -194,6 +198,14 @@ export function OwnerRequestForm() {
     setIsSubmitting(true);
 
     const url = new URL(window.location.href);
+    const utmSource =
+      url.searchParams.get("utm_source") ||
+      url.searchParams.get("source") ||
+      (variant === "embed" ? "embed" : undefined);
+    const utmMedium =
+      url.searchParams.get("utm_medium") ||
+      (variant === "embed" ? "iframe" : undefined);
+
     const response = await fetch("/api/owner-requests", {
       method: "POST",
       headers: {
@@ -207,8 +219,8 @@ export function OwnerRequestForm() {
         attribution: {
           landingPage: window.location.href,
           referrer: document.referrer,
-          utmSource: url.searchParams.get("utm_source") || undefined,
-          utmMedium: url.searchParams.get("utm_medium") || undefined,
+          utmSource,
+          utmMedium,
           utmCampaign: url.searchParams.get("utm_campaign") || undefined,
           utmContent: url.searchParams.get("utm_content") || undefined,
           utmTerm: url.searchParams.get("utm_term") || undefined,
@@ -233,7 +245,7 @@ export function OwnerRequestForm() {
 
   if (successReference) {
     return (
-      <div className="card p-6 sm:p-8">
+      <div className={variant === "embed" ? "rounded-xl bg-white p-5 sm:p-6" : "card p-6 sm:p-8"}>
         <div className="flex size-12 items-center justify-center rounded-xl bg-green/10 text-green">
           <CheckCircle2 size={26} />
         </div>
@@ -253,7 +265,10 @@ export function OwnerRequestForm() {
   }
 
   return (
-    <form className="card overflow-hidden" onSubmit={handleSubmit}>
+    <form
+      className={variant === "embed" ? "overflow-hidden rounded-xl bg-white shadow-sm" : "card overflow-hidden"}
+      onSubmit={handleSubmit}
+    >
       <div className="border-b border-slate-200 bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">

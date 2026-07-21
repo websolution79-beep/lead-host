@@ -209,6 +209,13 @@ export default function Home() {
             ))}
           </div>
         </div>
+        <div className="mx-auto max-w-7xl px-5 pb-20 sm:px-8">
+          <SectionCta
+            title="Guarda le richieste prima di investire budget."
+            text="Entra gratis e valuta subito se ci sono opportunità interessanti per la tua zona."
+            cta="Registrati gratis"
+          />
+        </div>
       </section>
 
       <section id="come-funziona" className="bg-white">
@@ -246,6 +253,13 @@ export default function Home() {
               );
             })}
           </div>
+
+          <SectionCta
+            className="mt-8"
+            title="Accedi al marketplace e scegli solo i lead che vuoi lavorare."
+            text="L'iscrizione è gratuita: telefono ed email si sbloccano solo quando decidi tu."
+            cta="Accedi gratis al marketplace"
+          />
         </div>
       </section>
 
@@ -290,6 +304,13 @@ export default function Home() {
           </div>
 
           <ComparisonTable />
+
+          <SectionCta
+            className="mt-8"
+            title="Meglio vedere una richiesta reale che pagare una promessa."
+            text="Crea il tuo account gratuito e valuta le opportunità disponibili prima di acquistare qualsiasi contatto."
+            cta="Crea account gratuito"
+          />
         </div>
       </section>
 
@@ -386,6 +407,38 @@ export default function Home() {
         </Link>
       </div>
     </main>
+  );
+}
+
+function SectionCta({
+  title,
+  text,
+  cta,
+  className = "",
+}: {
+  title: string;
+  text: string;
+  cta: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`grid gap-5 border border-green/20 bg-[linear-gradient(135deg,#ffffff_0%,rgba(223,247,238,0.72)_100%)] p-5 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:flex sm:items-center sm:justify-between sm:gap-6 sm:p-6 ${className}`}
+    >
+      <div>
+        <h3 className="text-xl font-semibold leading-tight text-ink sm:text-2xl">
+          {title}
+        </h3>
+        <p className="mt-2 max-w-2xl leading-7 text-muted">{text}</p>
+      </div>
+      <Link
+        className="btn btn-primary sm:shrink-0"
+        href="#iscrizione"
+      >
+        {cta}
+        <ArrowRight size={18} />
+      </Link>
+    </div>
   );
 }
 

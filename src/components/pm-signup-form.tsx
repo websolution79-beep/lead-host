@@ -101,7 +101,13 @@ export function PmSignupForm() {
     <form className="card grid gap-4 p-6" onSubmit={handleSubmit}>
       <div>
         <p className="section-kicker">Registrazione gratuita</p>
-        <h2 className="mt-2 text-2xl font-semibold text-ink">Crea account PM</h2>
+        <h2 className="mt-2 text-2xl font-semibold text-ink">
+          Crea il tuo account gratuito
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Nessun abbonamento obbligatorio. Potrai consultare le opportunita
+          prima di sbloccare qualsiasi contatto.
+        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <input

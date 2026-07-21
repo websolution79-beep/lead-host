@@ -12,7 +12,6 @@ export function PublicNav({ variant = "light" }: PublicNavProps) {
     { href: "/proprietari", label: "Proprietari" },
     { href: "/property-manager", label: "Property Manager" },
     { href: "/app/marketplace", label: "Marketplace" },
-    { href: "/admin", label: "Admin" },
     { href: "/login", label: "Accedi" },
   ];
 
@@ -27,7 +26,6 @@ export function PublicNav({ variant = "light" }: PublicNavProps) {
         <Link href="/proprietari">Proprietari</Link>
         <Link href="/property-manager">Property Manager</Link>
         <Link href="/app/marketplace">Marketplace</Link>
-        <Link href="/admin">Admin</Link>
       </nav>
       <Link
         href="/login"

@@ -21,7 +21,7 @@ export function BrandLogo({ variant = "light", href = "/" }: BrandLogoProps) {
         width={230}
         height={40}
         priority
-        className="h-10 w-auto"
+        className="h-9 w-auto max-w-[52vw] sm:h-10 sm:max-w-none"
       />
     </span>
   );

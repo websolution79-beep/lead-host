@@ -19,7 +19,7 @@ export default function LoginPage() {
             </Suspense>
             <p className="mt-5 text-sm text-muted">
               Sei un Property Manager?{" "}
-              <Link className="font-semibold text-green" href="/property-manager">
+              <Link className="font-semibold text-green" href="/#iscrizione">
                 Registrati gratis
               </Link>
             </p>

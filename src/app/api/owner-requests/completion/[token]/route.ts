@@ -6,6 +6,10 @@ import {
   hashOwnerRequestCompletionToken,
   isOwnerRequestCompletionExpired,
 } from "@/lib/owner-requests/completion-token";
+import {
+  checkOwnerRequestDuplicates,
+  duplicateCheckToJson,
+} from "@/lib/owner-requests/duplicate-check";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -195,6 +199,27 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const statusUpdate = await markRequestReadyForReview({
       ownerRequestId: completion.data.ownerRequestId,
       normalizedPayload: normalizedPayload as Json,
+      duplicateCheck: duplicateCheckToJson(
+        await checkOwnerRequestDuplicates({
+          supabase,
+          currentOwnerRequestId: completion.data.ownerRequestId,
+          input: {
+            contact: {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              email: data.email,
+              phone: data.phone,
+              preciseAddress: data.address,
+            },
+            property: {
+              region: data.region,
+              province: data.province,
+              city: data.city,
+              propertyType: data.propertyType,
+            },
+          },
+        }),
+      ),
       completedAt: now,
     });
 
@@ -325,10 +350,12 @@ async function fetchCompletionRequest(token: string): Promise<
 async function markRequestReadyForReview({
   ownerRequestId,
   normalizedPayload,
+  duplicateCheck,
   completedAt,
 }: {
   ownerRequestId: string;
   normalizedPayload: Json;
+  duplicateCheck: Json;
   completedAt: string;
 }) {
   const supabase = createServiceSupabaseClient();
@@ -340,6 +367,7 @@ async function markRequestReadyForReview({
       privacy_consent_at: completedAt,
       data_sharing_consent_at: completedAt,
       normalized_payload: normalizedPayload,
+      duplicate_check: duplicateCheck,
     })
     .eq("id", ownerRequestId);
 
@@ -358,6 +386,7 @@ async function markRequestReadyForReview({
       privacy_consent_at: completedAt,
       data_sharing_consent_at: completedAt,
       normalized_payload: normalizedPayload,
+      duplicate_check: duplicateCheck,
     })
     .eq("id", ownerRequestId);
 }

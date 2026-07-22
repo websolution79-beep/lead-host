@@ -23,6 +23,7 @@ type AdminLeadsResponse = {
   records: AdminLeadRecord[];
   stats: {
     waitingCompletion: number;
+    duplicates: number;
     pending: number;
     published: number;
     sold: number;
@@ -34,6 +35,7 @@ type AdminLeadsResponse = {
 type FilterState =
   | "all"
   | "completion"
+  | "duplicates"
   | "pending"
   | "published"
   | "sold"
@@ -50,6 +52,7 @@ export function AdminLeadsConsole() {
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
     waitingCompletion: 0,
+    duplicates: 0,
     pending: 0,
     published: 0,
     sold: 0,
@@ -71,6 +74,7 @@ export function AdminLeadsConsole() {
     if (filter === "completion" && record.requestStatus !== "waiting_for_completion") {
       return false;
     }
+    if (filter === "duplicates" && !hasDuplicateWarning(record)) return false;
     if (filter === "pending" && !isPending(record)) return false;
     if (filter === "published" && record.requestStatus !== "published") return false;
     if (filter === "sold" && record.purchases.length === 0) return false;
@@ -138,6 +142,7 @@ export function AdminLeadsConsole() {
     setStats(
       payload.stats ?? {
         waitingCompletion: 0,
+        duplicates: 0,
         pending: 0,
         published: 0,
         sold: 0,
@@ -265,6 +270,12 @@ export function AdminLeadsConsole() {
           value={stats.waitingCompletion}
           tone="amber"
         />
+        <StatCard
+          icon={AlertCircle}
+          label="Possibili duplicati"
+          value={stats.duplicates}
+          tone="red"
+        />
         <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="green" />
         <StatCard
           icon={BadgeCheck}
@@ -302,6 +313,7 @@ export function AdminLeadsConsole() {
             <div className="admin-filter-tabs">
               {[
                 ["completion", "Da completare"],
+                ["duplicates", "Duplicati"],
                 ["pending", "Pending"],
                 ["published", "Marketplace"],
                 ["sold", "Venduti"],
@@ -386,6 +398,12 @@ export function AdminLeadsConsole() {
                     <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.08em] text-muted">
                       LH-{record.ownerRequestId.slice(0, 8).toUpperCase()}
                     </p>
+                    {hasDuplicateWarning(record) ? (
+                      <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700">
+                        <AlertCircle size={12} />
+                        Possibile duplicato
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="min-w-0">
@@ -543,6 +561,11 @@ function LeadDetailPanel({
         />
         <InfoRow label="Tempistica" value={record.property?.timing ?? "Non indicata"} />
       </div>
+
+      <section className="mt-5 border-t border-slate-200 pt-5">
+        <p className="text-sm font-bold text-ink">Controllo duplicati</p>
+        <DuplicateCheckBox record={record} />
+      </section>
 
       <section className="mt-5 border-t border-slate-200 pt-5">
         <p className="text-sm font-bold text-ink">Servizi richiesti</p>
@@ -772,6 +795,56 @@ function StatusBadge({ record }: { record: AdminLeadRecord }) {
   );
 }
 
+function DuplicateCheckBox({ record }: { record: AdminLeadRecord }) {
+  const duplicateCheck = record.duplicateCheck;
+
+  if (duplicateCheck.status === "clear") {
+    return (
+      <p className="mt-2 rounded-xl border border-green/15 bg-green/5 p-3 text-sm font-semibold text-green">
+        Nessun duplicato rilevato.
+      </p>
+    );
+  }
+
+  if (duplicateCheck.status === "unchecked") {
+    return (
+      <p className="mt-2 rounded-xl border border-slate-200 bg-paper p-3 text-sm text-muted">
+        Controllo non disponibile per questa richiesta.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
+      <p className="text-sm font-bold text-red-700">
+        {duplicateCheck.status === "duplicate"
+          ? "Duplicato probabile"
+          : "Possibile duplicato"}{" "}
+        ({duplicateCheck.highestScore}%)
+      </p>
+      <div className="mt-3 grid gap-2">
+        {duplicateCheck.matches.map((match) => (
+          <div key={match.ownerRequestId} className="rounded-lg bg-white p-3 text-sm">
+            <p className="font-semibold text-ink">
+              LH-{match.ownerRequestId.slice(0, 8).toUpperCase()} - {match.score}%
+            </p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+              Stato: {match.status}
+            </p>
+            {match.reasons.length ? (
+              <ul className="mt-2 grid gap-1 text-xs font-semibold text-red-700">
+                {match.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="grid grid-cols-[105px_1fr] gap-3">
@@ -815,6 +888,10 @@ function parseEuroCents(value: string) {
 
 function isPending(record: AdminLeadRecord) {
   return ["pending", "to_verify"].includes(record.requestStatus);
+}
+
+function hasDuplicateWarning(record: AdminLeadRecord) {
+  return ["duplicate", "possible_duplicate"].includes(record.duplicateCheck.status);
 }
 
 function isExpiredLead(record: AdminLeadRecord) {

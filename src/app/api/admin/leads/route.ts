@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
         waitingCompletion: records.filter(
           (item) => item.requestStatus === "waiting_for_completion",
         ).length,
+        duplicates: records.filter((item) => hasDuplicateWarning(item)).length,
         pending: records.filter((item) =>
           ["pending", "to_verify"].includes(item.requestStatus),
         ).length,
@@ -27,6 +28,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+function hasDuplicateWarning(record: Awaited<ReturnType<typeof fetchAdminLeadRecords>>[number]) {
+  return ["duplicate", "possible_duplicate"].includes(record.duplicateCheck.status);
 }
 
 function isExpiredLead(record: Awaited<ReturnType<typeof fetchAdminLeadRecords>>[number]) {

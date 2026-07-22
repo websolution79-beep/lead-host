@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
+import {
+  checkOwnerRequestDuplicates,
+  duplicateCheckToJson,
+} from "@/lib/owner-requests/duplicate-check";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   sendAdminOwnerRequestNotification,
@@ -102,6 +106,24 @@ export async function POST(request: Request) {
 
   const supabase = createServiceSupabaseClient();
   const now = new Date().toISOString();
+  const duplicateCheck = await checkOwnerRequestDuplicates({
+    supabase,
+    input: {
+      contact: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        preciseAddress: data.address,
+      },
+      property: {
+        region: data.region,
+        province: data.province,
+        city: data.city,
+        propertyType: data.propertyType,
+      },
+    },
+  });
   const normalizedPayload = {
     property: {
       region: data.region,
@@ -131,10 +153,7 @@ export async function POST(request: Request) {
       privacy_consent_at: now,
       data_sharing_consent_at: now,
     normalized_payload: normalizedPayload as Json,
-      duplicate_check: {
-        status: "pending",
-        checked_at: null,
-      },
+      duplicate_check: duplicateCheckToJson(duplicateCheck),
     });
 
   if (ownerRequestError || !ownerRequest) {

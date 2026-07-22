@@ -17,6 +17,10 @@ import {
   type NormalizedMetaLead,
 } from "@/lib/meta/leadgen";
 import { createOwnerRequestCompletionToken } from "@/lib/owner-requests/completion-token";
+import {
+  checkOwnerRequestDuplicates,
+  duplicateCheckToJson,
+} from "@/lib/owner-requests/duplicate-check";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -242,6 +246,24 @@ async function createOwnerRequestFromMetaLead({
   const supabase = createServiceSupabaseClient();
   const acquiredAt = lead.created_time ?? new Date().toISOString();
   const completion = buildCompletionTokenIfRequired(normalized);
+  const duplicateCheck = await checkOwnerRequestDuplicates({
+    supabase,
+    input: {
+      contact: {
+        firstName: normalized.contact.first_name,
+        lastName: normalized.contact.last_name,
+        email: normalized.contact.email,
+        phone: normalized.contact.phone,
+        preciseAddress: normalized.contact.precise_address,
+      },
+      property: {
+        region: normalized.property.region,
+        province: normalized.property.province,
+        city: normalized.property.city,
+        propertyType: normalized.property.property_type,
+      },
+    },
+  });
   const normalizedPayload = toJson({
     meta_lead_id: lead.id,
     property: normalized.property,
@@ -259,12 +281,11 @@ async function createOwnerRequestFromMetaLead({
       privacy_consent_at: acquiredAt,
       data_sharing_consent_at: acquiredAt,
       normalized_payload: normalizedPayload,
-      duplicate_check: {
-        status: "pending",
-        checked_at: null,
+      duplicate_check: duplicateCheckToJson({
+        ...duplicateCheck,
         source: "meta_lead_ads",
         external_id: lead.id,
-      },
+      }),
     });
 
   if (ownerRequestError || !ownerRequest) {

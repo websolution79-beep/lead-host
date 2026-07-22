@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   getVisibleSharedSlotsAvailable,
   parseLeadDate,
@@ -30,6 +30,19 @@ export type AdminLeadRecord = {
   requestStatus: string;
   acquisitionChannel: string;
   qualificationNotes: string | null;
+  duplicateCheck: {
+    status: "clear" | "possible_duplicate" | "duplicate" | "unchecked" | string;
+    checkedAt: string | null;
+    matchCount: number;
+    highestScore: number;
+    matches: Array<{
+      ownerRequestId: string;
+      score: number;
+      status: string;
+      createdAt: string;
+      reasons: string[];
+    }>;
+  };
   contact: {
     firstName: string | null;
     lastName: string | null;
@@ -75,7 +88,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes",
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check",
     )
     .order("created_at", { ascending: false })
     .limit(150);
@@ -151,6 +164,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       requestStatus: request.status,
       acquisitionChannel: request.acquisition_channel,
       qualificationNotes: request.qualification_notes,
+      duplicateCheck: parseDuplicateCheck(request.duplicate_check),
       contact: contact
         ? {
             firstName: contact.first_name,
@@ -204,6 +218,62 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       purchases: lead ? purchasesByLead.get(lead.id) ?? [] : [],
     } satisfies AdminLeadRecord;
   });
+}
+
+function parseDuplicateCheck(value: Json): AdminLeadRecord["duplicateCheck"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return emptyDuplicateCheck("unchecked");
+  }
+
+  const record = value as Record<string, unknown>;
+  const matches = Array.isArray(record.matches)
+    ? record.matches
+        .map((match) => parseDuplicateMatch(match))
+        .filter((match): match is AdminLeadRecord["duplicateCheck"]["matches"][number] =>
+          Boolean(match),
+        )
+    : [];
+
+  return {
+    status: typeof record.status === "string" ? record.status : "unchecked",
+    checkedAt: typeof record.checked_at === "string" ? record.checked_at : null,
+    matchCount:
+      typeof record.match_count === "number" ? record.match_count : matches.length,
+    highestScore:
+      typeof record.highest_score === "number"
+        ? record.highest_score
+        : matches[0]?.score ?? 0,
+    matches,
+  };
+}
+
+function parseDuplicateMatch(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const record = value as Record<string, unknown>;
+  const ownerRequestId = record.owner_request_id;
+
+  if (typeof ownerRequestId !== "string") return null;
+
+  return {
+    ownerRequestId,
+    score: typeof record.score === "number" ? record.score : 0,
+    status: typeof record.status === "string" ? record.status : "unknown",
+    createdAt: typeof record.created_at === "string" ? record.created_at : "",
+    reasons: Array.isArray(record.reasons)
+      ? record.reasons.filter((reason): reason is string => typeof reason === "string")
+      : [],
+  };
+}
+
+function emptyDuplicateCheck(status: AdminLeadRecord["duplicateCheck"]["status"]) {
+  return {
+    status,
+    checkedAt: null,
+    matchCount: 0,
+    highestScore: 0,
+    matches: [],
+  };
 }
 
 async function fetchPurchasesByLead(supabase: ServiceClient, leadIds: string[]) {

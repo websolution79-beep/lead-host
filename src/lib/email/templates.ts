@@ -19,10 +19,10 @@ type LeadDigestItem = {
 export function renderWelcomeEmail(firstName: string | null) {
   return emailLayout({
     subject: "Benvenuto in Lead Host",
-    preview: "Il tuo account Property Manager e stato creato.",
+    preview: "Il tuo account Property Manager è stato creato.",
     title: `Benvenuto${firstName ? `, ${firstName}` : ""}.`,
     body:
-      "Il tuo account gratuito Lead Host e pronto. Puoi completare il profilo e accedere al marketplace appena il tuo profilo sara verificato.",
+      "Il tuo account gratuito Lead Host è pronto. Puoi completare il profilo e accedere al marketplace appena il tuo profilo sarà verificato.",
     ctaLabel: "Vai al profilo",
     ctaUrl: `${appUrl}/app/profilo`,
   });
@@ -34,7 +34,7 @@ export function renderPropertyManagerVerifiedEmail(firstName: string | null) {
     preview: "Ora puoi accedere al marketplace e acquistare lead.",
     title: `Profilo verificato${firstName ? `, ${firstName}` : ""}.`,
     body:
-      "Il tuo profilo Property Manager e stato verificato. Da ora puoi consultare il marketplace, filtrare le opportunita e sbloccare i contatti tramite wallet.",
+      "Il tuo profilo Property Manager è stato verificato. Da ora puoi consultare il marketplace, filtrare le opportunità e sbloccare i contatti tramite wallet.",
     ctaLabel: "Apri il marketplace",
     ctaUrl: `${appUrl}/app/marketplace`,
   });
@@ -65,9 +65,9 @@ export function renderLeadPurchaseEmail({
 }) {
   return emailLayout({
     subject: `Lead acquistato: ${leadTitle}`,
-    preview: "Il contatto proprietario e ora disponibile nei tuoi lead.",
+    preview: "Il contatto proprietario è ora disponibile nei tuoi lead.",
     title: "Acquisto lead completato.",
-    body: `Hai acquistato il lead "${leadTitle}" in modalita ${mode === "exclusive" ? "esclusiva" : "condivisa"}. Il contatto e ora disponibile nella sezione I miei lead.`,
+    body: `Hai acquistato il lead "${leadTitle}" in modalità ${mode === "exclusive" ? "esclusiva" : "condivisa"}. Il contatto è ora disponibile nella sezione I miei lead.`,
     extra: `Importo: ${formatCurrencyCents(amountCents)}. Saldo wallet residuo: ${formatCurrencyCents(balanceCents)}.`,
     ctaLabel: "Apri i miei lead",
     ctaUrl: `${appUrl}/app/i-miei-lead`,
@@ -87,7 +87,7 @@ export function renderNewLeadEmail({
 }) {
   return emailLayout({
     subject: `Nuovo lead disponibile: ${leadTitle}`,
-    preview: "Una nuova opportunita e stata pubblicata nel marketplace.",
+    preview: "Una nuova opportunità è stata pubblicata nel marketplace.",
     title: "Nuovo lead disponibile nel marketplace.",
     body: `${leadTitle}${city ? ` - ${city}` : ""}. Puoi consultare i dettagli pubblici e decidere se acquistarlo in condivisione o in esclusiva.`,
     extra: `Prezzo condiviso: ${formatCurrencyCents(sharedPriceCents)}. Prezzo esclusivo: ${formatCurrencyCents(exclusivePriceCents)}.`,
@@ -112,9 +112,9 @@ export function renderLeadDigestEmail(leads: LeadDigestItem[]) {
 
   return emailLayout({
     subject: `${leads.length} nuovi lead disponibili su Lead Host`,
-    preview: "Riepilogo delle nuove opportunita pubblicate nel marketplace.",
+    preview: "Riepilogo delle nuove opportunità pubblicate nel marketplace.",
     title: "Nuovi lead disponibili.",
-    body: "Ecco il riepilogo delle nuove opportunita pubblicate nel marketplace.",
+    body: "Ecco il riepilogo delle nuove opportunità pubblicate nel marketplace.",
     extraHtml: `<ul style="padding-left:20px;line-height:1.7">${listHtml}</ul>`,
     extraText: listText,
     ctaLabel: "Apri marketplace",

@@ -9,6 +9,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createPublicSupabaseClient();
+  const isEmailConfirmed = searchParams.get("confirmed") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -46,6 +47,13 @@ export function LoginForm() {
         setIsSubmitting(false);
         return;
       }
+
+      await fetch("/api/email/welcome", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+      });
     }
 
     const { data: profileData } = await supabase
@@ -71,6 +79,11 @@ export function LoginForm() {
 
   return (
     <form className="mt-7 grid gap-4" onSubmit={handleSubmit}>
+      {isEmailConfirmed ? (
+        <p className="rounded-lg border border-green/20 bg-green/8 px-4 py-3 text-sm font-semibold text-green">
+          Email confermata. Ora puoi accedere al tuo account.
+        </p>
+      ) : null}
       <label className="grid gap-2 text-sm font-semibold text-ink">
         Email
         <input

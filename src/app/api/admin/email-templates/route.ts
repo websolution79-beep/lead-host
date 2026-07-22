@@ -144,6 +144,9 @@ function getSampleVariables(
 
   return {
     ...common,
+    property_hint: "un appartamento a Roma",
+    completion_url: "https://www.leadhost.it/completa-richiesta/token-di-test",
+    expires_at: "05 agosto 2026",
     template_id: templateId,
   };
 }

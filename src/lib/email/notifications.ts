@@ -112,6 +112,38 @@ export async function sendAdminOwnerRequestNotification({
   );
 }
 
+export async function sendOwnerRequestCompletionEmail({
+  ownerRequestId,
+  to,
+  propertyHint,
+  completionUrl,
+  expiresAt,
+}: {
+  ownerRequestId: string;
+  to: string;
+  propertyHint: string;
+  completionUrl: string;
+  expiresAt: string;
+}) {
+  return sendTransactionalEmail({
+    to,
+    ownerRequestId,
+    eventType: "owner.completion_requested",
+    templateVariables: {
+      property_hint: propertyHint,
+      completion_url: completionUrl,
+      expires_at: new Intl.DateTimeFormat("it-IT", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(new Date(expiresAt)),
+    },
+    subject: "",
+    html: "",
+    text: "",
+  });
+}
+
 async function getSuperAdminNotificationEmails() {
   const supabase = createServiceSupabaseClient();
   const { data: roleRows, error: rolesError } = await supabase

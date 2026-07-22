@@ -117,11 +117,20 @@ const initialFormState: FormState = {
 
 type OwnerRequestFormProps = {
   variant?: "page" | "embed";
+  completionToken?: string;
+  initialValues?: Partial<FormState>;
 };
 
-export function OwnerRequestForm({ variant = "page" }: OwnerRequestFormProps) {
+export function OwnerRequestForm({
+  variant = "page",
+  completionToken,
+  initialValues,
+}: OwnerRequestFormProps) {
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState<FormState>(initialFormState);
+  const [form, setForm] = useState<FormState>({
+    ...initialFormState,
+    ...initialValues,
+  });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successReference, setSuccessReference] = useState("");
@@ -206,8 +215,12 @@ export function OwnerRequestForm({ variant = "page" }: OwnerRequestFormProps) {
       url.searchParams.get("utm_medium") ||
       (variant === "embed" ? "iframe" : undefined);
 
-    const response = await fetch("/api/owner-requests", {
-      method: "POST",
+    const response = await fetch(
+      completionToken
+        ? `/api/owner-requests/completion/${encodeURIComponent(completionToken)}`
+        : "/api/owner-requests",
+      {
+        method: completionToken ? "PATCH" : "POST",
       headers: {
         "Content-Type": "application/json",
       },
@@ -226,7 +239,8 @@ export function OwnerRequestForm({ variant = "page" }: OwnerRequestFormProps) {
           utmTerm: url.searchParams.get("utm_term") || undefined,
         },
       }),
-    });
+      },
+    );
 
     const result = (await response.json()) as {
       reference?: string;
@@ -254,8 +268,9 @@ export function OwnerRequestForm({ variant = "page" }: OwnerRequestFormProps) {
           La tua richiesta e stata inviata.
         </h2>
         <p className="mt-4 leading-7 text-muted">
-          La verificheremo prima di pubblicarla nel marketplace. Se approvata,
-          potrai essere contattato da massimo 2 Property Manager interessati.
+          {completionToken
+            ? "Abbiamo ricevuto tutti i dati. La richiesta passa ora alla verifica del team Lead Host."
+            : "La verificheremo prima di pubblicarla nel marketplace. Se approvata, potrai essere contattato da massimo 2 Property Manager interessati."}
         </p>
         <p className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-ink">
           Codice richiesta: {successReference}

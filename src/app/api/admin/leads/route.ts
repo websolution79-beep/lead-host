@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       records,
       stats: {
+        waitingCompletion: records.filter(
+          (item) => item.requestStatus === "waiting_for_completion",
+        ).length,
         pending: records.filter((item) =>
           ["pending", "to_verify"].includes(item.requestStatus),
         ).length,

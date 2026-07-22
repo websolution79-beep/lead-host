@@ -22,6 +22,7 @@ import { formatCents } from "@/lib/config/commercial";
 type AdminLeadsResponse = {
   records: AdminLeadRecord[];
   stats: {
+    waitingCompletion: number;
     pending: number;
     published: number;
     sold: number;
@@ -30,7 +31,14 @@ type AdminLeadsResponse = {
   };
 };
 
-type FilterState = "all" | "pending" | "published" | "sold" | "expired" | "rejected";
+type FilterState =
+  | "all"
+  | "completion"
+  | "pending"
+  | "published"
+  | "sold"
+  | "expired"
+  | "rejected";
 
 type ApprovalPriceDraft = {
   sharedPriceCents: number;
@@ -41,6 +49,7 @@ export function AdminLeadsConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
+    waitingCompletion: 0,
     pending: 0,
     published: 0,
     sold: 0,
@@ -59,6 +68,9 @@ export function AdminLeadsConsole() {
   );
 
   const filteredRecords = records.filter((record) => {
+    if (filter === "completion" && record.requestStatus !== "waiting_for_completion") {
+      return false;
+    }
     if (filter === "pending" && !isPending(record)) return false;
     if (filter === "published" && record.requestStatus !== "published") return false;
     if (filter === "sold" && record.purchases.length === 0) return false;
@@ -122,9 +134,10 @@ export function AdminLeadsConsole() {
       return;
     }
 
-    setRecords(payload.records ?? []);
+      setRecords(payload.records ?? []);
     setStats(
       payload.stats ?? {
+        waitingCompletion: 0,
         pending: 0,
         published: 0,
         sold: 0,
@@ -246,6 +259,12 @@ export function AdminLeadsConsole() {
   return (
     <div className="grid gap-5">
       <div className="admin-kpi-grid">
+        <StatCard
+          icon={Clock3}
+          label="Da completare"
+          value={stats.waitingCompletion}
+          tone="amber"
+        />
         <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="green" />
         <StatCard
           icon={BadgeCheck}
@@ -282,6 +301,7 @@ export function AdminLeadsConsole() {
           <div className="grid gap-3 lg:grid-cols-[auto_280px] lg:items-center">
             <div className="admin-filter-tabs">
               {[
+                ["completion", "Da completare"],
                 ["pending", "Pending"],
                 ["published", "Marketplace"],
                 ["sold", "Venduti"],
@@ -699,6 +719,15 @@ function StatCard({
 }
 
 function StatusBadge({ record }: { record: AdminLeadRecord }) {
+  if (record.requestStatus === "waiting_for_completion") {
+    return (
+      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+        <Clock3 size={14} />
+        Da completare
+      </span>
+    );
+  }
+
   if (isPending(record)) {
     return (
       <span className="inline-flex w-fit items-center gap-1 rounded-full bg-mint px-3 py-1 text-xs font-bold text-green">

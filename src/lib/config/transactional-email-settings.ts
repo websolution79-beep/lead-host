@@ -12,6 +12,7 @@ export const transactionalEmailTemplateIds = [
   "wallet.top_up",
   "lead.new_available",
   "lead.digest",
+  "owner.completion_requested",
 ] as const;
 
 export type TransactionalEmailTemplateId =
@@ -153,6 +154,21 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     ctaLabel: "Apri marketplace",
     ctaUrl: "/app/marketplace",
     variables: ["lead_count", "lead_list_text"],
+  },
+  {
+    id: "owner.completion_requested",
+    label: "Completa richiesta proprietario",
+    description: "Invio al proprietario quando un lead esterno richiede dati mancanti.",
+    enabled: true,
+    subject: "Completa la tua richiesta su Lead Host",
+    preview: "Ci mancano pochi dati per inviare la tua richiesta in verifica.",
+    title: "Ti manca un ultimo passaggio.",
+    body:
+      "Abbiamo ricevuto la tua richiesta per {{property_hint}}. Completa i dati mancanti così il team Lead Host potrà verificarla.",
+    extra: "Il link è personale e scade il {{expires_at}}.",
+    ctaLabel: "Completa richiesta",
+    ctaUrl: "{{completion_url}}",
+    variables: ["property_hint", "completion_url", "expires_at"],
   },
 ];
 

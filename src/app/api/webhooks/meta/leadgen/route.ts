@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { getEnv } from "@/lib/env";
-import { sendAdminOwnerRequestNotification } from "@/lib/email/notifications";
+import { appUrl, getEnv } from "@/lib/env";
+import {
+  sendAdminOwnerRequestNotification,
+  sendOwnerRequestCompletionEmail,
+} from "@/lib/email/notifications";
 import {
   extractLeadgenChanges,
   fetchMetaLead,
@@ -13,6 +16,7 @@ import {
   type MetaWebhookPayload,
   type NormalizedMetaLead,
 } from "@/lib/meta/leadgen";
+import { createOwnerRequestCompletionToken } from "@/lib/owner-requests/completion-token";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -147,12 +151,14 @@ async function processLeadgenChange({
           error_message: null,
         })
         .eq("id", source.id),
-      sendAdminOwnerRequestNotification({
-        ownerRequestId: ownerRequest.id,
-        reference: `LH-${ownerRequest.id.slice(0, 8).toUpperCase()}`,
-        city: normalized.property.city ?? "Da verificare",
-        propertyType: normalized.property.property_type,
-      }),
+      ownerRequest.status === "waiting_for_completion"
+        ? Promise.resolve()
+        : sendAdminOwnerRequestNotification({
+            ownerRequestId: ownerRequest.id,
+            reference: `LH-${ownerRequest.id.slice(0, 8).toUpperCase()}`,
+            city: normalized.property.city ?? "Da verificare",
+            propertyType: normalized.property.property_type,
+          }),
     ]);
 
     return {
@@ -235,15 +241,21 @@ async function createOwnerRequestFromMetaLead({
 }) {
   const supabase = createServiceSupabaseClient();
   const acquiredAt = lead.created_time ?? new Date().toISOString();
+  const completion = buildCompletionTokenIfRequired(normalized);
   const normalizedPayload = toJson({
     meta_lead_id: lead.id,
     property: normalized.property,
     contact: normalized.contact,
     fields: normalized.fields,
+    completion_required: Boolean(completion),
+    missing_fields: completion?.missingFields ?? [],
   });
   const { data: ownerRequest, error: ownerRequestError } =
     await insertPendingOwnerRequest({
       acquisition_channel: "meta_lead_ads",
+      status: completion ? "waiting_for_completion" : "pending",
+      completion_token_hash: completion?.tokenHash ?? null,
+      completion_token_expires_at: completion?.expiresAt ?? null,
       privacy_consent_at: acquiredAt,
       data_sharing_consent_at: acquiredAt,
       normalized_payload: normalizedPayload,
@@ -316,11 +328,24 @@ async function createOwnerRequestFromMetaLead({
     throw insertError;
   }
 
+  if (completion?.token && normalized.contact.email) {
+    await sendOwnerRequestCompletionEmail({
+      ownerRequestId: requestId,
+      to: normalized.contact.email,
+      propertyHint: buildPropertyHint(normalized),
+      completionUrl: `${appUrl}/completa-richiesta/${completion.token}`,
+      expiresAt: completion.expiresAt,
+    });
+  }
+
   return ownerRequest;
 }
 
 async function insertPendingOwnerRequest(row: {
   acquisition_channel: "meta_lead_ads";
+  status: "pending" | "waiting_for_completion";
+  completion_token_hash: string | null;
+  completion_token_expires_at: string | null;
   privacy_consent_at: string;
   data_sharing_consent_at: string;
   normalized_payload: Json;
@@ -331,12 +356,12 @@ async function insertPendingOwnerRequest(row: {
     .from("owner_requests")
     .insert({
       ...row,
-      status: "pending",
     })
-    .select("id,created_at")
+    .select("id,created_at,status")
     .single();
 
   if (
+    row.status !== "pending" ||
     !pendingInsert.error ||
     !pendingInsert.error.message.includes("owner_request_status")
   ) {
@@ -349,8 +374,48 @@ async function insertPendingOwnerRequest(row: {
       ...row,
       status: "to_verify",
     })
-    .select("id,created_at")
+    .select("id,created_at,status")
     .single();
+}
+
+function buildCompletionTokenIfRequired(normalized: NormalizedMetaLead) {
+  const missingFields = getMissingCompletionFields(normalized);
+
+  if (!missingFields.length) return null;
+
+  return {
+    ...createOwnerRequestCompletionToken(),
+    missingFields,
+  };
+}
+
+function getMissingCompletionFields(normalized: NormalizedMetaLead) {
+  const missing: string[] = [];
+
+  if (!normalized.property.region) missing.push("region");
+  if (!normalized.property.province) missing.push("province");
+  if (!normalized.property.city) missing.push("city");
+  if (!normalized.contact.precise_address) missing.push("address");
+  if (!normalized.property.bedrooms && normalized.property.bedrooms !== 0) {
+    missing.push("bedrooms");
+  }
+  if (!normalized.property.bathrooms && normalized.property.bathrooms !== 0) {
+    missing.push("bathrooms");
+  }
+  if (!normalized.property.approximate_area_sqm) missing.push("area_sqm");
+  if (!normalized.contact.first_name) missing.push("first_name");
+  if (!normalized.contact.last_name) missing.push("last_name");
+  if (!normalized.contact.email) missing.push("email");
+  if (!normalized.contact.phone) missing.push("phone");
+
+  return missing;
+}
+
+function buildPropertyHint(normalized: NormalizedMetaLead) {
+  const type = normalized.property.property_type || "il tuo immobile";
+  const place = normalized.property.city || normalized.property.province || normalized.property.region;
+
+  return place ? `${type} a ${place}` : type;
 }
 
 async function fetchFormMappings(formId: string | null): Promise<MetaFieldMapping[]> {

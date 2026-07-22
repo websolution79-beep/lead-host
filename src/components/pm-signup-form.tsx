@@ -34,7 +34,7 @@ export function PmSignupForm() {
       options: {
         emailRedirectTo:
           typeof window !== "undefined"
-            ? `${window.location.origin}/auth/callback?next=${encodeURIComponent("/registrazione-completata?confirmed=1")}`
+            ? `${window.location.origin}/auth/callback`
             : undefined,
         data: {
           first_name: firstName,

@@ -36,17 +36,6 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
   const apiKey = getEnv("RESEND_API_KEY");
   const from = getEnv("TRANSACTIONAL_EMAIL_FROM");
   const template = await resolveTransactionalEmailTemplate(supabase, payload.eventType);
-
-  if (!template.enabled) {
-    await logEmailDelivery({
-      ...payload,
-      status: "skipped",
-      errorMessage: "Template email disattivato da admin.",
-    });
-
-    return { status: "skipped" as const, reason: "disabled" as const };
-  }
-
   const renderedEmail = renderTransactionalEmailTemplate({
     template,
     variables: payload.templateVariables ?? {},
@@ -57,6 +46,16 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
     html: renderedEmail.html,
     text: renderedEmail.text,
   };
+
+  if (!template.enabled) {
+    await logEmailDelivery({
+      ...emailPayload,
+      status: "skipped",
+      errorMessage: "Template email disattivato da admin.",
+    });
+
+    return { status: "skipped" as const, reason: "disabled" as const };
+  }
 
   if (!apiKey || !from) {
     await logEmailDelivery({

@@ -22,19 +22,21 @@ export function renderWelcomeEmail(firstName: string | null) {
     preview: "Il tuo account Property Manager è stato creato.",
     title: `Benvenuto${firstName ? `, ${firstName}` : ""}.`,
     body:
-      "Il tuo account gratuito Lead Host è pronto. Puoi completare il profilo e accedere al marketplace appena il tuo profilo sarà verificato.",
-    ctaLabel: "Vai al profilo",
-    ctaUrl: `${appUrl}/app/profilo`,
+      "Il tuo account gratuito Lead Host è attivo. Puoi accedere subito al marketplace, consultare le opportunità disponibili e sbloccare i contatti usando il credito del wallet.",
+    extra:
+      "I dati di fatturazione ti verranno richiesti solo quando dovrai gestire una ricarica wallet o le relative fatture.",
+    ctaLabel: "Apri il marketplace",
+    ctaUrl: `${appUrl}/app/marketplace`,
   });
 }
 
 export function renderPropertyManagerVerifiedEmail(firstName: string | null) {
   return emailLayout({
     subject: "Profilo verificato su Lead Host",
-    preview: "Ora puoi accedere al marketplace e acquistare lead.",
+    preview: "Il team Lead Host ha verificato il tuo profilo.",
     title: `Profilo verificato${firstName ? `, ${firstName}` : ""}.`,
     body:
-      "Il tuo profilo Property Manager è stato verificato. Da ora puoi consultare il marketplace, filtrare le opportunità e sbloccare i contatti tramite wallet.",
+      "Il tuo profilo Property Manager è stato verificato dal team Lead Host. Puoi continuare a consultare il marketplace e acquistare lead tramite il credito disponibile nel wallet.",
     ctaLabel: "Apri il marketplace",
     ctaUrl: `${appUrl}/app/marketplace`,
   });

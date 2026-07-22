@@ -30,7 +30,7 @@ export default async function RegistrationCompletedPage({
             </h1>
             <p className="mt-4 text-base leading-7 text-muted">
               {isConfirmed
-                ? "Ora puoi accedere alla piattaforma e completare il tuo profilo Property Manager."
+                ? "Ora puoi accedere alla piattaforma, consultare il marketplace e gestire i tuoi lead. I dati di fatturazione serviranno solo per le ricariche wallet e le relative fatture."
                 : "Ti abbiamo inviato un link di conferma. Aprilo per attivare il tuo account gratuito Lead Host."}
             </p>
             {!isConfirmed ? (

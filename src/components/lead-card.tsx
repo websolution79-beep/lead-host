@@ -52,6 +52,7 @@ export function LeadCard({ lead }: LeadCardProps) {
   const sharedPriceCents = lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS;
   const exclusivePriceCents =
     lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS;
+  const matchStyle = getMatchStyle(lead.pmMatch?.score ?? null);
 
   return (
     <article
@@ -75,6 +76,20 @@ export function LeadCard({ lead }: LeadCardProps) {
         <MapPin size={16} />
         <span className="min-w-0 truncate">{lead.address}</span>
       </p>
+
+      {lead.pmMatch ? (
+        <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${matchStyle}`}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="font-bold">{lead.pmMatch.label}</span>
+            <span className="text-xs font-extrabold">
+              {lead.pmMatch.score === null ? "Profilo" : `${lead.pmMatch.score}%`}
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-xs leading-5 opacity-80">
+            {lead.pmMatch.reason}
+          </p>
+        </div>
+      ) : null}
 
       <dl className="mt-5 grid grid-cols-2 gap-3 text-sm text-muted">
         <div className="flex items-center gap-2">
@@ -151,6 +166,14 @@ function ExclusiveSoldBadge() {
       Acquistato in esclusiva
     </span>
   );
+}
+
+function getMatchStyle(score: number | null) {
+  if (score === null) return "border-slate-200 bg-slate-50 text-slate-600";
+  if (score >= 80) return "border-green/20 bg-green/8 text-green";
+  if (score >= 55) return "border-blue-200 bg-blue-50 text-blue-700";
+
+  return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
 function getStatusStyle(status: MarketplaceLead["publicStatus"]) {

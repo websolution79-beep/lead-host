@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
+  BriefcaseBusiness,
   CirclePause,
   Eye,
   Mail,
@@ -72,6 +73,19 @@ type PropertyManagerRecord = {
     invoiceEmail: string | null;
     updatedAt: string;
   } | null;
+  operations: {
+    services: Array<{
+      code: string;
+      label: string;
+      deliveryModel: string;
+    }>;
+    areas: Array<{
+      scope: string;
+      region: string | null;
+      province: string | null;
+      city: string | null;
+    }>;
+  };
   stats: {
     purchasesCount: number;
     exclusivePurchasesCount: number;
@@ -498,6 +512,58 @@ function PropertyManagerDetail({
               </div>
             ) : null}
           </DetailSection>
+
+          <DetailSection icon={BriefcaseBusiness} title="Operatività dichiarata">
+            {record.operations.services.length || record.operations.areas.length ? (
+              <div className="grid gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Servizi
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {record.operations.services.length ? (
+                      record.operations.services.map((service) => (
+                        <span
+                          key={service.code}
+                          className="rounded-full bg-green/10 px-3 py-1 text-xs font-bold text-green"
+                        >
+                          {service.label}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted">Non indicati</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                    Aree operative
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {record.operations.areas.length ? (
+                      record.operations.areas.map((area) => (
+                        <span
+                          key={`${area.scope}-${area.region}-${area.province}-${area.city}`}
+                          className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700"
+                        >
+                          {formatOperationArea(area)}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted">Non indicate</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5">
+                <p className="font-semibold text-ink">Operatività non compilata</p>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Il PM non ha ancora indicato servizi offerti e zone coperte.
+                </p>
+              </div>
+            )}
+          </DetailSection>
         </div>
 
         <div className="grid gap-6">
@@ -678,6 +744,13 @@ function formatNullableDate(value: string | null | undefined) {
 
 function formatNullableNumber(value: number | null | undefined) {
   return typeof value === "number" ? value.toString() : "Non indicato";
+}
+
+function formatOperationArea(area: PropertyManagerRecord["operations"]["areas"][number]) {
+  if (area.scope === "city") return `${area.city}, ${area.province}`;
+  if (area.scope === "province") return `${area.province}, ${area.region}`;
+
+  return area.region ?? "Italia";
 }
 
 function formatAddress(

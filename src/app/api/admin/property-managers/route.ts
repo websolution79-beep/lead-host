@@ -81,6 +81,23 @@ type ReportRow = {
   status: string;
 };
 
+type ServiceRow = {
+  id: string;
+  property_manager_id: string;
+  service_code: string;
+  service_label: string;
+  delivery_model: string;
+  is_active: boolean;
+};
+
+type AreaRow = {
+  property_manager_service_id: string;
+  scope: string;
+  region: string | null;
+  province: string | null;
+  city: string | null;
+};
+
 type AuthMetadata = {
   first_name?: string;
   last_name?: string;
@@ -162,7 +179,11 @@ export async function GET(request: NextRequest) {
       .map((item) => item.id)
       .filter(Boolean);
 
-    const [{ data: purchases, error: purchasesError }, { data: reports, error: reportsError }] =
+    const [
+      { data: purchases, error: purchasesError },
+      { data: reports, error: reportsError },
+      { data: services, error: servicesError },
+    ] =
       await Promise.all([
         pmProfileIds.length
           ? supabase
@@ -176,15 +197,36 @@ export async function GET(request: NextRequest) {
               pmProfileIds,
             )
           : Promise.resolve({ data: [], error: null }),
+        pmProfileIds.length
+          ? supabase
+              .from("property_manager_services")
+              .select("id,property_manager_id,service_code,service_label,delivery_model,is_active")
+              .in("property_manager_id", pmProfileIds)
+              .eq("is_active", true)
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
     if (purchasesError) throw purchasesError;
     if (reportsError) throw reportsError;
+    if (servicesError) throw servicesError;
+
+    const serviceRows = (services ?? []) as ServiceRow[];
+    const serviceIds = serviceRows.map((service) => service.id);
+    const { data: areas, error: areasError } = serviceIds.length
+      ? await supabase
+          .from("property_manager_areas")
+          .select("property_manager_service_id,scope,region,province,city")
+          .in("property_manager_service_id", serviceIds)
+      : { data: [], error: null };
+
+    if (areasError) throw areasError;
 
     const purchasesByPmId = groupRowsByPropertyManagerId(
       (purchases ?? []) as LeadPurchaseRow[],
     );
     const reportsByPmId = groupRowsByPropertyManagerId((reports ?? []) as ReportRow[]);
+    const servicesByPmId = groupRowsByPropertyManagerId(serviceRows);
+    const areasByServiceId = groupRowsByServiceId((areas ?? []) as AreaRow[]);
 
     const propertyManagers = ((profiles ?? []) as ProfileRow[])
       .map((profile) => {
@@ -203,6 +245,7 @@ export async function GET(request: NextRequest) {
           ["paid", "contact_unlocked"].includes(purchase.status),
         );
         const pmReports = pmProfile ? reportsByPmId.get(pmProfile.id) ?? [] : [];
+        const pmServices = pmProfile ? servicesByPmId.get(pmProfile.id) ?? [] : [];
         const openReports = pmReports.filter((report) =>
           ["pending", "reviewing"].includes(report.status),
         );
@@ -250,6 +293,23 @@ export async function GET(request: NextRequest) {
             ),
             primaryCity: primaryCity || null,
             passwordStatus: "Protetta da Supabase Auth, non visualizzabile.",
+          },
+          operations: {
+            services: pmServices.map((service) => ({
+              code: service.service_code,
+              label: service.service_label,
+              deliveryModel: service.delivery_model,
+            })),
+            areas: dedupeAreas(
+              pmServices.flatMap((service) =>
+                (areasByServiceId.get(service.id) ?? []).map((area) => ({
+                  scope: area.scope,
+                  region: area.region,
+                  province: area.province,
+                  city: area.city,
+                })),
+              ),
+            ),
           },
           billingProfile: billingProfile
             ? {
@@ -304,6 +364,36 @@ function groupRowsByPropertyManagerId<T extends { property_manager_id: string }>
 
     return map;
   }, new Map<string, T[]>());
+}
+
+function groupRowsByServiceId<T extends { property_manager_service_id: string }>(rows: T[]) {
+  return rows.reduce((map, row) => {
+    const currentRows = map.get(row.property_manager_service_id) ?? [];
+    currentRows.push(row);
+    map.set(row.property_manager_service_id, currentRows);
+
+    return map;
+  }, new Map<string, T[]>());
+}
+
+function dedupeAreas(
+  areas: Array<{
+    scope: string;
+    region: string | null;
+    province: string | null;
+    city: string | null;
+  }>,
+) {
+  const seen = new Set<string>();
+
+  return areas.filter((area) => {
+    const key = [area.scope, area.region ?? "", area.province ?? "", area.city ?? ""].join("|");
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+
+    return true;
+  });
 }
 
 function isMissingRelationError(error: { code?: string; message?: string }) {

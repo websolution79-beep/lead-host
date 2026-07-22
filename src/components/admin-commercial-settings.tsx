@@ -346,6 +346,7 @@ function GeoRulesSettings({
   const selectedProvince =
     selectedRegion.provinces.find((item) => item.province === province) ??
     selectedRegion.provinces[0];
+  const selectedProvinceCities: readonly string[] = selectedProvince.cities;
   const selectedValue =
     scope === "region" ? region : scope === "province" ? province : city;
 
@@ -356,10 +357,10 @@ function GeoRulesSettings({
   }, [province, selectedRegion]);
 
   useEffect(() => {
-    if (!selectedProvince.cities.includes(city)) {
-      setCity(selectedProvince.cities[0] ?? "");
+    if (!selectedProvinceCities.includes(city)) {
+      setCity(selectedProvinceCities[0] ?? "");
     }
-  }, [city, selectedProvince]);
+  }, [city, selectedProvinceCities]);
 
   function addRule() {
     onUpsertRule({
@@ -443,7 +444,7 @@ function GeoRulesSettings({
                 value={city}
                 onChange={(event) => setCity(event.target.value)}
               >
-                {selectedProvince.cities.map((item) => (
+                {selectedProvinceCities.map((item) => (
                   <option key={item} value={item}>
                     {item}
                   </option>

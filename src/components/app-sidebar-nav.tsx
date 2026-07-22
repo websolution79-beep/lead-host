@@ -9,6 +9,7 @@ import {
   CreditCard,
   Inbox,
   LifeBuoy,
+  Mail,
   Map,
   Megaphone,
   ReceiptText,
@@ -41,6 +42,7 @@ const adminLinks = [
   { label: "Segnalazioni", href: "/admin/segnalazioni", icon: ShieldAlert },
   { label: "Rimborsi", href: "/admin/rimborsi", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { label: "Email", href: "/admin/email-transazionali", icon: Mail },
   { label: "Impostazioni", href: "/admin/impostazioni", icon: Settings },
   { label: "Profilo", href: "/admin/profilo", icon: UserCircle },
 ];

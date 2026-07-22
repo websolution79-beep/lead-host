@@ -1,4 +1,5 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { formatCurrencyCents } from "@/lib/auth/roles";
 import {
   renderAdminOwnerRequestEmail,
   renderLeadDigestEmail,
@@ -40,23 +41,33 @@ type LeadSummary = {
 
 export async function sendWelcomeEmail(profile: ProfileRow) {
   const email = renderWelcomeEmail(profile.first_name);
+  const firstName = profile.first_name?.trim() ?? "";
 
   return sendTransactionalEmail({
     to: profile.email,
     profileId: profile.id,
     eventType: "pm.welcome",
+    templateVariables: {
+      first_name: firstName,
+      first_name_suffix: firstName ? `, ${firstName}` : "",
+    },
     ...email,
   });
 }
 
 export async function sendPropertyManagerVerifiedEmail(profile: ProfileRow, propertyManagerId?: string) {
   const email = renderPropertyManagerVerifiedEmail(profile.first_name);
+  const firstName = profile.first_name?.trim() ?? "";
 
   return sendTransactionalEmail({
     to: profile.email,
     profileId: profile.id,
     propertyManagerId,
     eventType: "pm.verified",
+    templateVariables: {
+      first_name: firstName,
+      first_name_suffix: firstName ? `, ${firstName}` : "",
+    },
     ...email,
   });
 }
@@ -81,6 +92,11 @@ export async function sendAdminOwnerRequestNotification({
         to,
         ownerRequestId,
         eventType: "admin.owner_request_pending",
+        templateVariables: {
+          reference,
+          city,
+          property_type: propertyType,
+        },
         ...email,
       }),
     ),
@@ -145,6 +161,13 @@ export async function sendLeadPurchaseEmail({
     leadPurchaseId,
     leadId,
     eventType: "lead.purchased",
+    templateVariables: {
+      lead_title: leadTitle,
+      purchase_mode: mode,
+      purchase_mode_label: mode === "exclusive" ? "esclusiva" : "condivisa",
+      amount: formatCurrencyCents(amountCents),
+      wallet_balance: formatCurrencyCents(balanceCents),
+    },
     ...email,
   });
 }
@@ -200,6 +223,13 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
           propertyManagerId: pmByProfileId.get(profile.id)?.id ?? null,
           leadId: lead.id,
           eventType: "lead.new_available",
+          templateVariables: {
+            lead_title: lead.title,
+            city: lead.city ?? "",
+            city_suffix: lead.city ? ` - ${lead.city}` : "",
+            shared_price: formatCurrencyCents(lead.shared_price_cents),
+            exclusive_price: formatCurrencyCents(lead.exclusive_price_cents),
+          },
           ...email,
         }),
       ),
@@ -231,6 +261,15 @@ export async function sendLeadDigest({
     propertyManagerId,
     eventType: "lead.digest",
     metadata: { lead_ids: leads.map((lead) => lead.id) },
+    templateVariables: {
+      lead_count: leads.length,
+      lead_list_text: leads
+        .map(
+          (lead) =>
+            `- ${lead.title}${lead.city ? `, ${lead.city}` : ""}: condiviso ${formatCurrencyCents(lead.shared_price_cents)}, esclusivo ${formatCurrencyCents(lead.exclusive_price_cents)}`,
+        )
+        .join("\n"),
+    },
     ...email,
   });
 }

@@ -30,6 +30,7 @@ const adminLinks = [
   { label: "Segnalazioni", href: "/admin/segnalazioni" },
   { label: "Rimborsi", href: "/admin/rimborsi" },
   { label: "Analytics", href: "/admin/analytics" },
+  { label: "Email", href: "/admin/email-transazionali" },
   { label: "Impostazioni", href: "/admin/impostazioni" },
   { label: "Profilo", href: "/admin/profilo" },
 ];

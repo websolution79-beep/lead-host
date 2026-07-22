@@ -1,14 +1,14 @@
 import { getEnv } from "@/lib/env";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import {
+  renderTransactionalEmailTemplate,
+  resolveTransactionalEmailTemplate,
+  type EmailTemplateVariables,
+  type TransactionalEmailTemplateId,
+} from "@/lib/config/transactional-email-settings";
 import type { Json } from "@/lib/supabase/database.types";
 
-export type EmailEventType =
-  | "pm.welcome"
-  | "pm.verified"
-  | "admin.owner_request_pending"
-  | "lead.purchased"
-  | "lead.new_available"
-  | "lead.digest";
+export type EmailEventType = TransactionalEmailTemplateId;
 
 type EmailPayload = {
   to: string;
@@ -22,6 +22,7 @@ type EmailPayload = {
   leadId?: string | null;
   leadPurchaseId?: string | null;
   metadata?: Json;
+  templateVariables?: EmailTemplateVariables;
 };
 
 type ResendResponse = {
@@ -34,10 +35,32 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
   const supabase = createServiceSupabaseClient();
   const apiKey = getEnv("RESEND_API_KEY");
   const from = getEnv("TRANSACTIONAL_EMAIL_FROM");
+  const template = await resolveTransactionalEmailTemplate(supabase, payload.eventType);
+
+  if (!template.enabled) {
+    await logEmailDelivery({
+      ...payload,
+      status: "skipped",
+      errorMessage: "Template email disattivato da admin.",
+    });
+
+    return { status: "skipped" as const, reason: "disabled" as const };
+  }
+
+  const renderedEmail = renderTransactionalEmailTemplate({
+    template,
+    variables: payload.templateVariables ?? {},
+  });
+  const emailPayload = {
+    ...payload,
+    subject: renderedEmail.subject,
+    html: renderedEmail.html,
+    text: renderedEmail.text,
+  };
 
   if (!apiKey || !from) {
     await logEmailDelivery({
-      ...payload,
+      ...emailPayload,
       status: "skipped",
       errorMessage: "RESEND_API_KEY or TRANSACTIONAL_EMAIL_FROM not configured.",
     });
@@ -54,17 +77,17 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
       },
       body: JSON.stringify({
         from,
-        to: [payload.to],
-        subject: payload.subject,
-        html: payload.html,
-        text: payload.text,
+        to: [emailPayload.to],
+        subject: emailPayload.subject,
+        html: emailPayload.html,
+        text: emailPayload.text,
       }),
     });
     const result = (await response.json().catch(() => ({}))) as ResendResponse;
 
     if (!response.ok) {
       await logEmailDelivery({
-        ...payload,
+        ...emailPayload,
         status: "failed",
         errorMessage: result.message ?? result.name ?? "Resend request failed.",
       });
@@ -73,7 +96,7 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
     }
 
     await logEmailDelivery({
-      ...payload,
+      ...emailPayload,
       status: "sent",
       providerMessageId: result.id ?? null,
     });
@@ -81,7 +104,7 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
     return { status: "sent" as const, id: result.id };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown email error.";
-    await logEmailDelivery({ ...payload, status: "failed", errorMessage: message });
+    await logEmailDelivery({ ...emailPayload, status: "failed", errorMessage: message });
 
     return { status: "failed" as const, error: message };
   }

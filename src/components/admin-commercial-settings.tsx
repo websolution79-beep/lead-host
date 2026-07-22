@@ -33,6 +33,7 @@ const emptySettings: CommercialSettings = {
   defaultSharedLeadPriceCents: 2900,
   defaultExclusiveLeadPriceCents: 5000,
   maxSharedBuyers: 2,
+  unavailableVisibilityDays: 7,
   priceRules: [],
 };
 
@@ -290,7 +291,7 @@ function LeadPriceSettings({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+      <div className="mt-6 grid gap-5 lg:grid-cols-4">
         <EuroField
           label="Lead condiviso default"
           valueCents={settings.defaultSharedLeadPriceCents}
@@ -316,11 +317,33 @@ function LeadPriceSettings({
             }
           />
         </label>
+        <label className="grid gap-2 text-sm font-semibold text-ink">
+          Visibilita non disponibili
+          <input
+            className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
+            inputMode="numeric"
+            min={0}
+            max={90}
+            value={settings.unavailableVisibilityDays}
+            onChange={(event) =>
+              onChange({
+                unavailableVisibilityDays: Math.max(
+                  0,
+                  Number.parseInt(event.target.value, 10) || 0,
+                ),
+              })
+            }
+          />
+          <span className="text-xs font-medium leading-5 text-muted">
+            Giorni extra in cui mostrare un lead non piu disponibile.
+          </span>
+        </label>
       </div>
 
       <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-muted">
         In approvazione lead questi prezzi vengono precompilati, ma l'admin puo
-        modificarli sul singolo lead prima della pubblicazione.
+        modificarli sul singolo lead prima della pubblicazione. Ogni lead resta
+        acquistabile per 7 giorni dalla pubblicazione.
       </div>
     </section>
   );

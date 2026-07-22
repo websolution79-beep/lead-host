@@ -21,6 +21,7 @@ export type CommercialSettings = {
   defaultSharedLeadPriceCents: number;
   defaultExclusiveLeadPriceCents: number;
   maxSharedBuyers: number;
+  unavailableVisibilityDays: number;
   priceRules: LeadPriceRule[];
 };
 
@@ -38,6 +39,7 @@ const SETTINGS_KEYS = {
   sharedPriceCents: "lead.shared_price_cents",
   exclusivePriceCents: "lead.exclusive_price_cents",
   maxSharedBuyers: "lead.max_shared_buyers",
+  unavailableVisibilityDays: "lead.unavailable_visibility_days",
   priceRules: "lead.price_rules",
 } as const;
 
@@ -47,6 +49,7 @@ export const defaultCommercialSettings: CommercialSettings = {
   defaultSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
   defaultExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
   maxSharedBuyers: commercialRules.maxSharedBuyers,
+  unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
   priceRules: [],
 };
 
@@ -102,6 +105,10 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
       values.get(SETTINGS_KEYS.maxSharedBuyers),
       defaultCommercialSettings.maxSharedBuyers,
     ),
+    unavailableVisibilityDays: parseNonNegativeInteger(
+      values.get(SETTINGS_KEYS.unavailableVisibilityDays),
+      defaultCommercialSettings.unavailableVisibilityDays,
+    ),
     priceRules: parsePriceRules(values.get(SETTINGS_KEYS.priceRules)),
   };
 
@@ -144,6 +151,11 @@ export async function saveCommercialSettings({
     {
       key: SETTINGS_KEYS.maxSharedBuyers,
       value: settings.maxSharedBuyers,
+      updated_by: profileId,
+    },
+    {
+      key: SETTINGS_KEYS.unavailableVisibilityDays,
+      value: settings.unavailableVisibilityDays,
       updated_by: profileId,
     },
     {
@@ -231,6 +243,12 @@ function parsePositiveInteger(value: Json | undefined, fallback: number) {
   const parsed = parseCents(value, fallback);
 
   return parsed > 0 ? parsed : fallback;
+}
+
+function parseNonNegativeInteger(value: Json | undefined, fallback: number) {
+  const parsed = parseCents(value, fallback);
+
+  return parsed >= 0 ? parsed : fallback;
 }
 
 function parsePriceRules(value: Json | undefined): LeadPriceRule[] {

@@ -35,6 +35,7 @@ export async function getPublishedMarketplaceLeads() {
 
 export async function getPublishedMarketplaceLeadById(id: string) {
   const supabase = createServiceSupabaseClient();
+  const now = new Date().toISOString();
 
   const { data: lead, error } = await supabase
     .from("leads")
@@ -44,7 +45,12 @@ export async function getPublishedMarketplaceLeadById(id: string) {
     .eq("id", id)
     .maybeSingle();
 
-  if (error || !lead || !lead.published_at) {
+  if (
+    error ||
+    !lead ||
+    !lead.published_at ||
+    (lead.visible_until && lead.visible_until < now)
+  ) {
     return null;
   }
 
@@ -122,6 +128,16 @@ function mapDbLeadToMarketplaceLead(
   >,
   contact: OwnerPublicContactRow | null,
 ): MarketplaceLead {
+  const now = new Date();
+  const expiresAt = lead.expires_at ?? lead.visible_until ?? lead.created_at;
+  const isExpired = new Date(expiresAt).getTime() <= now.getTime();
+  const internalStatus =
+    isExpired && ["available", "one_slot_sold"].includes(lead.internal_status)
+      ? "withdrawn_after_7_days"
+      : lead.internal_status;
+  const publicStatus =
+    internalStatus === "withdrawn_after_7_days" ? "unavailable" : lead.public_status;
+
   return {
     id: lead.id,
     title: lead.title,
@@ -140,14 +156,14 @@ function mapDbLeadToMarketplaceLead(
     areaSqm: property.approximate_area_sqm ?? 0,
     timing: property.timing ?? "Da definire",
     services: property.requested_services ?? [],
-    publicStatus: lead.public_status,
-    internalStatus: lead.internal_status,
+    publicStatus,
+    internalStatus,
     sharedSlotsSold: lead.shared_slots_sold,
     sharedPriceCents: lead.shared_price_cents,
     exclusivePriceCents: lead.exclusive_price_cents,
     exclusivePurchaseId: lead.exclusive_purchase_id,
     publishedAt: lead.published_at ?? lead.created_at,
-    expiresAt: lead.expires_at ?? lead.visible_until ?? lead.created_at,
+    expiresAt,
     ownerDescription:
       property.description ??
       "Il proprietario non ha aggiunto una descrizione facoltativa.",

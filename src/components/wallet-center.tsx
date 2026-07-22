@@ -58,6 +58,9 @@ export function WalletCenter() {
     "movements",
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadWallet() {
@@ -119,12 +122,77 @@ export function WalletCenter() {
     loadWallet();
   }, [supabase]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const walletStatus = params.get("wallet");
+
+    if (walletStatus === "success") {
+      setCheckoutMessage(
+        "Pagamento ricevuto. Il saldo si aggiorna appena Stripe conferma il webhook.",
+      );
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    if (walletStatus === "cancelled") {
+      setCheckoutError("Ricarica annullata. Puoi riprovare quando vuoi.");
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
   const currency = wallet?.currency ?? "eur";
   const topUpAmountCents = parseTopUpAmountCents(topUpAmount);
   const canTopUp = topUpAmountCents >= minTopUpCents;
   const leadPurchaseTransactions = transactions.filter(
     (transaction) => transaction.type === "lead_purchase",
   );
+
+  async function createCheckout() {
+    setCheckoutError(null);
+    setCheckoutMessage(null);
+
+    if (!canTopUp) {
+      setCheckoutError(
+        `Inserisci almeno ${formatCurrencyCents(minTopUpCents, currency)}.`,
+      );
+      return;
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (!token) {
+      setCheckoutError("Sessione non disponibile. Accedi di nuovo e riprova.");
+      return;
+    }
+
+    setIsCreatingCheckout(true);
+
+    try {
+      const response = await fetch("/api/purchases/create-checkout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ amountCents: topUpAmountCents }),
+      });
+      const payload = (await response.json()) as {
+        checkoutUrl?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.checkoutUrl) {
+        setCheckoutError(payload.error ?? "Non sono riuscito ad aprire Stripe.");
+        return;
+      }
+
+      window.location.href = payload.checkoutUrl;
+    } catch {
+      setCheckoutError("Non sono riuscito ad aprire Stripe. Riprova tra poco.");
+    } finally {
+      setIsCreatingCheckout(false);
+    }
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
@@ -194,17 +262,32 @@ export function WalletCenter() {
             </p>
           ) : null}
 
+          {checkoutMessage ? (
+            <p className="mt-3 rounded-lg border border-green/20 bg-green/10 px-3 py-2 text-xs font-semibold text-green">
+              {checkoutMessage}
+            </p>
+          ) : null}
+
+          {checkoutError ? (
+            <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              {checkoutError}
+            </p>
+          ) : null}
+
           <button
-            className="btn btn-primary mt-4 w-full opacity-60"
+            className="btn btn-primary mt-4 w-full"
             type="button"
-            disabled
+            disabled={!canTopUp || isCreatingCheckout}
+            onClick={createCheckout}
           >
             <CreditCard size={17} />
-            Ricarica {formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)}
+            {isCreatingCheckout
+              ? "Apro Stripe..."
+              : `Ricarica ${formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)}`}
           </button>
           <p className="mt-3 text-xs leading-5 text-muted">
-            Il checkout Stripe verra attivato nella fase pagamenti. Intanto puoi gia
-            scegliere la somma da ricaricare.
+            Pagamento sicuro con Stripe. Il credito verra aggiunto al wallet dopo
+            conferma server-side del pagamento.
           </p>
         </div>
       </section>

@@ -34,7 +34,7 @@ export function PmSignupForm() {
       options: {
         emailRedirectTo:
           typeof window !== "undefined"
-            ? `${window.location.origin}/login?confirmed=1`
+            ? `${window.location.origin}/auth/callback?next=${encodeURIComponent("/registrazione-completata?confirmed=1")}`
             : undefined,
         data: {
           first_name: firstName,
@@ -118,9 +118,7 @@ export function PmSignupForm() {
       return;
     }
 
-    setMessage(
-      "Account creato. Apri la mail ricevuta, conferma l'indirizzo email e poi accedi.",
-    );
+    router.push("/registrazione-completata?check_email=1");
     setIsSubmitting(false);
   }
 

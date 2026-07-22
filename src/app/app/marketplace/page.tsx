@@ -18,7 +18,7 @@ export default async function MarketplacePage() {
   const leads = realLeads.length > 0 ? realLeads : demoLeads;
 
   return (
-    <AppShell section="pm" eyebrow="Marketplace" title="Opportunita disponibili">
+    <AppShell section="pm" eyebrow="Marketplace" title="Opportunità disponibili">
       <MarketplaceFilters leads={leads} />
     </AppShell>
   );

@@ -50,7 +50,7 @@ export function AppShell({ title, eyebrow, children, section }: AppShellProps) {
         <section className="app-content">
           <div className="premium-header app-mobile-bar items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
             <BrandLogo />
-            <MobileMenu links={links} label="Sezioni" hideAt="lg" />
+            <MobileMenu links={links} label="Menu" hideAt="lg" />
           </div>
           <header className="premium-header border-b border-ink/10">
             <div className="mx-auto max-w-6xl px-5 py-6 sm:px-8">

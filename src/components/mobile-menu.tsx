@@ -40,28 +40,36 @@ export function MobileMenu({
       </button>
 
       {isOpen ? (
-        <div
-          className={`absolute right-0 top-14 z-30 w-[min(82vw,320px)] rounded-lg border p-2 shadow-[0_24px_70px_rgba(20,17,13,0.2)] ${
-            isDark
-              ? "border-cream/12 bg-graphite text-cream"
-              : "border-ink/10 bg-cream text-ink"
-          }`}
-        >
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`block rounded-md px-3 py-3 text-sm font-semibold ${
-                isDark
-                  ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
-                  : "text-muted hover:bg-fog hover:text-ink"
-              }`}
-              onClick={() => setIsOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </div>
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px]"
+            aria-label="Chiudi menu"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            className={`fixed inset-x-4 top-28 z-50 max-h-[calc(100dvh-8rem)] overflow-y-auto rounded-xl border p-2 shadow-[0_24px_70px_rgba(15,23,42,0.22)] ${
+              isDark
+                ? "border-cream/12 bg-graphite text-cream"
+                : "border-slate-200 bg-white text-ink"
+            }`}
+          >
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
+                  isDark
+                    ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
+                    : "text-slate-600 hover:bg-fog hover:text-ink"
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </>
       ) : null}
     </div>
   );

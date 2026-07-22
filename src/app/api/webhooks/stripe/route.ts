@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getEnv } from "@/lib/env";
+import { sendWalletTopUpEmail } from "@/lib/email/notifications";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -44,6 +45,14 @@ type FailTopUpRpcClient = {
   ) => Promise<{ error: { message?: string } | null }>;
 };
 
+type ProfileRow = {
+  id: string;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  status: string;
+};
+
 export async function POST(request: NextRequest) {
   const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
   const webhookSecret = getEnv("STRIPE_WEBHOOK_SECRET");
@@ -77,8 +86,9 @@ export async function POST(request: NextRequest) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const result = await completeWalletTopUp(session, event);
+      const emailResult = "ignored" in result ? null : await notifyWalletTopUp(result);
 
-      return NextResponse.json({ received: true, result });
+      return NextResponse.json({ received: true, result, email: emailResult });
     }
 
     if (
@@ -143,6 +153,27 @@ async function completeWalletTopUp(
   }
 
   return data;
+}
+
+async function notifyWalletTopUp(result: TopUpCompletionResult) {
+  const supabase = createServiceSupabaseClient();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id,email,first_name,last_name,status")
+    .eq("id", result.profile_id)
+    .single();
+
+  if (error || !profile || profile.status !== "active") {
+    console.warn("Wallet top-up email profile not found:", error?.message ?? result.profile_id);
+    return { status: "skipped" as const, reason: "profile_not_found" as const };
+  }
+
+  return sendWalletTopUpEmail({
+    profile: profile as ProfileRow,
+    walletTransactionId: result.wallet_transaction_id,
+    amountCents: result.amount_cents,
+    balanceCents: result.balance_cents,
+  });
 }
 
 async function failWalletTopUp(

@@ -9,6 +9,7 @@ export const transactionalEmailTemplateIds = [
   "pm.verified",
   "admin.owner_request_pending",
   "lead.purchased",
+  "wallet.top_up",
   "lead.new_available",
   "lead.digest",
 ] as const;
@@ -107,6 +108,21 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     ctaLabel: "Apri i miei lead",
     ctaUrl: "/app/i-miei-lead",
     variables: ["lead_title", "purchase_mode_label", "amount", "wallet_balance"],
+  },
+  {
+    id: "wallet.top_up",
+    label: "Ricarica wallet",
+    description: "Invio al PM quando una ricarica wallet viene confermata da Stripe.",
+    enabled: true,
+    subject: "Ricarica wallet completata: {{amount}}",
+    preview: "Il credito e stato aggiunto al tuo wallet Lead Host.",
+    title: "Ricarica wallet completata.",
+    body:
+      "Abbiamo aggiunto {{amount}} al tuo wallet Lead Host. Puoi usare subito il credito per acquistare lead nel marketplace.",
+    extra: "Saldo wallet aggiornato: {{wallet_balance}}.",
+    ctaLabel: "Apri wallet",
+    ctaUrl: "/app/acquisti",
+    variables: ["amount", "wallet_balance"],
   },
   {
     id: "lead.new_available",

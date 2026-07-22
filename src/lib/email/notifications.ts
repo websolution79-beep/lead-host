@@ -181,6 +181,38 @@ export async function sendLeadPurchaseEmail({
   });
 }
 
+export async function sendWalletTopUpEmail({
+  profile,
+  walletTransactionId,
+  amountCents,
+  balanceCents,
+}: {
+  profile: ProfileRow;
+  walletTransactionId: string;
+  amountCents: number;
+  balanceCents: number;
+}) {
+  const alreadySent = await hasSentWalletTopUpEmail(profile.id, walletTransactionId);
+
+  if (alreadySent) {
+    return { status: "skipped" as const, reason: "already_sent" as const };
+  }
+
+  return sendTransactionalEmail({
+    to: profile.email,
+    profileId: profile.id,
+    eventType: "wallet.top_up",
+    metadata: { wallet_transaction_id: walletTransactionId },
+    templateVariables: {
+      amount: formatCurrencyCents(amountCents),
+      wallet_balance: formatCurrencyCents(balanceCents),
+    },
+    subject: "",
+    html: "",
+    text: "",
+  });
+}
+
 export async function notifyImmediateNewLead(lead: LeadSummary) {
   const supabase = createServiceSupabaseClient();
   const emptySummary = {
@@ -346,6 +378,44 @@ async function fetchAlreadySentNewLeadEmails(
   }
 
   return new Set((data ?? []).map((item) => item.recipient_email));
+}
+
+async function hasSentWalletTopUpEmail(profileId: string, walletTransactionId: string) {
+  type EmailLogsQuery = {
+    eq: (column: string, value: string) => EmailLogsQuery;
+    limit: (
+      count: number,
+    ) => Promise<{
+      data: { metadata: unknown }[] | null;
+      error: { message?: string } | null;
+    }>;
+  };
+  const supabase = createServiceSupabaseClient();
+  const logsTable = supabase.from("email_delivery_logs" as never) as unknown as {
+    select: (columns: string) => EmailLogsQuery;
+  };
+  const { data, error } = await logsTable
+    .select("metadata")
+    .eq("profile_id", profileId)
+    .eq("event_type", "wallet.top_up")
+    .eq("status", "sent")
+    .limit(20);
+
+  if (error) {
+    console.warn("Wallet top-up email duplicate check failed:", error.message);
+    return false;
+  }
+
+  return (data ?? []).some((item) => {
+    const metadata = item.metadata;
+
+    return (
+      Boolean(metadata) &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      (metadata as Record<string, unknown>).wallet_transaction_id === walletTransactionId
+    );
+  });
 }
 
 export async function sendLeadDigest({

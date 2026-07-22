@@ -70,6 +70,7 @@ export function AdminLeadsConsole() {
       record.property?.province,
       record.property?.region,
       record.property?.propertyType,
+      record.property?.description,
       record.lead?.title,
     ]
       .filter(Boolean)
@@ -514,15 +515,26 @@ function LeadDetailPanel({
       <section className="mt-5 border-t border-slate-200 pt-5">
         <p className="text-sm font-bold text-ink">Servizi richiesti</p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {(record.property?.requestedServices ?? []).map((service) => (
-            <span
-              key={service}
-              className="rounded-full bg-fog px-3 py-1 text-xs font-semibold text-ink"
-            >
-              {service}
-            </span>
-          ))}
+          {(record.property?.requestedServices ?? []).length > 0 ? (
+            (record.property?.requestedServices ?? []).map((service) => (
+              <span
+                key={service}
+                className="rounded-full bg-fog px-3 py-1 text-xs font-semibold text-ink"
+              >
+                {service}
+              </span>
+            ))
+          ) : (
+            <p className="text-sm text-muted">Nessun servizio selezionato.</p>
+          )}
         </div>
+      </section>
+
+      <section className="mt-5 border-t border-slate-200 pt-5">
+        <p className="text-sm font-bold text-ink">Note facoltative proprietario</p>
+        <p className="mt-2 whitespace-pre-line rounded-xl border border-slate-200 bg-paper p-3 text-sm leading-6 text-muted">
+          {record.property?.description?.trim() || "Nessuna nota facoltativa inserita."}
+        </p>
       </section>
 
       <section className="mt-5 border-t border-slate-200 pt-5">

@@ -12,6 +12,7 @@ import {
   Search,
   ShieldCheck,
   ShoppingBag,
+  TimerOff,
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -24,11 +25,12 @@ type AdminLeadsResponse = {
     pending: number;
     published: number;
     sold: number;
+    expired: number;
     rejected: number;
   };
 };
 
-type FilterState = "all" | "pending" | "published" | "sold" | "rejected";
+type FilterState = "all" | "pending" | "published" | "sold" | "expired" | "rejected";
 
 type ApprovalPriceDraft = {
   sharedPriceCents: number;
@@ -42,6 +44,7 @@ export function AdminLeadsConsole() {
     pending: 0,
     published: 0,
     sold: 0,
+    expired: 0,
     rejected: 0,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -59,6 +62,7 @@ export function AdminLeadsConsole() {
     if (filter === "pending" && !isPending(record)) return false;
     if (filter === "published" && record.requestStatus !== "published") return false;
     if (filter === "sold" && record.purchases.length === 0) return false;
+    if (filter === "expired" && !isExpiredLead(record)) return false;
     if (filter === "rejected" && record.requestStatus !== "not_publishable") return false;
 
     const haystack = [
@@ -124,6 +128,7 @@ export function AdminLeadsConsole() {
         pending: 0,
         published: 0,
         sold: 0,
+        expired: 0,
         rejected: 0,
       },
     );
@@ -254,6 +259,12 @@ export function AdminLeadsConsole() {
           value={stats.sold}
           tone="slate"
         />
+        <StatCard
+          icon={TimerOff}
+          label="Lead scaduti"
+          value={stats.expired}
+          tone="amber"
+        />
         <StatCard icon={XCircle} label="Scartati" value={stats.rejected} tone="red" />
       </div>
 
@@ -274,6 +285,7 @@ export function AdminLeadsConsole() {
                 ["pending", "Pending"],
                 ["published", "Marketplace"],
                 ["sold", "Venduti"],
+                ["expired", "Scaduti"],
                 ["rejected", "Scartati"],
                 ["all", "Tutti"],
               ].map(([value, label]) => (
@@ -663,12 +675,13 @@ function StatCard({
   icon: typeof Clock3;
   label: string;
   value: number;
-  tone: "green" | "blue" | "slate" | "red";
+  tone: "green" | "blue" | "slate" | "amber" | "red";
 }) {
   const tones = {
     green: "bg-mint text-green",
     blue: "bg-blue-100 text-blue-700",
     slate: "bg-slate-100 text-slate-700",
+    amber: "bg-amber-100 text-amber-700",
     red: "bg-red-100 text-red-700",
   };
 
@@ -691,6 +704,15 @@ function StatusBadge({ record }: { record: AdminLeadRecord }) {
       <span className="inline-flex w-fit items-center gap-1 rounded-full bg-mint px-3 py-1 text-xs font-bold text-green">
         <Clock3 size={14} />
         Pending
+      </span>
+    );
+  }
+
+  if (isExpiredLead(record)) {
+    return (
+      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+        <TimerOff size={14} />
+        Scaduto
       </span>
     );
   }
@@ -764,6 +786,17 @@ function parseEuroCents(value: string) {
 
 function isPending(record: AdminLeadRecord) {
   return ["pending", "to_verify"].includes(record.requestStatus);
+}
+
+function isExpiredLead(record: AdminLeadRecord) {
+  const lead = record.lead;
+
+  if (!lead) return false;
+  if (lead.internalStatus === "withdrawn_after_7_days") return true;
+  if (!["available", "one_slot_sold"].includes(lead.internalStatus)) return false;
+  if (!lead.expiresAt) return false;
+
+  return new Date(lead.expiresAt).getTime() <= Date.now();
 }
 
 function formatOwner(record: AdminLeadRecord) {

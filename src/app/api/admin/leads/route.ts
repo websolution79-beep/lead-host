@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
         published: records.filter((item) => item.requestStatus === "published")
           .length,
         sold: records.filter((item) => item.purchases.length > 0).length,
+        expired: records.filter(isExpiredLead).length,
         rejected: records.filter((item) => item.requestStatus === "not_publishable")
           .length,
       },
@@ -23,4 +24,15 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+function isExpiredLead(record: Awaited<ReturnType<typeof fetchAdminLeadRecords>>[number]) {
+  const lead = record.lead;
+
+  if (!lead) return false;
+  if (lead.internalStatus === "withdrawn_after_7_days") return true;
+  if (!["available", "one_slot_sold"].includes(lead.internalStatus)) return false;
+  if (!lead.expiresAt) return false;
+
+  return new Date(lead.expiresAt).getTime() <= Date.now();
 }

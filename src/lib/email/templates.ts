@@ -40,17 +40,6 @@ export function renderPropertyManagerVerifiedEmail(firstName: string | null) {
   });
 }
 
-export function renderOwnerRequestReceivedEmail(reference: string) {
-  return emailLayout({
-    subject: "Richiesta ricevuta su Lead Host",
-    preview: "Abbiamo ricevuto la tua richiesta proprietario.",
-    title: "La tua richiesta e stata inviata.",
-    body:
-      "Grazie. Verificheremo i dati dell'immobile e, se la richiesta sara approvata, potra essere mostrata a un massimo di 2 Consulenti esperti verificati.",
-    extra: `Codice richiesta: ${reference}`,
-  });
-}
-
 export function renderAdminOwnerRequestEmail(reference: string, city: string, propertyType: string) {
   return emailLayout({
     subject: `Nuovo lead proprietario da verificare: ${city}`,

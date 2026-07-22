@@ -5,7 +5,6 @@ import type { Json } from "@/lib/supabase/database.types";
 export type EmailEventType =
   | "pm.welcome"
   | "pm.verified"
-  | "owner.request_received"
   | "admin.owner_request_pending"
   | "lead.purchased"
   | "lead.new_available"

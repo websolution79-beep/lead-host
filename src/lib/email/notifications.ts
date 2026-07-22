@@ -4,7 +4,6 @@ import {
   renderLeadDigestEmail,
   renderLeadPurchaseEmail,
   renderNewLeadEmail,
-  renderOwnerRequestReceivedEmail,
   renderPropertyManagerVerifiedEmail,
   renderWelcomeEmail,
 } from "@/lib/email/templates";
@@ -62,25 +61,6 @@ export async function sendPropertyManagerVerifiedEmail(profile: ProfileRow, prop
   });
 }
 
-export async function sendOwnerRequestReceivedEmail({
-  to,
-  reference,
-  ownerRequestId,
-}: {
-  to: string;
-  reference: string;
-  ownerRequestId: string;
-}) {
-  const email = renderOwnerRequestReceivedEmail(reference);
-
-  return sendTransactionalEmail({
-    to,
-    ownerRequestId,
-    eventType: "owner.request_received",
-    ...email,
-  });
-}
-
 export async function sendAdminOwnerRequestNotification({
   ownerRequestId,
   reference,
@@ -92,7 +72,7 @@ export async function sendAdminOwnerRequestNotification({
   city: string;
   propertyType: string;
 }) {
-  const adminEmails = getAdminNotificationEmails();
+  const adminEmails = await getSuperAdminNotificationEmails();
   const email = renderAdminOwnerRequestEmail(reference, city, propertyType);
 
   await Promise.all(
@@ -105,6 +85,31 @@ export async function sendAdminOwnerRequestNotification({
       }),
     ),
   );
+}
+
+async function getSuperAdminNotificationEmails() {
+  const supabase = createServiceSupabaseClient();
+  const { data: roleRows, error: rolesError } = await supabase
+    .from("user_roles")
+    .select("profile_id")
+    .eq("role", "super_admin");
+
+  if (rolesError || !roleRows?.length) {
+    return getAdminNotificationEmails();
+  }
+
+  const profileIds = Array.from(new Set(roleRows.map((item) => item.profile_id)));
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("email")
+    .in("id", profileIds)
+    .eq("status", "active");
+
+  const superAdminEmails = profilesError
+    ? []
+    : ((profiles ?? []) as { email: string }[]).map((profile) => profile.email);
+
+  return Array.from(new Set([...superAdminEmails, ...getAdminNotificationEmails()]));
 }
 
 export async function sendLeadPurchaseEmail({

@@ -5,7 +5,6 @@ import { ITALY_GEO } from "@/lib/geo/italy-geo";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   sendAdminOwnerRequestNotification,
-  sendOwnerRequestReceivedEmail,
 } from "@/lib/email/notifications";
 
 const ownerRequestSchema = z.object({
@@ -212,19 +211,12 @@ export async function POST(request: Request) {
 
   const reference = `LH-${requestId.slice(0, 8).toUpperCase()}`;
 
-  await Promise.all([
-    sendOwnerRequestReceivedEmail({
-      to: data.email,
-      ownerRequestId: requestId,
-      reference,
-    }),
-    sendAdminOwnerRequestNotification({
-      ownerRequestId: requestId,
-      reference,
-      city: data.city,
-      propertyType: data.propertyType,
-    }),
-  ]);
+  await sendAdminOwnerRequestNotification({
+    ownerRequestId: requestId,
+    reference,
+    city: data.city,
+    propertyType: data.propertyType,
+  });
 
   return NextResponse.json({
     status: "created",

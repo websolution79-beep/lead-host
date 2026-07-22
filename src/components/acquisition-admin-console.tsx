@@ -258,8 +258,9 @@ function MetaTab({
           </h2>
           <p className="mt-3 max-w-3xl leading-7 text-muted">
             Questo endpoint riceve verifica webhook e notifiche leadgen. La GET
-            gestisce la challenge di Meta; la POST e gia riservata agli eventi lead
-            e verra completata con firma, fetch payload e normalizzazione.
+            gestisce la challenge di Meta; la POST valida la firma, salva l'evento
+            raw, recupera il lead dal Graph API e crea una richiesta proprietario
+            in stato pending.
           </p>
         </div>
 
@@ -293,16 +294,16 @@ function MetaTab({
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <InfoTile title="Metodo GET" text="Verifica webhook Meta" />
-            <InfoTile title="Metodo POST" text="Ricezione eventi leadgen" />
+            <InfoTile title="Metodo POST" text="Import leadgen firmato" />
             <InfoTile title="Verify token" text="META_VERIFY_TOKEN" />
-            <InfoTile title="Payload" text="Salvataggio raw + normalizzazione" />
+            <InfoTile title="Output" text="Lead pending in area admin" />
           </div>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <p className="flex items-center gap-2 text-sm font-bold text-ink">
             <Settings2 size={17} className="text-green" />
-            Prossime azioni tecniche
+            Flusso attivo
           </p>
           <div className="mt-4 grid gap-3">
             <ChecklistItem text="Verifica X-Hub-Signature-256 sulla POST." />

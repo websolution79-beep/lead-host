@@ -11,6 +11,7 @@ import {
   parseLeadDate,
   type PurchaseMode,
 } from "@/lib/domain/lead-state";
+import { sendLeadPurchaseEmail } from "@/lib/email/notifications";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
@@ -223,6 +224,23 @@ export async function POST(request: NextRequest) {
       });
 
     if (transactionError) throw transactionError;
+
+    await sendLeadPurchaseEmail({
+      profile: {
+        id: profile.id,
+        email: profile.email,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        status: profile.status,
+      },
+      propertyManagerId: propertyManager.id,
+      leadPurchaseId: purchase.id,
+      leadId: lead.id,
+      leadTitle: lead.title,
+      mode: purchase.mode,
+      amountCents,
+      balanceCents: newBalanceCents,
+    });
 
     return NextResponse.json({
       ok: true,

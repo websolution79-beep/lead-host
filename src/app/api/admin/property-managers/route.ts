@@ -5,6 +5,7 @@ import {
   requireSuperAdmin,
 } from "@/lib/admin/auth";
 import { getManagedPropertiesLabel } from "@/lib/domain/pm-onboarding";
+import { sendPropertyManagerVerifiedEmail } from "@/lib/email/notifications";
 
 const updatePropertyManagerSchema = z.object({
   profileId: z.string().uuid(),
@@ -339,7 +340,7 @@ export async function PATCH(request: NextRequest) {
         [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
         profile.email;
 
-      const { error: pmUpdateError } = await supabase
+      const { data: pmProfile, error: pmUpdateError } = await supabase
         .from("property_manager_profiles")
         .upsert(
           {
@@ -348,9 +349,24 @@ export async function PATCH(request: NextRequest) {
             verification_status: payload.verificationStatus,
           },
           { onConflict: "profile_id" },
-        );
+        )
+        .select("id")
+        .single();
 
       if (pmUpdateError) throw pmUpdateError;
+
+      if (payload.verificationStatus === "verified") {
+        await sendPropertyManagerVerifiedEmail(
+          {
+            id: profile.id,
+            email: profile.email,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            status: payload.profileStatus ?? "active",
+          },
+          pmProfile?.id,
+        );
+      }
     }
 
     return NextResponse.json({ ok: true });

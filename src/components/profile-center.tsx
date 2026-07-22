@@ -1,7 +1,15 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Building2, Camera, KeyRound, ReceiptText, UserCircle, Wallet } from "lucide-react";
+import {
+  BellRing,
+  Building2,
+  Camera,
+  KeyRound,
+  ReceiptText,
+  UserCircle,
+  Wallet,
+} from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 
@@ -43,6 +51,8 @@ type BillingProfile = {
   invoice_email: string | null;
 };
 
+type NewLeadFrequency = "immediate" | "daily" | "every_3_days" | "off";
+
 export function ProfileCenter() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -66,12 +76,15 @@ export function ProfileCenter() {
   const [billingSdiCode, setBillingSdiCode] = useState("");
   const [billingPec, setBillingPec] = useState("");
   const [billingInvoiceEmail, setBillingInvoiceEmail] = useState("");
+  const [newLeadFrequency, setNewLeadFrequency] =
+    useState<NewLeadFrequency>("immediate");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingBilling, setIsSavingBilling] = useState(false);
+  const [isSavingEmailPreferences, setIsSavingEmailPreferences] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -91,6 +104,7 @@ export function ProfileCenter() {
 
       if (!typedProfile) return;
 
+      const accessToken = sessionData.session?.access_token;
       const { data: walletData } = await supabase
         .from("wallets")
         .select("id,balance_cents,currency")
@@ -132,6 +146,23 @@ export function ProfileCenter() {
         setBillingFirstName(typedProfile.first_name ?? "");
         setBillingLastName(typedProfile.last_name ?? "");
         setBillingInvoiceEmail(typedProfile.email);
+      }
+
+      if (accessToken) {
+        const preferencesResponse = await fetch("/api/notification-preferences", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        if (preferencesResponse.ok) {
+          const result = (await preferencesResponse.json()) as {
+            preferences?: {
+              newLeadFrequency?: NewLeadFrequency;
+            };
+          };
+          setNewLeadFrequency(result.preferences?.newLeadFrequency ?? "immediate");
+        }
       }
     }
 
@@ -251,6 +282,40 @@ export function ProfileCenter() {
     }
 
     setStatusMessage("Dati di fatturazione aggiornati.");
+  }
+
+  async function handleEmailPreferencesSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setStatusMessage("");
+    setIsSavingEmailPreferences(true);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (!accessToken) {
+      setIsSavingEmailPreferences(false);
+      setError("Sessione non trovata. Effettua di nuovo il login.");
+      return;
+    }
+
+    const response = await fetch("/api/notification-preferences", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ newLeadFrequency }),
+    });
+
+    setIsSavingEmailPreferences(false);
+
+    if (!response.ok) {
+      setError("Non sono riuscito a salvare le preferenze email.");
+      return;
+    }
+
+    setStatusMessage("Preferenze email aggiornate.");
   }
 
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
@@ -408,6 +473,59 @@ export function ProfileCenter() {
             {isSaving ? "Salvataggio..." : "Salva profilo"}
           </button>
         </form>
+        </section>
+
+        <section className="card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="section-kicker">Email e notifiche</p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">
+                Nuovi lead nel marketplace
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                Scegli quando ricevere le email per i nuovi lead pubblicati.
+                Le email transazionali importanti, come acquisti e sicurezza,
+                restano sempre attive.
+              </p>
+            </div>
+            <span className="flex size-11 items-center justify-center rounded-xl bg-green/10 text-green">
+              <BellRing size={22} />
+            </span>
+          </div>
+
+          <form className="mt-6 grid gap-3" onSubmit={handleEmailPreferencesSubmit}>
+            <EmailFrequencyOption
+              checked={newLeadFrequency === "immediate"}
+              label="Ogni nuovo lead aggiunto"
+              description="Ricevi una mail appena un lead viene pubblicato nel marketplace."
+              onChange={() => setNewLeadFrequency("immediate")}
+            />
+            <EmailFrequencyOption
+              checked={newLeadFrequency === "daily"}
+              label="Riepilogo giornaliero"
+              description="Ricevi una mail al giorno con i nuovi lead pubblicati."
+              onChange={() => setNewLeadFrequency("daily")}
+            />
+            <EmailFrequencyOption
+              checked={newLeadFrequency === "every_3_days"}
+              label="Riepilogo ogni 3 giorni"
+              description="Ricevi un riepilogo meno frequente, utile se non vuoi troppe email."
+              onChange={() => setNewLeadFrequency("every_3_days")}
+            />
+            <EmailFrequencyOption
+              checked={newLeadFrequency === "off"}
+              label="Non ricevere email sui nuovi lead"
+              description="Continuerai comunque a ricevere email transazionali importanti."
+              onChange={() => setNewLeadFrequency("off")}
+            />
+            <button
+              className="btn btn-primary mt-2"
+              disabled={isSavingEmailPreferences}
+              type="submit"
+            >
+              {isSavingEmailPreferences ? "Salvataggio..." : "Salva preferenze email"}
+            </button>
+          </form>
         </section>
 
         <section className="card p-6">
@@ -656,6 +774,38 @@ function TextField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+    </label>
+  );
+}
+
+function EmailFrequencyOption({
+  checked,
+  label,
+  description,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  description: string;
+  onChange: () => void;
+}) {
+  return (
+    <label
+      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+        checked ? "border-green bg-green/8" : "border-slate-200 bg-white"
+      }`}
+    >
+      <input
+        className="mt-1 size-4 accent-green"
+        type="radio"
+        name="newLeadFrequency"
+        checked={checked}
+        onChange={onChange}
+      />
+      <span>
+        <span className="block text-sm font-semibold text-ink">{label}</span>
+        <span className="mt-1 block text-sm leading-6 text-muted">{description}</span>
+      </span>
     </label>
   );
 }

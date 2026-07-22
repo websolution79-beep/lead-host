@@ -3,6 +3,10 @@ import { z } from "zod";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
 import type { Json } from "@/lib/supabase/database.types";
+import {
+  sendAdminOwnerRequestNotification,
+  sendOwnerRequestReceivedEmail,
+} from "@/lib/email/notifications";
 
 const ownerRequestSchema = z.object({
   region: z.string().min(1),
@@ -206,10 +210,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const reference = `LH-${requestId.slice(0, 8).toUpperCase()}`;
+
+  await Promise.all([
+    sendOwnerRequestReceivedEmail({
+      to: data.email,
+      ownerRequestId: requestId,
+      reference,
+    }),
+    sendAdminOwnerRequestNotification({
+      ownerRequestId: requestId,
+      reference,
+      city: data.city,
+      propertyType: data.propertyType,
+    }),
+  ]);
+
   return NextResponse.json({
     status: "created",
     ownerRequestId: requestId,
-    reference: `LH-${requestId.slice(0, 8).toUpperCase()}`,
+    reference,
   });
 }
 

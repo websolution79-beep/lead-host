@@ -5,6 +5,7 @@ import {
   fetchCommercialSettings,
   resolveLeadPricing,
 } from "@/lib/config/commercial-settings";
+import { notifyImmediateNewLead } from "@/lib/email/notifications";
 
 type RouteContext = {
   params: Promise<{
@@ -168,6 +169,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         exclusive_price_cents: exclusivePriceCents,
         pricing_source: suggestedPricing.label,
       },
+    });
+
+    await notifyImmediateNewLead({
+      id: leadId,
+      title: leadTitle,
+      city: property.city,
+      province: property.province,
+      shared_price_cents: sharedPriceCents,
+      exclusive_price_cents: exclusivePriceCents,
     });
 
     return NextResponse.json({ status: "published", lead: publishedLead });

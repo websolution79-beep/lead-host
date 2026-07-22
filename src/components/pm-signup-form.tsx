@@ -102,6 +102,13 @@ export function PmSignupForm() {
         }
       }
 
+      await fetch("/api/email/welcome", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+      });
+
       router.push("/app/profilo");
       router.refresh();
       return;

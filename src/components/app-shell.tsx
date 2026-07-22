@@ -48,7 +48,7 @@ export function AppShell({ title, eyebrow, children, section }: AppShellProps) {
           <AccountSummary />
         </aside>
         <section className="app-content">
-          <div className="premium-header app-mobile-bar items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
+          <div className="premium-header app-mobile-bar relative z-[90] items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
             <BrandLogo />
             <MobileMenu links={links} label="Menu" hideAt="lg" />
           </div>

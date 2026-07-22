@@ -43,12 +43,12 @@ export function MobileMenu({
         <>
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-ink/20 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[80] bg-ink/20 backdrop-blur-[2px]"
             aria-label="Chiudi menu"
             onClick={() => setIsOpen(false)}
           />
           <div
-            className={`fixed inset-x-4 top-28 z-50 max-h-[calc(100dvh-8rem)] overflow-y-auto rounded-xl border p-2 shadow-[0_24px_70px_rgba(15,23,42,0.22)] ${
+            className={`fixed inset-x-4 top-24 z-[100] max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border p-2 shadow-[0_24px_70px_rgba(15,23,42,0.22)] ${
               isDark
                 ? "border-cream/12 bg-graphite text-cream"
                 : "border-slate-200 bg-white text-ink"

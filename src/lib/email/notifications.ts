@@ -27,6 +27,7 @@ type PropertyManagerRow = {
 type EmailPreferenceRow = {
   profile_id: string;
   new_lead_frequency: "immediate" | "daily" | "every_3_days" | "off";
+  transactional_enabled: boolean;
   last_lead_digest_sent_at: string | null;
 };
 
@@ -37,6 +38,14 @@ type LeadSummary = {
   province: string | null;
   shared_price_cents: number;
   exclusive_price_cents: number;
+};
+
+type NewLeadNotificationSummary = {
+  recipients: number;
+  alreadySent: number;
+  sent: number;
+  skipped: number;
+  failed: number;
 };
 
 export async function sendWelcomeEmail(profile: ProfileRow) {
@@ -174,33 +183,43 @@ export async function sendLeadPurchaseEmail({
 
 export async function notifyImmediateNewLead(lead: LeadSummary) {
   const supabase = createServiceSupabaseClient();
+  const emptySummary = {
+    recipients: 0,
+    alreadySent: 0,
+    sent: 0,
+    skipped: 0,
+    failed: 0,
+  } satisfies NewLeadNotificationSummary;
   const { data: propertyManagers, error: pmError } = await supabase
     .from("property_manager_profiles")
     .select("id,profile_id,verification_status")
     .neq("verification_status", "suspended");
 
-  if (pmError || !propertyManagers?.length) return;
+  if (pmError) {
+    console.warn("New lead email recipients not loaded:", pmError.message);
+    return emptySummary;
+  }
+
+  if (!propertyManagers?.length) return emptySummary;
 
   const pmRows = propertyManagers as PropertyManagerRow[];
   const profileIds = Array.from(new Set(pmRows.map((item) => item.profile_id)));
-  const [{ data: profiles }, { data: preferences }] = await Promise.all([
+  const [{ data: profiles, error: profilesError }, preferencesResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("id,email,first_name,last_name,status")
       .in("id", profileIds)
       .eq("status", "active"),
-    (supabase.from("email_preferences" as never) as unknown as {
-      select: (columns: string) => {
-        in: (column: string, values: string[]) => Promise<{ data: EmailPreferenceRow[] | null }>;
-      };
-    })
-      .select("profile_id,new_lead_frequency,last_lead_digest_sent_at")
-      .in("profile_id", profileIds)
-      .catch(() => ({ data: null })),
+    fetchEmailPreferences(supabase, profileIds),
   ]);
 
+  if (profilesError) {
+    console.warn("New lead email profiles not loaded:", profilesError.message);
+    return emptySummary;
+  }
+
   const preferencesByProfileId = new Map(
-    (preferences ?? []).map((item) => [item.profile_id, item]),
+    (preferencesResult.data ?? []).map((item) => [item.profile_id, item]),
   );
   const pmByProfileId = new Map(pmRows.map((item) => [item.profile_id, item]));
   const email = renderNewLeadEmail({
@@ -210,30 +229,123 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
     exclusivePriceCents: lead.exclusive_price_cents,
   });
 
-  await Promise.all(
-    ((profiles ?? []) as ProfileRow[])
-      .filter((profile) => {
-        const preference = preferencesByProfileId.get(profile.id);
-        return (preference?.new_lead_frequency ?? "immediate") === "immediate";
-      })
-      .map((profile) =>
-        sendTransactionalEmail({
-          to: profile.email,
-          profileId: profile.id,
-          propertyManagerId: pmByProfileId.get(profile.id)?.id ?? null,
-          leadId: lead.id,
-          eventType: "lead.new_available",
-          templateVariables: {
-            lead_title: lead.title,
-            city: lead.city ?? "",
-            city_suffix: lead.city ? ` - ${lead.city}` : "",
-            shared_price: formatCurrencyCents(lead.shared_price_cents),
-            exclusive_price: formatCurrencyCents(lead.exclusive_price_cents),
-          },
-          ...email,
-        }),
-      ),
+  const eligibleProfiles = ((profiles ?? []) as ProfileRow[]).filter((profile) => {
+    const preference = preferencesByProfileId.get(profile.id);
+    const transactionalEnabled = preference?.transactional_enabled ?? true;
+
+    return (
+      transactionalEnabled &&
+      (preference?.new_lead_frequency ?? "immediate") === "immediate"
+    );
+  });
+  const alreadySentEmails = await fetchAlreadySentNewLeadEmails(
+    supabase,
+    lead.id,
+    eligibleProfiles.map((profile) => profile.email),
   );
+  const recipients = eligibleProfiles.filter(
+    (profile) => !alreadySentEmails.has(profile.email),
+  );
+  const results = await Promise.all(
+    recipients.map((profile) =>
+      sendTransactionalEmail({
+        to: profile.email,
+        profileId: profile.id,
+        propertyManagerId: pmByProfileId.get(profile.id)?.id ?? null,
+        leadId: lead.id,
+        eventType: "lead.new_available",
+        templateVariables: {
+          lead_title: lead.title,
+          city: lead.city ?? "",
+          city_suffix: lead.city ? ` - ${lead.city}` : "",
+          shared_price: formatCurrencyCents(lead.shared_price_cents),
+          exclusive_price: formatCurrencyCents(lead.exclusive_price_cents),
+        },
+        ...email,
+      }),
+    ),
+  );
+
+  return results.reduce<NewLeadNotificationSummary>(
+    (summary, result) => {
+      if (result.status === "sent") summary.sent += 1;
+      if (result.status === "skipped") summary.skipped += 1;
+      if (result.status === "failed") summary.failed += 1;
+
+      return summary;
+    },
+    {
+      recipients: eligibleProfiles.length,
+      alreadySent: alreadySentEmails.size,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+    },
+  );
+}
+
+async function fetchEmailPreferences(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  profileIds: string[],
+) {
+  const preferencesTable = supabase.from("email_preferences" as never) as unknown as {
+    select: (columns: string) => {
+      in: (
+        column: string,
+        values: string[],
+      ) => Promise<{
+        data: EmailPreferenceRow[] | null;
+        error: { message?: string } | null;
+      }>;
+    };
+  };
+
+  const { data, error } = await preferencesTable
+    .select("profile_id,new_lead_frequency,transactional_enabled,last_lead_digest_sent_at")
+    .in("profile_id", profileIds);
+
+  if (error) {
+    console.warn("New lead email preferences not loaded:", error.message);
+    return { data: null };
+  }
+
+  return { data };
+}
+
+async function fetchAlreadySentNewLeadEmails(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  leadId: string,
+  emails: string[],
+) {
+  if (!emails.length) return new Set<string>();
+
+  type EmailLogsQuery = {
+    eq: (column: string, value: string) => EmailLogsQuery;
+    in: (
+      column: string,
+      values: string[],
+    ) => Promise<{
+      data: { recipient_email: string }[] | null;
+      error: { message?: string } | null;
+    }>;
+  };
+  const logsTable = supabase.from("email_delivery_logs" as never) as unknown as {
+    select: (columns: string) => EmailLogsQuery;
+  };
+
+  const { data, error } = await logsTable
+    .select("recipient_email")
+    .eq("lead_id", leadId)
+    .eq("event_type", "lead.new_available")
+    .eq("status", "sent")
+    .in("recipient_email", emails);
+
+  if (error) {
+    console.warn("New lead email duplicate check failed:", error.message);
+    return new Set<string>();
+  }
+
+  return new Set((data ?? []).map((item) => item.recipient_email));
 }
 
 export async function sendLeadDigest({

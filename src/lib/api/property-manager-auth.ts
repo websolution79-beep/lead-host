@@ -48,21 +48,68 @@ export async function requirePropertyManager(
     throw new PropertyManagerApiError(403, "Profilo Property Manager non attivo.");
   }
 
+  const { data: roleRows, error: rolesError } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("profile_id", profile.id);
+
+  if (
+    rolesError ||
+    !((roleRows ?? []) as { role: string }[]).some(
+      (item) => item.role === "property_manager",
+    )
+  ) {
+    throw new PropertyManagerApiError(403, "Ruolo Property Manager non attivo.");
+  }
+
   const { data: propertyManager, error: pmError } = await supabase
     .from("property_manager_profiles")
     .select("*")
     .eq("profile_id", profile.id)
-    .single();
+    .maybeSingle();
 
-  if (pmError || !propertyManager) {
+  if (pmError) {
     throw new PropertyManagerApiError(403, "Profilo Property Manager non trovato.");
   }
 
-  if (propertyManager.verification_status === "suspended") {
+  const resolvedPropertyManager =
+    propertyManager ?? (await createMissingPropertyManagerProfile(supabase, profile));
+
+  if (!resolvedPropertyManager) {
+    throw new PropertyManagerApiError(403, "Profilo Property Manager non trovato.");
+  }
+
+  if (resolvedPropertyManager.verification_status === "suspended") {
     throw new PropertyManagerApiError(403, "Profilo Property Manager sospeso.");
   }
 
-  return { supabase, profile, propertyManager };
+  return { supabase, profile, propertyManager: resolvedPropertyManager };
+}
+
+async function createMissingPropertyManagerProfile(
+  supabase: ServiceSupabaseClient,
+  profile: Database["public"]["Tables"]["profiles"]["Row"],
+) {
+  const fallbackCompanyName =
+    [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
+    profile.email;
+
+  const { data, error } = await supabase
+    .from("property_manager_profiles")
+    .insert({
+      profile_id: profile.id,
+      company_name: fallbackCompanyName,
+      verification_status: "not_verified",
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Property Manager profile repair failed:", error.message);
+    return null;
+  }
+
+  return data;
 }
 
 export function propertyManagerApiErrorResponse(error: unknown) {

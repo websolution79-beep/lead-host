@@ -7,7 +7,10 @@ type ServiceClient = SupabaseClient<Database>;
 
 type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
 type PropertyRow = Database["public"]["Tables"]["properties"]["Row"];
-type OwnerContactRow = Database["public"]["Tables"]["owner_contacts"]["Row"];
+type OwnerPublicContactRow = Pick<
+  Database["public"]["Tables"]["owner_contacts"]["Row"],
+  "precise_address"
+>;
 
 export async function getPublishedMarketplaceLeads() {
   const supabase = createServiceSupabaseClient();
@@ -67,7 +70,7 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
       .in("id", propertyIds),
     supabase
       .from("owner_contacts")
-      .select("owner_request_id,first_name,last_name,precise_address")
+      .select("owner_request_id,precise_address")
       .in("owner_request_id", ownerRequestIds),
   ]);
 
@@ -117,15 +120,8 @@ function mapDbLeadToMarketplaceLead(
     | "description"
     | "requested_services"
   >,
-  contact: Pick<
-    OwnerContactRow,
-    "first_name" | "last_name" | "precise_address"
-  > | null,
+  contact: OwnerPublicContactRow | null,
 ): MarketplaceLead {
-  const ownerName =
-    `${contact?.first_name ?? ""} ${contact?.last_name ?? ""}`.trim() ||
-    "Proprietario";
-
   return {
     id: lead.id,
     title: lead.title,
@@ -137,7 +133,6 @@ function mapDbLeadToMarketplaceLead(
       contact?.precise_address ?? property.district ?? "",
       property.city,
     ),
-    ownerName,
     propertyType: property.property_type ?? "Immobile",
     bedrooms: property.bedrooms ?? 0,
     bathrooms: property.bathrooms ?? 0,

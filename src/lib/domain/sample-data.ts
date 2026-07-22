@@ -8,7 +8,6 @@ export type MarketplaceLead = {
   city: string;
   district: string;
   address: string;
-  ownerName: string;
   propertyType: string;
   bedrooms: number;
   bathrooms: number;
@@ -36,7 +35,6 @@ export const demoLeads: MarketplaceLead[] = [
     city: "Palermo",
     district: "Centro",
     address: "Via Maqueda 31, Palermo",
-    ownerName: "Giulia Ferrara",
     propertyType: "Appartamento",
     bedrooms: 2,
     bathrooms: 1,
@@ -61,7 +59,6 @@ export const demoLeads: MarketplaceLead[] = [
     city: "Roma",
     district: "Prati",
     address: "Via Cola di Rienzo 122, Roma",
-    ownerName: "Marco De Santis",
     propertyType: "Appartamento",
     bedrooms: 1,
     bathrooms: 1,
@@ -86,7 +83,6 @@ export const demoLeads: MarketplaceLead[] = [
     city: "Bari",
     district: "Murat",
     address: "Via Sparano 48, Bari",
-    ownerName: "Antonio Leone",
     propertyType: "Struttura ricettiva",
     bedrooms: 4,
     bathrooms: 4,
@@ -111,7 +107,6 @@ export const demoLeads: MarketplaceLead[] = [
     city: "Milano",
     district: "Navigli",
     address: "Ripa di Porta Ticinese 43, Milano",
-    ownerName: "Laura Riva",
     propertyType: "Appartamento",
     bedrooms: 1,
     bathrooms: 1,
@@ -136,7 +131,6 @@ export const demoLeads: MarketplaceLead[] = [
     city: "Firenze",
     district: "Oltrarno",
     address: "Via dei Serragli 18, Firenze",
-    ownerName: "Francesca Conti",
     propertyType: "Casa indipendente",
     bedrooms: 3,
     bathrooms: 2,
@@ -161,7 +155,6 @@ export const demoLeads: MarketplaceLead[] = [
     city: "Napoli",
     district: "Chiaia",
     address: "Via Chiaia 91, Napoli",
-    ownerName: "Roberto Esposito",
     propertyType: "Villa",
     bedrooms: 4,
     bathrooms: 3,

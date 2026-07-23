@@ -1,10 +1,8 @@
 import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { ACCESS_TOKEN_COOKIE } from "@/lib/auth/session-cookies";
-import { requireEnv } from "@/lib/env";
+import { verifyAccessToken } from "@/lib/auth/verify-access-token";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import type { Database } from "@/lib/supabase/database.types";
 import type { AppRole } from "@/lib/auth/roles";
 
 export const getServerSessionUser = cache(async function getServerSessionUser() {
@@ -15,27 +13,7 @@ export const getServerSessionUser = cache(async function getServerSessionUser() 
     return null;
   }
 
-  const supabase = createClient<Database>(
-    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(accessToken);
-
-  if (error || !user) {
-    return null;
-  }
-
-  return user;
+  return verifyAccessToken(accessToken);
 });
 
 export const getServerSessionProfile = cache(async function getServerSessionProfile() {

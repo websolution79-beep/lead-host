@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CreditCard,
@@ -87,6 +87,7 @@ export function AdminPaymentsConsole() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const loadedTabs = useRef(new Set<ActiveTab>());
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -94,7 +95,11 @@ export function AdminPaymentsConsole() {
     return data.session?.access_token ?? null;
   }, [supabase]);
 
-  const loadPayments = useCallback(async () => {
+  const loadPayments = useCallback(async (tab: ActiveTab, force = false) => {
+    if (!force && loadedTabs.current.has(tab)) {
+      return;
+    }
+
     const token = await getAccessToken();
 
     setLoading(true);
@@ -106,7 +111,7 @@ export function AdminPaymentsConsole() {
       return;
     }
 
-    const response = await fetch("/api/admin/payments", {
+    const response = await fetch(`/api/admin/payments?tab=${tab}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
@@ -119,15 +124,24 @@ export function AdminPaymentsConsole() {
     }
 
     setStats(payload.stats ?? emptyStats);
-    setPayments(payload.payments ?? []);
-    setWalletTransactions(payload.walletTransactions ?? []);
-    setLeadPurchases(payload.leadPurchases ?? []);
+    if (tab === "payments") {
+      setPayments(payload.payments ?? []);
+    } else if (tab === "wallet") {
+      setWalletTransactions(payload.walletTransactions ?? []);
+    } else {
+      setLeadPurchases(payload.leadPurchases ?? []);
+    }
+    loadedTabs.current.add(tab);
     setLoading(false);
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadPayments();
-  }, [loadPayments]);
+    const timeoutId = window.setTimeout(() => {
+      void loadPayments(activeTab);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeTab, loadPayments]);
 
   const filteredPayments = payments.filter((payment) =>
     matchesQuery(query, [
@@ -180,7 +194,11 @@ export function AdminPaymentsConsole() {
               Pagamenti, wallet e acquisti lead
             </h2>
           </div>
-          <button className="btn btn-secondary" type="button" onClick={loadPayments}>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={() => loadPayments(activeTab, true)}
+          >
             <RefreshCcw size={16} />
             Aggiorna
           </button>

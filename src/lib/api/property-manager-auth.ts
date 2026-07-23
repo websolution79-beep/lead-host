@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
+import { verifyAccessToken } from "@/lib/auth/verify-access-token";
 
 type ServiceSupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 
@@ -29,19 +30,16 @@ export async function requirePropertyManager(
     throw new PropertyManagerApiError(401, "Sessione non trovata. Effettua di nuovo il login.");
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser(token);
+  const identity = await verifyAccessToken(token);
 
-  if (userError || !user) {
+  if (!identity) {
     throw new PropertyManagerApiError(401, "Sessione non valida. Effettua di nuovo il login.");
   }
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", identity.id)
     .single();
 
   if (profileError || !profile || profile.status !== "active") {

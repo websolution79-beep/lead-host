@@ -117,7 +117,11 @@ export function AdminPropertyManagersConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<PropertyManagerRecord[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<PropertyManagerRecord | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [actionProfileId, setActionProfileId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -155,16 +159,40 @@ export function AdminPropertyManagersConsole() {
     }
 
     setRecords(payload.propertyManagers ?? []);
-    setSelectedProfileId((current) => {
-      if (current && payload.propertyManagers?.some(
-        (record: PropertyManagerRecord) => record.profileId === current,
-      )) {
-        return current;
-      }
-
-      return null;
-    });
     setIsLoading(false);
+  }
+
+  async function openPropertyManager(profileId: string) {
+    setSelectedProfileId(profileId);
+    setSelectedRecord(null);
+    setIsDetailLoading(true);
+    setError("");
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      setError("Sessione admin non trovata.");
+      setIsDetailLoading(false);
+      return;
+    }
+
+    const response = await fetch(
+      `/api/admin/property-managers?profileId=${encodeURIComponent(profileId)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+    const payload = await response.json();
+
+    if (!response.ok || !payload.propertyManagers?.[0]) {
+      setError(payload.error ?? "Non riesco a caricare il dettaglio del Property Manager.");
+      setSelectedProfileId(null);
+      setIsDetailLoading(false);
+      return;
+    }
+
+    setSelectedRecord(payload.propertyManagers[0]);
+    setIsDetailLoading(false);
   }
 
   async function updatePropertyManager(
@@ -202,6 +230,9 @@ export function AdminPropertyManagersConsole() {
     }
 
     await loadPropertyManagers();
+    if (selectedProfileId === profileId) {
+      await openPropertyManager(profileId);
+    }
     setActionProfileId(null);
   }
 
@@ -214,10 +245,6 @@ export function AdminPropertyManagersConsole() {
     (record) =>
       record.verificationStatus === "suspended" || record.profileStatus === "suspended",
   ).length;
-  const selectedRecord = selectedProfileId
-    ? records.find((record) => record.profileId === selectedProfileId) ?? null
-    : null;
-
   return (
     <div className="grid gap-6">
       <section className="grid gap-3 lg:grid-cols-4">
@@ -244,12 +271,19 @@ export function AdminPropertyManagersConsole() {
           </p>
         ) : null}
 
-        {selectedRecord ? (
+        {isDetailLoading ? (
+          <div className="flex min-h-[320px] items-center justify-center p-6 text-sm font-semibold text-muted">
+            Carico il dettaglio del Property Manager...
+          </div>
+        ) : selectedRecord ? (
           <div className="p-4 md:p-6">
             <PropertyManagerDetail
               record={selectedRecord}
               isBusy={actionProfileId === selectedRecord.profileId}
-              onClose={() => setSelectedProfileId(null)}
+              onClose={() => {
+                setSelectedProfileId(null);
+                setSelectedRecord(null);
+              }}
               onVerify={() =>
                 updatePropertyManager(selectedRecord.profileId, {
                   verificationStatus: "verified",
@@ -318,7 +352,7 @@ export function AdminPropertyManagersConsole() {
                           : "border-slate-200 bg-white text-slate-700"
                       }`}
                       type="button"
-                      onClick={() => setSelectedProfileId(record.profileId)}
+                      onClick={() => openPropertyManager(record.profileId)}
                     >
                       <Eye size={14} className="inline-block" /> Dettaglio
                     </button>
@@ -435,7 +469,7 @@ export function AdminPropertyManagersConsole() {
                                 : "border-slate-200 bg-white text-slate-700"
                             }`}
                             type="button"
-                            onClick={() => setSelectedProfileId(record.profileId)}
+                            onClick={() => openPropertyManager(record.profileId)}
                           >
                             <Eye size={14} className="inline-block" /> Dettaglio
                           </button>

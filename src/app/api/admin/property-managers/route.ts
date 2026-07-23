@@ -116,6 +116,7 @@ type AuthMetadata = {
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
+    const requestedProfileId = request.nextUrl.searchParams.get("profileId");
 
     const { data: roleRows, error: rolesError } = await supabase
       .from("user_roles")
@@ -124,9 +125,20 @@ export async function GET(request: NextRequest) {
 
     if (rolesError) throw rolesError;
 
-    const profileIds = Array.from(
+    const allProfileIds = Array.from(
       new Set((roleRows ?? []).map((item) => item.profile_id).filter(Boolean)),
     );
+
+    if (requestedProfileId && !allProfileIds.includes(requestedProfileId)) {
+      return NextResponse.json(
+        { error: "Property Manager non trovato." },
+        { status: 404 },
+      );
+    }
+
+    const profileIds = requestedProfileId
+      ? [requestedProfileId]
+      : allProfileIds;
 
     if (profileIds.length === 0) {
       return NextResponse.json({ propertyManagers: [] });
@@ -150,8 +162,12 @@ export async function GET(request: NextRequest) {
         .from("wallets")
         .select("profile_id,balance_cents,currency")
         .in("profile_id", profileIds),
-      supabase.from("billing_profiles").select("*").in("profile_id", profileIds),
-      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      requestedProfileId
+        ? supabase.from("billing_profiles").select("*").in("profile_id", profileIds)
+        : Promise.resolve({ data: [], error: null }),
+      requestedProfileId
+        ? supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        : Promise.resolve({ data: { users: [] }, error: null }),
     ]);
 
     if (profilesError) throw profilesError;
@@ -170,6 +186,47 @@ export async function GET(request: NextRequest) {
     const walletsByProfileId = new Map(
       ((wallets ?? []) as WalletRow[]).map((item) => [item.profile_id, item]),
     );
+
+    if (!requestedProfileId) {
+      const propertyManagers = ((profiles ?? []) as ProfileRow[])
+        .map((profile) => {
+          const pmProfile = pmProfilesByProfileId.get(profile.id);
+          const wallet = walletsByProfileId.get(profile.id);
+          const managedPropertiesRange =
+            pmProfile?.managed_properties_range ?? null;
+
+          return {
+            profileId: profile.id,
+            email: profile.email,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            phone: profile.phone,
+            avatarUrl: profile.avatar_url,
+            profileStatus: profile.status,
+            verificationStatus:
+              pmProfile?.verification_status ?? "not_verified",
+            managedPropertiesRange,
+            managedPropertiesLabel: getManagedPropertiesLabel(
+              managedPropertiesRange,
+              pmProfile?.managed_properties_count,
+            ),
+            primaryCity: pmProfile?.primary_city || "Non indicata",
+            walletBalanceCents: wallet?.balance_cents ?? 0,
+            walletCurrency: wallet?.currency ?? "eur",
+            createdAt: profile.created_at,
+          };
+        })
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+
+      return NextResponse.json(
+        { propertyManagers },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
+          },
+        },
+      );
+    }
     const billingByProfileId = new Map(
       ((billingProfilesError ? [] : billingProfiles ?? []) as BillingProfileRow[]).map(
         (item) => [item.profile_id, item],

@@ -41,6 +41,12 @@ type LeadPurchaseRow = {
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
+    const requestedTab = request.nextUrl.searchParams.get("tab");
+    const activeTab = ["payments", "wallet", "lead_purchases"].includes(
+      requestedTab ?? "",
+    )
+      ? requestedTab
+      : "payments";
     const paymentsTable = supabase.from("payments" as never) as unknown as {
       select: (columns: string) => {
         order: (
@@ -86,11 +92,19 @@ export async function GET(request: NextRequest) {
 
     const walletTransactions = (walletTransactionsResult.data ?? []) as WalletTransactionRow[];
     const leadPurchases = (leadPurchasesResult.data ?? []) as LeadPurchaseRow[];
-    const profileIds = Array.from(new Set(walletTransactions.map((item) => item.profile_id)));
-    const propertyManagerIds = Array.from(
-      new Set(leadPurchases.map((item) => item.property_manager_id)),
+    const visibleWalletTransactions =
+      activeTab === "lead_purchases" ? [] : walletTransactions;
+    const visibleLeadPurchases =
+      activeTab === "lead_purchases" ? leadPurchases : [];
+    const profileIds = Array.from(
+      new Set(visibleWalletTransactions.map((item) => item.profile_id)),
     );
-    const leadIds = Array.from(new Set(leadPurchases.map((item) => item.lead_id)));
+    const propertyManagerIds = Array.from(
+      new Set(visibleLeadPurchases.map((item) => item.property_manager_id)),
+    );
+    const leadIds = Array.from(
+      new Set(visibleLeadPurchases.map((item) => item.lead_id)),
+    );
 
     const [
       profilesResult,
@@ -161,7 +175,7 @@ export async function GET(request: NextRequest) {
           (item) => item.type === "top_up" && item.status === "pending",
         ).length,
       },
-      payments: (paymentsResult.data ?? []).map((payment) => {
+      payments: (activeTab === "payments" ? paymentsResult.data ?? [] : []).map((payment) => {
         const walletTransaction = payment.provider_checkout_session_id
           ? walletTransactionByCheckoutSessionId.get(payment.provider_checkout_session_id)
           : null;
@@ -186,7 +200,7 @@ export async function GET(request: NextRequest) {
           confirmedAt: payment.confirmed_at,
         };
       }),
-      walletTransactions: walletTransactions.map((transaction) => {
+      walletTransactions: (activeTab === "wallet" ? walletTransactions : []).map((transaction) => {
         const profile = profilesById.get(transaction.profile_id);
 
         return {
@@ -208,7 +222,7 @@ export async function GET(request: NextRequest) {
           completedAt: transaction.completed_at,
         };
       }),
-      leadPurchases: leadPurchases.map((purchase) => {
+      leadPurchases: visibleLeadPurchases.map((purchase) => {
         const manager = managersById.get(purchase.property_manager_id);
         const profile = manager ? pmProfilesById.get(manager.profile_id) : null;
 
@@ -227,6 +241,10 @@ export async function GET(request: NextRequest) {
           createdAt: purchase.created_at,
         };
       }),
+    }, {
+      headers: {
+        "Cache-Control": "private, max-age=10, stale-while-revalidate=30",
+      },
     });
   } catch (error) {
     return adminApiErrorResponse(error);

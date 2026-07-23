@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -8,9 +7,8 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth/session-cookies";
 import type { AppRole } from "@/lib/auth/roles";
-import { requireEnv } from "@/lib/env";
+import { verifyAccessToken } from "@/lib/auth/verify-access-token";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import type { Database } from "@/lib/supabase/database.types";
 
 type SessionPayload = {
   accessToken?: string;
@@ -25,23 +23,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sessione non valida." }, { status: 400 });
   }
 
-  const supabase = createClient<Database>(
-    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    },
-  );
+  const identity = await verifyAccessToken(payload.accessToken);
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(payload.accessToken);
-
-  if (error || !user) {
+  if (!identity) {
     return NextResponse.json({ error: "Sessione non valida." }, { status: 401 });
   }
 
@@ -49,7 +33,7 @@ export async function POST(request: NextRequest) {
   const { data: profile, error: profileError } = await serviceSupabase
     .from("profiles")
     .select("id,status")
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", identity.id)
     .single();
 
   if (profileError || !profile || profile.status !== "active") {

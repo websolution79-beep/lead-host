@@ -19,11 +19,12 @@ create index if not exists payments_created_idx
 create index if not exists payments_status_created_idx
   on payments (status, created_at desc);
 
-create index if not exists leads_status_published_idx
-  on leads (status, published_at desc);
+create index if not exists leads_published_visible_idx
+  on leads (published_at desc, visible_until)
+  where published_at is not null;
 
-create index if not exists leads_status_expires_idx
-  on leads (status, expires_at)
+create index if not exists leads_internal_expires_idx
+  on leads (internal_status, expires_at)
   where expires_at is not null;
 
 create index if not exists property_manager_profiles_verification_created_idx

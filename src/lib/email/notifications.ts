@@ -9,6 +9,12 @@ import {
   renderWelcomeEmail,
 } from "@/lib/email/templates";
 import { getAdminNotificationEmails, sendTransactionalEmail } from "@/lib/email/service";
+import {
+  createLeadPurchaseInternalNotification,
+  createNewLeadInternalNotifications,
+  createPropertyManagerVerifiedInternalNotification,
+  createWalletTopUpInternalNotification,
+} from "@/lib/notifications/internal";
 
 type ProfileRow = {
   id: string;
@@ -67,6 +73,11 @@ export async function sendWelcomeEmail(profile: ProfileRow) {
 export async function sendPropertyManagerVerifiedEmail(profile: ProfileRow, propertyManagerId?: string) {
   const email = renderPropertyManagerVerifiedEmail(profile.first_name);
   const firstName = profile.first_name?.trim() ?? "";
+
+  await createPropertyManagerVerifiedInternalNotification({
+    profileId: profile.id,
+    propertyManagerId,
+  });
 
   return sendTransactionalEmail({
     to: profile.email,
@@ -194,6 +205,20 @@ export async function sendLeadPurchaseEmail({
     amountCents,
     balanceCents,
   });
+  const amount = formatCurrencyCents(amountCents);
+  const balance = formatCurrencyCents(balanceCents);
+  const purchaseModeLabel = mode === "exclusive" ? "esclusiva" : "condivisa";
+
+  await createLeadPurchaseInternalNotification({
+    profileId: profile.id,
+    propertyManagerId,
+    leadPurchaseId,
+    leadId,
+    leadTitle,
+    modeLabel: purchaseModeLabel,
+    amount,
+    balance,
+  });
 
   return sendTransactionalEmail({
     to: profile.email,
@@ -205,9 +230,9 @@ export async function sendLeadPurchaseEmail({
     templateVariables: {
       lead_title: leadTitle,
       purchase_mode: mode,
-      purchase_mode_label: mode === "exclusive" ? "esclusiva" : "condivisa",
-      amount: formatCurrencyCents(amountCents),
-      wallet_balance: formatCurrencyCents(balanceCents),
+      purchase_mode_label: purchaseModeLabel,
+      amount,
+      wallet_balance: balance,
     },
     ...email,
   });
@@ -229,6 +254,15 @@ export async function sendWalletTopUpEmail({
   if (alreadySent) {
     return { status: "skipped" as const, reason: "already_sent" as const };
   }
+  const amount = formatCurrencyCents(amountCents);
+  const balance = formatCurrencyCents(balanceCents);
+
+  await createWalletTopUpInternalNotification({
+    profileId: profile.id,
+    walletTransactionId,
+    amount,
+    balance,
+  });
 
   return sendTransactionalEmail({
     to: profile.email,
@@ -236,8 +270,8 @@ export async function sendWalletTopUpEmail({
     eventType: "wallet.top_up",
     metadata: { wallet_transaction_id: walletTransactionId },
     templateVariables: {
-      amount: formatCurrencyCents(amountCents),
-      wallet_balance: formatCurrencyCents(balanceCents),
+      amount,
+      wallet_balance: balance,
     },
     subject: "",
     html: "",
@@ -247,6 +281,14 @@ export async function sendWalletTopUpEmail({
 
 export async function notifyImmediateNewLead(lead: LeadSummary) {
   const supabase = createServiceSupabaseClient();
+  await createNewLeadInternalNotifications({
+    leadId: lead.id,
+    title: lead.title,
+    city: lead.city,
+    province: lead.province,
+    sharedPrice: formatCurrencyCents(lead.shared_price_cents),
+    exclusivePrice: formatCurrencyCents(lead.exclusive_price_cents),
+  });
   const emptySummary = {
     recipients: 0,
     alreadySent: 0,

@@ -4,6 +4,7 @@ import {
   propertyManagerApiErrorResponse,
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
+import { createSupportReportInternalNotification } from "@/lib/notifications/internal";
 import { reportReasonOptions } from "@/lib/support/reports";
 
 const reportSchema = z.object({
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, propertyManager } = await requirePropertyManager(request);
+    const { supabase, profile, propertyManager } = await requirePropertyManager(request);
     const payload = reportSchema.parse(await request.json());
 
     const { data: purchase, error: purchaseError } = await supabase
@@ -119,6 +120,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (reportError) throw reportError;
+
+    const leadTitlesById = await fetchLeadTitles(supabase, [purchase.lead_id]);
+
+    await createSupportReportInternalNotification({
+      profileId: profile.id,
+      propertyManagerId: propertyManager.id,
+      reportId: report.id,
+      leadTitle: leadTitlesById.get(purchase.lead_id) ?? "Lead acquistato",
+    });
 
     return NextResponse.json({ ok: true, report });
   } catch (error) {

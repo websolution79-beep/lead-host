@@ -32,6 +32,15 @@ type ReportRow = {
   reviewed_at: string | null;
 };
 
+type SupportMessageRow = {
+  id: string;
+  report_id: string;
+  sender_type: "pm" | "admin";
+  sender_profile_id: string;
+  body: string;
+  created_at: string;
+};
+
 type PurchaseRow = {
   id: string;
   lead_id: string;
@@ -55,6 +64,24 @@ export async function GET(request: NextRequest) {
     if (reportsError) throw reportsError;
 
     const reportRows = (reports ?? []) as ReportRow[];
+    const reportIds = reportRows.map((report) => report.id);
+    const { data: messages, error: messagesError } = reportIds.length
+      ? await supabase
+          .from("support_messages")
+          .select("id,report_id,sender_type,sender_profile_id,body,created_at")
+          .in("report_id", reportIds)
+          .order("created_at", { ascending: true })
+      : { data: [], error: null };
+
+    if (messagesError) throw messagesError;
+
+    const messagesByReportId = new Map<string, SupportMessageRow[]>();
+    for (const message of (messages ?? []) as SupportMessageRow[]) {
+      const current = messagesByReportId.get(message.report_id) ?? [];
+      current.push(message);
+      messagesByReportId.set(message.report_id, current);
+    }
+
     const purchaseIds = Array.from(
       new Set(reportRows.map((item) => item.lead_purchase_id)),
     ).filter((id): id is string => Boolean(id));
@@ -125,6 +152,12 @@ export async function GET(request: NextRequest) {
           details: report.details,
           adminReply: report.admin_reply,
           repliedAt: report.replied_at,
+          messages: (messagesByReportId.get(report.id) ?? []).map((message) => ({
+            id: message.id,
+            senderType: message.sender_type,
+            body: message.body,
+            createdAt: message.created_at,
+          })),
           status: report.status,
           createdAt: report.created_at,
           reviewedAt: report.reviewed_at,
@@ -188,6 +221,17 @@ export async function PATCH(request: NextRequest) {
     if (error) throw error;
 
     if (payload.reply) {
+      const { error: messageError } = await supabase
+        .from("support_messages")
+        .insert({
+          report_id: report.id,
+          sender_type: "admin",
+          sender_profile_id: profile.id,
+          body: payload.reply,
+        });
+
+      if (messageError) throw messageError;
+
       const { data: manager, error: managerError } = await supabase
         .from("property_manager_profiles")
         .select("id,profile_id")

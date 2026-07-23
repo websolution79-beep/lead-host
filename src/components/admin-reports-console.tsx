@@ -28,6 +28,7 @@ type AdminReport = {
   details: string | null;
   adminReply: string | null;
   repliedAt: string | null;
+  messages: SupportMessage[];
   status: ReportStatus;
   createdAt: string;
   reviewedAt: string | null;
@@ -36,6 +37,13 @@ type AdminReport = {
   purchaseAmountCents: number | null;
   propertyManagerName: string;
   propertyManagerEmail: string | null;
+};
+
+type SupportMessage = {
+  id: string;
+  senderType: "pm" | "admin";
+  body: string;
+  createdAt: string;
 };
 
 type AdminReportsResponse = {
@@ -438,17 +446,31 @@ function SupportRequestDetailPanel({
             {report.details ?? "Nessun testo inserito."}
           </p>
         </div>
-        {report.adminReply ? (
+        {report.messages.length > 0 ? (
           <div className="rounded-lg border border-green/20 bg-green/5 p-4">
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-green">
-              Risposta inviata
+              Conversazione
             </p>
-            <p className="mt-2 whitespace-pre-wrap leading-7 text-ink">
-              {report.adminReply}
-            </p>
-            {report.repliedAt ? (
-              <p className="mt-2 text-xs text-muted">{formatDateTime(report.repliedAt)}</p>
-            ) : null}
+            <div className="mt-3 grid gap-3">
+              {report.messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`rounded-lg border p-3 ${
+                    message.senderType === "admin"
+                      ? "border-green/20 bg-white"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <div className="flex flex-wrap justify-between gap-2 text-xs font-bold text-muted">
+                    <span>{message.senderType === "admin" ? "Admin" : "Property Manager"}</span>
+                    <span>{formatDateTime(message.createdAt)}</span>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap leading-7 text-ink">
+                    {message.body}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

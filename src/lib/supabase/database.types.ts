@@ -518,6 +518,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      support_messages: {
+        Row: {
+          id: string;
+          report_id: string;
+          sender_type: "pm" | "admin";
+          sender_profile_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          report_id: string;
+          sender_type: "pm" | "admin";
+          sender_profile_id: string;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          report_id?: string;
+          sender_type?: "pm" | "admin";
+          sender_profile_id?: string;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       settings: {
         Row: {
           key: string;

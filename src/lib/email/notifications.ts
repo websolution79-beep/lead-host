@@ -161,6 +161,44 @@ export async function sendSupportRequestAdminNotification({
   );
 }
 
+export async function sendSupportMessageAdminNotification({
+  reportId,
+  propertyManagerName,
+  propertyManagerEmail,
+  requestSubject,
+  reply,
+  leadContext,
+}: {
+  reportId: string;
+  propertyManagerName: string;
+  propertyManagerEmail: string;
+  requestSubject: string;
+  reply: string;
+  leadContext: string;
+}) {
+  const adminEmails = await getSuperAdminNotificationEmails();
+
+  return Promise.all(
+    adminEmails.map((to) =>
+      sendTransactionalEmail({
+        to,
+        eventType: "admin.support_request_reply",
+        metadata: { support_report_id: reportId },
+        templateVariables: {
+          property_manager_name: propertyManagerName,
+          property_manager_email: propertyManagerEmail,
+          request_subject: requestSubject,
+          reply,
+          lead_context: leadContext,
+        },
+        subject: "",
+        html: "",
+        text: "",
+      }),
+    ),
+  );
+}
+
 export async function sendSupportReplyEmail({
   profile,
   reportId,

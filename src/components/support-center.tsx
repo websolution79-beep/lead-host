@@ -38,6 +38,14 @@ type SupportReport = {
   status: "pending" | "reviewing" | "resolved" | "rejected";
   createdAt: string;
   reviewedAt: string | null;
+  messages: SupportMessage[];
+};
+
+type SupportMessage = {
+  id: string;
+  senderType: "pm" | "admin";
+  body: string;
+  createdAt: string;
 };
 
 type SupportResponse = {
@@ -55,6 +63,8 @@ export function SupportCenter() {
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replySending, setReplySending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -149,6 +159,46 @@ export function SupportCenter() {
     setSuccess("Richiesta inviata. Il team la prenderà in carico.");
     await loadSupportData();
     setSubmitting(false);
+  }
+
+  async function submitReply(reportId: string) {
+    const body = replyDrafts[reportId]?.trim() ?? "";
+
+    if (body.length < 1) {
+      setError("Scrivi un messaggio prima di inviarlo.");
+      return;
+    }
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      setError("Sessione non disponibile. Effettua di nuovo il login.");
+      return;
+    }
+
+    setReplySending(reportId);
+    setError(null);
+    setSuccess(null);
+
+    const response = await fetch(`/api/support/reports/${reportId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ body }),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setError(payload.error ?? "Non sono riuscito a inviare il messaggio.");
+    } else {
+      setReplyDrafts((current) => ({ ...current, [reportId]: "" }));
+      setSuccess("Messaggio inviato al team di assistenza.");
+      await loadSupportData();
+    }
+
+    setReplySending(null);
   }
 
   return (
@@ -298,7 +348,32 @@ export function SupportCenter() {
                     {report.details}
                   </p>
                 ) : null}
-                {report.adminReply ? (
+                {report.messages.length > 0 ? (
+                  <div className="mt-3 grid gap-2">
+                    {report.messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`rounded-lg border p-3 ${
+                          message.senderType === "admin"
+                            ? "border-green/20 bg-green/5"
+                            : "border-slate-200 bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex flex-wrap justify-between gap-2 text-xs font-bold text-muted">
+                          <span>
+                            {message.senderType === "admin"
+                              ? "Risposta del team"
+                              : "La tua risposta"}
+                          </span>
+                          <span>{formatDateTime(message.createdAt)}</span>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">
+                          {message.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : report.adminReply ? (
                   <div className="mt-3 rounded-lg border border-green/20 bg-green/5 p-3">
                     <p className="text-xs font-bold uppercase tracking-[0.12em] text-green">
                       Risposta del team
@@ -308,6 +383,29 @@ export function SupportCenter() {
                     </p>
                   </div>
                 ) : null}
+                <div className="mt-4 grid gap-2">
+                  <textarea
+                    className="min-h-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm leading-6 outline-none transition focus:border-green"
+                    maxLength={2000}
+                    placeholder="Rispondi al team di assistenza..."
+                    value={replyDrafts[report.id] ?? ""}
+                    onChange={(event) =>
+                      setReplyDrafts((current) => ({
+                        ...current,
+                        [report.id]: event.target.value,
+                      }))
+                    }
+                  />
+                  <button
+                    className="btn btn-secondary justify-center sm:w-fit"
+                    type="button"
+                    disabled={replySending === report.id}
+                    onClick={() => void submitReply(report.id)}
+                  >
+                    <Send size={16} />
+                    {replySending === report.id ? "Invio in corso..." : "Rispondi al team"}
+                  </button>
+                </div>
               </article>
             ))
           )}

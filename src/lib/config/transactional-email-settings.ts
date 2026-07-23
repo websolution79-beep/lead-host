@@ -14,6 +14,7 @@ export const transactionalEmailTemplateIds = [
   "lead.digest",
   "owner.completion_requested",
   "admin.support_request_pending",
+  "admin.support_request_reply",
   "support.reply",
 ] as const;
 
@@ -206,6 +207,27 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     ctaLabel: "Apri assistenza",
     ctaUrl: "/app/assistenza",
     variables: ["request_subject", "reply", "lead_context"],
+  },
+  {
+    id: "admin.support_request_reply",
+    label: "Risposta PM all'assistenza",
+    description: "Invio ai Super Admin quando un PM risponde a una richiesta esistente.",
+    enabled: true,
+    subject: "Nuova risposta alla richiesta di {{property_manager_name}}",
+    preview: "Un Property Manager ha aggiunto un messaggio alla richiesta.",
+    title: "Nuova risposta all'assistenza.",
+    body:
+      "{{property_manager_name}} ha risposto alla richiesta: {{request_subject}}. {{lead_context}}",
+    extra: "{{reply}}",
+    ctaLabel: "Apri conversazione",
+    ctaUrl: "/admin/segnalazioni",
+    variables: [
+      "property_manager_name",
+      "property_manager_email",
+      "request_subject",
+      "reply",
+      "lead_context",
+    ],
   },
 ];
 

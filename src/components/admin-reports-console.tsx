@@ -51,7 +51,22 @@ type AdminReportsResponse = {
   error?: string;
 };
 
-type FilterState = "all" | ReportStatus;
+type FilterState =
+  | "all"
+  | "new"
+  | "waiting_admin"
+  | "waiting_pm"
+  | ReportStatus;
+
+const filterOptions: Array<{ value: FilterState; label: string }> = [
+  { value: "all", label: "Tutte" },
+  { value: "new", label: "Nuove richieste" },
+  { value: "waiting_admin", label: "In attesa di risposta" },
+  { value: "waiting_pm", label: "In attesa del PM" },
+  { value: "reviewing", label: "In lavorazione" },
+  { value: "resolved", label: "Risolte" },
+  { value: "rejected", label: "Non accolte" },
+];
 
 export function AdminReportsConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
@@ -68,7 +83,16 @@ export function AdminReportsConsole() {
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
 
   const filteredReports = reports.filter((report) => {
-    if (filter !== "all" && report.status !== filter) return false;
+    const operationalState = getOperationalState(report);
+
+    if (filter !== "all") {
+      const matchesOperationalState =
+        filter === "new" || filter === "waiting_admin" || filter === "waiting_pm"
+          ? operationalState === filter
+          : report.status === filter;
+
+      if (!matchesOperationalState) return false;
+    }
 
     const haystack = [
       report.leadTitle,
@@ -90,6 +114,7 @@ export function AdminReportsConsole() {
     reviewing: reports.filter((item) => item.status === "reviewing").length,
     resolved: reports.filter((item) => item.status === "resolved").length,
     rejected: reports.filter((item) => item.status === "rejected").length,
+    needsReply: reports.filter((item) => isAdminActionRequired(item)).length,
   };
 
   const getAccessToken = useCallback(async () => {
@@ -199,6 +224,7 @@ export function AdminReportsConsole() {
   return (
     <div className="grid gap-5">
       <div className="admin-kpi-grid">
+        <StatCard label="Da lavorare" value={stats.needsReply} tone="red" />
         <StatCard label="Inviate" value={stats.pending} tone="slate" />
         <StatCard label="In lavorazione" value={stats.reviewing} tone="blue" />
         <StatCard label="Risolte" value={stats.resolved} tone="green" />
@@ -217,18 +243,16 @@ export function AdminReportsConsole() {
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(["all", "pending", "reviewing", "resolved", "rejected"] as FilterState[]).map(
-              (item) => (
-                <button
-                  key={item}
-                  className={filterButtonClassName(filter === item)}
-                  type="button"
-                  onClick={() => setFilter(item)}
-                >
-                  {item === "all" ? "Tutte" : getReportStatusLabel(item)}
-                </button>
-              ),
-            )}
+            {filterOptions.map((item) => (
+              <button
+                key={item.value}
+                className={filterButtonClassName(filter === item.value)}
+                type="button"
+                onClick={() => setFilter(item.value)}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -280,6 +304,7 @@ export function AdminReportsConsole() {
                       <span className={statusBadgeClassName(report.status)}>
                         {getReportStatusLabel(report.status)}
                       </span>
+                      <OperationalStateBadge state={getOperationalState(report)} />
                       <span className="text-xs font-semibold text-muted">
                         {formatDateTime(report.createdAt)}
                       </span>
@@ -321,7 +346,9 @@ export function AdminReportsConsole() {
                       onClick={() => setSelectedReportId(report.id)}
                     >
                       <Eye size={16} />
-                      Apri dettaglio e rispondi
+                      {isAdminActionRequired(report)
+                        ? "Rispondi al PM"
+                        : "Apri dettaglio e rispondi"}
                     </button>
                   </div>
 
@@ -500,6 +527,50 @@ function SupportRequestDetailPanel({
         </p>
       </div>
     </aside>
+  );
+}
+
+type OperationalState = "new" | "waiting_admin" | "waiting_pm" | "resolved" | "rejected";
+
+function getOperationalState(report: AdminReport): OperationalState {
+  if (report.status === "resolved") return "resolved";
+  if (report.status === "rejected") return "rejected";
+
+  const lastMessage = report.messages.at(-1);
+
+  if (lastMessage?.senderType === "pm") return "waiting_admin";
+  if (lastMessage?.senderType === "admin" || report.adminReply) return "waiting_pm";
+  if (report.status === "pending") return "new";
+
+  return "waiting_admin";
+}
+
+function isAdminActionRequired(report: AdminReport) {
+  const state = getOperationalState(report);
+
+  return state === "new" || state === "waiting_admin";
+}
+
+function OperationalStateBadge({ state }: { state: OperationalState }) {
+  const labels: Record<OperationalState, string> = {
+    new: "Nuova richiesta",
+    waiting_admin: "Richiede risposta",
+    waiting_pm: "In attesa del PM",
+    resolved: "Risolta",
+    rejected: "Non accolta",
+  };
+  const classes: Record<OperationalState, string> = {
+    new: "bg-amber-50 text-amber-700",
+    waiting_admin: "bg-red-50 text-red-700",
+    waiting_pm: "bg-blue-50 text-blue-700",
+    resolved: "bg-green/10 text-green",
+    rejected: "bg-red-50 text-red-700",
+  };
+
+  return (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${classes[state]}`}>
+      {labels[state]}
+    </span>
   );
 }
 

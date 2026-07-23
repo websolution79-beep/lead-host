@@ -12,6 +12,10 @@
 
 # testing
 /coverage
+/screenshots/
+/screenshots-auth/
+/screenshots-auth-cookie/
+/screenshots-login-auth/
 
 # next.js
 /.next/

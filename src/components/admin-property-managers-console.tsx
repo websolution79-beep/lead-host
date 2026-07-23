@@ -219,7 +219,102 @@ export function AdminPropertyManagersConsole() {
           </p>
         ) : null}
 
-        <div className="overflow-x-auto">
+        <div className="grid gap-3 p-4 md:hidden">
+          {isLoading ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center text-muted">
+              Carico Property Manager...
+            </div>
+          ) : records.length > 0 ? (
+            records.map((record) => {
+              const displayName =
+                [record.firstName, record.lastName].filter(Boolean).join(" ") ||
+                "Senza nome";
+              const isBusy = actionProfileId === record.profileId;
+              const isSelected = selectedRecord?.profileId === record.profileId;
+
+              return (
+                <article
+                  key={record.profileId}
+                  className={`rounded-2xl border p-4 ${
+                    isSelected ? "border-green bg-green/5" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink">{displayName}</p>
+                      <p className="mt-1 break-all text-sm text-slate-500">{record.email}</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {record.phone ?? "Telefono assente"}
+                      </p>
+                    </div>
+                    <StatusBadge record={record} />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <InfoPill label="Citta" value={record.primaryCity} />
+                    <InfoPill label="Immobili" value={record.managedPropertiesLabel} />
+                    <InfoPill
+                      label="Wallet"
+                      value={formatCurrencyCents(
+                        record.walletBalanceCents,
+                        record.walletCurrency,
+                      )}
+                    />
+                    <InfoPill label="Iscritto" value={formatDate(record.createdAt)} />
+                  </div>
+
+                  <div className="mt-4 grid gap-2">
+                    <button
+                      className={`rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                        isSelected
+                          ? "border-green bg-green/10 text-green"
+                          : "border-slate-200 bg-white text-slate-700"
+                      }`}
+                      type="button"
+                      onClick={() => setSelectedProfileId(record.profileId)}
+                    >
+                      <Eye size={14} className="inline-block" /> Dettaglio
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        className="rounded-lg border border-green/20 bg-green/10 px-3 py-2 text-sm font-semibold text-green disabled:opacity-50"
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() =>
+                          updatePropertyManager(record.profileId, {
+                            verificationStatus: "verified",
+                            profileStatus: "active",
+                          })
+                        }
+                      >
+                        Verifica
+                      </button>
+                      <button
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() =>
+                          updatePropertyManager(record.profileId, {
+                            verificationStatus: "suspended",
+                            profileStatus: "suspended",
+                          })
+                        }
+                      >
+                        Sospendi
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center text-muted">
+              Nessun Property Manager registrato.
+            </div>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
               <tr>
@@ -633,6 +728,17 @@ function StatusBadge({ record }: { record: PropertyManagerRecord }) {
         ? "Account sospeso"
         : verificationLabels[record.verificationStatus]}
     </span>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 p-3">
+      <p className="text-xs font-bold uppercase tracking-[0.08em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-semibold text-ink">{value}</p>
+    </div>
   );
 }
 

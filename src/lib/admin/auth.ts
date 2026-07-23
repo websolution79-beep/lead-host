@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { verifyAccessToken } from "@/lib/auth/verify-access-token";
+import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 
 type ServiceSupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 
@@ -27,32 +27,21 @@ export async function requireSuperAdmin(request: NextRequest): Promise<AdminCont
     throw new AdminApiError(401, "Sessione admin non trovata.");
   }
 
-  const identity = await verifyAccessToken(token);
+  const context = await getAuthenticatedProfileContext(token);
 
-  if (!identity) {
+  if (!context) {
     throw new AdminApiError(401, "Sessione admin non valida.");
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("auth_user_id", identity.id)
-    .single();
-
-  if (profileError || !profile || profile.status !== "active") {
+  if (context.profile.status !== "active") {
     throw new AdminApiError(403, "Profilo admin non autorizzato.");
   }
 
-  const { data: roles, error: rolesError } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("profile_id", profile.id);
-
-  if (rolesError || !roles?.some((item) => item.role === "super_admin")) {
+  if (!context.roles.includes("super_admin")) {
     throw new AdminApiError(403, "Ruolo Super Admin richiesto.");
   }
 
-  return { supabase, profile };
+  return { supabase, profile: context.profile };
 }
 
 export function adminApiErrorResponse(error: unknown) {

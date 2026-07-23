@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { verifyAccessToken } from "@/lib/auth/verify-access-token";
+import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 
 type ServiceSupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 
@@ -30,40 +30,24 @@ export async function requirePropertyManager(
     throw new PropertyManagerApiError(401, "Sessione non trovata. Effettua di nuovo il login.");
   }
 
-  const identity = await verifyAccessToken(token);
+  const context = await getAuthenticatedProfileContext(token);
 
-  if (!identity) {
+  if (!context) {
     throw new PropertyManagerApiError(401, "Sessione non valida. Effettua di nuovo il login.");
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("auth_user_id", identity.id)
-    .single();
-
-  if (profileError || !profile || profile.status !== "active") {
+  if (context.profile.status !== "active") {
     throw new PropertyManagerApiError(403, "Profilo Property Manager non attivo.");
   }
 
-  const { data: roleRows, error: rolesError } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("profile_id", profile.id);
-
-  if (
-    rolesError ||
-    !((roleRows ?? []) as { role: string }[]).some(
-      (item) => item.role === "property_manager",
-    )
-  ) {
+  if (!context.roles.includes("property_manager")) {
     throw new PropertyManagerApiError(403, "Ruolo Property Manager non attivo.");
   }
 
   const { data: propertyManager, error: pmError } = await supabase
     .from("property_manager_profiles")
     .select("*")
-    .eq("profile_id", profile.id)
+    .eq("profile_id", context.profile.id)
     .maybeSingle();
 
   if (pmError) {
@@ -71,7 +55,8 @@ export async function requirePropertyManager(
   }
 
   const resolvedPropertyManager =
-    propertyManager ?? (await createMissingPropertyManagerProfile(supabase, profile));
+    propertyManager ??
+    (await createMissingPropertyManagerProfile(supabase, context.profile));
 
   if (!resolvedPropertyManager) {
     throw new PropertyManagerApiError(403, "Profilo Property Manager non trovato.");
@@ -81,7 +66,11 @@ export async function requirePropertyManager(
     throw new PropertyManagerApiError(403, "Profilo Property Manager sospeso.");
   }
 
-  return { supabase, profile, propertyManager: resolvedPropertyManager };
+  return {
+    supabase,
+    profile: context.profile,
+    propertyManager: resolvedPropertyManager,
+  };
 }
 
 async function createMissingPropertyManagerProfile(

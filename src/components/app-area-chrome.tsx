@@ -34,19 +34,20 @@ const adminLinks = [
 
 export function AppAreaChrome({ children, section }: AppAreaChromeProps) {
   const links = section === "admin" ? adminLinks : pmLinks;
+  const homeHref = section === "admin" ? "/admin" : "/app/marketplace";
 
   return (
     <main className="premium-shell min-h-screen">
       <aside className="premium-sidebar app-sidebar fixed inset-y-0 left-0 w-72 overflow-y-auto border-r border-slate-200 px-5 py-6">
         <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <BrandLogo />
+          <BrandLogo href={homeHref} />
         </div>
         <AppSidebarNav section={section} />
         <AccountSummary />
       </aside>
       <section className="app-content">
         <div className="premium-header app-mobile-bar relative z-[90] items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
-          <BrandLogo />
+          <BrandLogo href={homeHref} />
           <MobileMenu
             links={links}
             supportHref={section === "admin" ? "/admin/segnalazioni" : "/app/assistenza"}

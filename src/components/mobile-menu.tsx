@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { SupportNavBadge } from "@/components/support-nav-badge";
 
 type MobileMenuLink = {
   href: string;
@@ -11,6 +12,8 @@ type MobileMenuLink = {
 
 type MobileMenuProps = {
   links: MobileMenuLink[];
+  supportHref?: string;
+  supportSection?: "pm" | "admin";
   variant?: "light" | "dark";
   label?: string;
   hideAt?: "md" | "lg";
@@ -18,6 +21,8 @@ type MobileMenuProps = {
 
 export function MobileMenu({
   links,
+  supportHref,
+  supportSection,
   variant = "light",
   label = "Menu",
   hideAt = "md",
@@ -66,6 +71,9 @@ export function MobileMenu({
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}
+                {link.href === supportHref && supportSection ? (
+                  <SupportNavBadge section={supportSection} />
+                ) : null}
               </Link>
             ))}
           </div>

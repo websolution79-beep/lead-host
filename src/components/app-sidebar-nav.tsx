@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { RoleSwitcher } from "@/components/role-switcher";
+import { SupportNavBadge } from "@/components/support-nav-badge";
 
 type AppSidebarNavProps = {
   section: "pm" | "admin";
@@ -56,6 +57,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       ? "Gestione piattaforma, lead, PM, pagamenti e analytics."
       : "Marketplace, lead acquistati, wallet e profilo PM.";
   const supportHref = section === "admin" ? "/admin/impostazioni" : "/app/assistenza";
+  const supportBadgeHref = section === "admin" ? "/admin/segnalazioni" : "/app/assistenza";
   const supportLabel = section === "admin" ? "Impostazioni" : "Assistenza";
   const SupportIcon = section === "admin" ? Settings : LifeBuoy;
 
@@ -96,6 +98,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
               <Icon size={17} />
             </span>
             {link.label}
+            {link.href === supportBadgeHref ? <SupportNavBadge section={section} /> : null}
           </Link>
         );
       })}

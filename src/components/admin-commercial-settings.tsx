@@ -84,7 +84,9 @@ export function AdminCommercialSettings() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadSettings();
+    const timeoutId = window.setTimeout(() => void loadSettings(), 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadSettings]);
 
   async function saveSettings() {
@@ -341,7 +343,7 @@ function LeadPriceSettings({
       </div>
 
       <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-muted">
-        In approvazione lead questi prezzi vengono precompilati, ma l'admin puo
+        In approvazione lead questi prezzi vengono precompilati, ma l&apos;admin puo
         modificarli sul singolo lead prima della pubblicazione. Ogni lead resta
         acquistabile per 7 giorni dalla pubblicazione.
       </div>
@@ -373,17 +375,23 @@ function GeoRulesSettings({
   const selectedValue =
     scope === "region" ? region : scope === "province" ? province : city;
 
-  useEffect(() => {
-    if (!selectedRegion.provinces.some((item) => item.province === province)) {
-      setProvince(selectedRegion.provinces[0]?.province ?? "");
-    }
-  }, [province, selectedRegion]);
+  function changeRegion(nextRegion: string) {
+    const regionConfig = ITALY_GEO.find((item) => item.region === nextRegion) ?? ITALY_GEO[0];
+    const nextProvince = regionConfig.provinces[0];
 
-  useEffect(() => {
-    if (!selectedProvinceCities.includes(city)) {
-      setCity(selectedProvinceCities[0] ?? "");
-    }
-  }, [city, selectedProvinceCities]);
+    setRegion(nextRegion);
+    setProvince(nextProvince?.province ?? "");
+    setCity(nextProvince?.cities[0] ?? "");
+  }
+
+  function changeProvince(nextProvince: string) {
+    const provinceConfig = selectedRegion.provinces.find(
+      (item) => item.province === nextProvince,
+    );
+
+    setProvince(nextProvince);
+    setCity(provinceConfig?.cities[0] ?? "");
+  }
 
   function addRule() {
     onUpsertRule({
@@ -432,7 +440,7 @@ function GeoRulesSettings({
             <select
               className="filter-select"
               value={region}
-              onChange={(event) => setRegion(event.target.value)}
+              onChange={(event) => changeRegion(event.target.value)}
             >
               {ITALY_GEO.map((item) => (
                 <option key={item.region} value={item.region}>
@@ -448,7 +456,7 @@ function GeoRulesSettings({
               <select
                 className="filter-select"
                 value={province}
-                onChange={(event) => setProvince(event.target.value)}
+                onChange={(event) => changeProvince(event.target.value)}
               >
                 {selectedRegion.provinces.map((item) => (
                   <option key={item.province} value={item.province}>

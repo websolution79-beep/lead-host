@@ -5,7 +5,6 @@ import {
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
 import { sendSupportMessageAdminNotification } from "@/lib/email/notifications";
-import { createSupportReplyInternalNotification } from "@/lib/notifications/internal";
 import { getSupportSubjectLabel } from "@/lib/support/reports";
 
 const messageSchema = z.object({

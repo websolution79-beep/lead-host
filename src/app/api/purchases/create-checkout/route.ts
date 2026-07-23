@@ -20,14 +20,6 @@ type WalletRow = {
   currency: string;
 };
 
-type WalletTransactionRow = {
-  id: string;
-  wallet_id: string;
-  profile_id: string;
-  amount_cents: number;
-  status: "pending" | "completed" | "failed" | "cancelled";
-};
-
 export async function POST(request: NextRequest) {
   try {
     const { supabase, profile, propertyManager } =

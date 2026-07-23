@@ -95,7 +95,9 @@ export function AdminAnalyticsConsole() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadAnalytics();
+    const timeoutId = window.setTimeout(() => void loadAnalytics(), 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadAnalytics]);
 
   if (loading) {

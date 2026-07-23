@@ -258,7 +258,7 @@ function MetaTab({
           </h2>
           <p className="mt-3 max-w-3xl leading-7 text-muted">
             Questo endpoint riceve verifica webhook e notifiche leadgen. La GET
-            gestisce la challenge di Meta; la POST valida la firma, salva l'evento
+            gestisce la challenge di Meta; la POST valida la firma, salva l&apos;evento
             raw, recupera il lead dal Graph API e crea una richiesta proprietario
             in stato pending.
           </p>

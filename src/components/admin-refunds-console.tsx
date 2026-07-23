@@ -116,7 +116,9 @@ export function AdminRefundsConsole() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadRefunds();
+    const timeoutId = window.setTimeout(() => void loadRefunds(), 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadRefunds]);
 
   const selectedPurchase = refundablePurchases.find(

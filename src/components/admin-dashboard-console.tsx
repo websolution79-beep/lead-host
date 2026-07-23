@@ -88,7 +88,9 @@ export function AdminDashboardConsole() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadDashboard();
+    const timeoutId = window.setTimeout(() => void loadDashboard(), 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadDashboard]);
 
   if (loading) {

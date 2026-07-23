@@ -192,7 +192,7 @@ export default function Home() {
             <p className="mt-5 max-w-xl text-base leading-7 text-muted sm:text-lg">
               Funnel, landing page, ads e report possono funzionare, ma spesso
               richiedono tempo, budget e fiducia prima di mostrarti una richiesta
-              concreta. Qui il processo si ribalta: prima vedi l'opportunità,
+              concreta. Qui il processo si ribalta: prima vedi l&apos;opportunità,
               poi decidi.
             </p>
           </div>
@@ -273,7 +273,7 @@ export default function Home() {
             <p className="mt-5 max-w-xl text-base leading-7 text-muted sm:text-lg">
               Il contatto resta riservato, ma il PM può leggere abbastanza per
               capire se la richiesta è coerente con zona, modello operativo e
-              qualità dell'immobile cercato.
+              qualità dell&apos;immobile cercato.
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {leadDetails.map((detail) => (
@@ -325,7 +325,7 @@ export default function Home() {
             </h2>
             <p className="mt-5 max-w-xl text-base leading-7 text-white/72 sm:text-lg">
               Se vuoi lavorare a volume puoi acquistare lead condivisi. Se vuoi
-              bloccare una richiesta strategica, puoi scegliere l'esclusiva
+              bloccare una richiesta strategica, puoi scegliere l&apos;esclusiva
               quando è ancora disponibile.
             </p>
           </div>

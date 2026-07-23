@@ -87,7 +87,9 @@ export function AdminEmailTemplatesConsole() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadTemplates();
+    const timeoutId = window.setTimeout(() => void loadTemplates(), 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadTemplates]);
 
   function updateSelectedTemplate(update: Partial<TransactionalEmailTemplate>) {

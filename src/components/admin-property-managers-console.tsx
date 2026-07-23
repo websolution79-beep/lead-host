@@ -202,7 +202,7 @@ export function AdminPropertyManagersConsole() {
         <KpiCard icon={CirclePause} label="Sospesi" value={suspendedCount.toString()} />
       </section>
 
-      <section className="card overflow-hidden">
+      <section className="card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-5">
           <div>
             <p className="section-kicker">Iscrizioni PM</p>
@@ -219,6 +219,14 @@ export function AdminPropertyManagersConsole() {
           </p>
         ) : null}
 
+        <div
+          className={`grid ${
+            selectedRecord
+              ? "lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.82fr)] lg:items-start"
+              : ""
+          }`}
+        >
+          <div className="min-w-0">
         <div className="grid gap-3 p-4 md:hidden">
           {isLoading ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 text-center text-muted">
@@ -433,27 +441,38 @@ export function AdminPropertyManagersConsole() {
             </tbody>
           </table>
         </div>
-      </section>
+          </div>
 
-      {selectedRecord ? (
-        <PropertyManagerDetail
-          record={selectedRecord}
-          isBusy={actionProfileId === selectedRecord.profileId}
-          onClose={() => setSelectedProfileId(null)}
-          onVerify={() =>
-            updatePropertyManager(selectedRecord.profileId, {
-              verificationStatus: "verified",
-              profileStatus: "active",
-            })
-          }
-          onSuspend={() =>
-            updatePropertyManager(selectedRecord.profileId, {
-              verificationStatus: "suspended",
-              profileStatus: "suspended",
-            })
-          }
-        />
-      ) : null}
+          {selectedRecord ? (
+            <>
+              <div
+                className="fixed inset-0 z-[90] bg-ink/20 backdrop-blur-[2px] md:hidden"
+                aria-hidden="true"
+                onClick={() => setSelectedProfileId(null)}
+              />
+              <div className="md:sticky md:top-5 md:self-start max-md:fixed max-md:inset-x-4 max-md:bottom-4 max-md:top-4 max-md:z-[100] max-md:overflow-y-auto">
+                <PropertyManagerDetail
+                  record={selectedRecord}
+                  isBusy={actionProfileId === selectedRecord.profileId}
+                  onClose={() => setSelectedProfileId(null)}
+                  onVerify={() =>
+                    updatePropertyManager(selectedRecord.profileId, {
+                      verificationStatus: "verified",
+                      profileStatus: "active",
+                    })
+                  }
+                  onSuspend={() =>
+                    updatePropertyManager(selectedRecord.profileId, {
+                      verificationStatus: "suspended",
+                      profileStatus: "suspended",
+                    })
+                  }
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
+      </section>
     </div>
   );
 }

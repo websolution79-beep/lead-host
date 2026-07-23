@@ -241,19 +241,26 @@ export function AdminReportsConsole() {
           </div>
         ) : null}
 
-        <div className="mt-5 grid gap-3">
-          {loading ? (
+        <div
+          className={`mt-5 grid gap-5 ${
+            selectedReport
+              ? "lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)] lg:items-start"
+              : ""
+          }`}
+        >
+          <div className="grid gap-3">
+            {loading ? (
             <p className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-muted">
               Carico richieste...
             </p>
-          ) : filteredReports.length === 0 ? (
+            ) : filteredReports.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
               <p className="font-semibold text-ink">Nessuna richiesta trovata</p>
               <p className="mt-2 text-sm leading-6 text-muted">
                 Le richieste inviate dai PM compariranno qui.
               </p>
             </div>
-          ) : (
+            ) : (
             filteredReports.map((report) => (
               <article
                 key={report.id}
@@ -341,22 +348,35 @@ export function AdminReportsConsole() {
                 </div>
               </article>
             ))
-          )}
-        </div>
+            )}
+          </div>
 
         {selectedReport ? (
-          <SupportRequestDetailPanel
-            report={selectedReport}
-            reply={reply}
-            onReplyChange={setReply}
-            onSendReply={() => void sendReply()}
-            onClose={() => {
-              setSelectedReportId(null);
-              setReply("");
-            }}
-            replyLoading={replyLoading}
-          />
+          <>
+            <div
+              className="fixed inset-0 z-[90] bg-ink/20 backdrop-blur-[2px] lg:hidden"
+              aria-hidden="true"
+              onClick={() => {
+                setSelectedReportId(null);
+                setReply("");
+              }}
+            />
+          <div className="lg:sticky lg:top-5 lg:self-start max-lg:fixed max-lg:inset-x-4 max-lg:bottom-4 max-lg:top-4 max-lg:z-[100] max-lg:overflow-y-auto">
+            <SupportRequestDetailPanel
+              report={selectedReport}
+              reply={reply}
+              onReplyChange={setReply}
+              onSendReply={() => void sendReply()}
+              onClose={() => {
+                setSelectedReportId(null);
+                setReply("");
+              }}
+              replyLoading={replyLoading}
+            />
+          </div>
+          </>
         ) : null}
+        </div>
       </section>
     </div>
   );
@@ -378,7 +398,7 @@ function SupportRequestDetailPanel({
   replyLoading: boolean;
 }) {
   return (
-    <aside className="mt-5 rounded-xl border border-green/20 bg-slate-50 p-5" aria-label="Dettaglio richiesta assistenza">
+    <aside className="rounded-xl border border-green/20 bg-slate-50 p-5 shadow-xl" aria-label="Dettaglio richiesta assistenza" role="dialog">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="section-kicker">Dettaglio richiesta</p>

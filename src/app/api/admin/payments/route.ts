@@ -134,6 +134,11 @@ export async function GET(request: NextRequest) {
     if (pmProfilesResult.error) throw pmProfilesResult.error;
 
     const pmProfilesById = new Map((pmProfilesResult.data ?? []).map((item) => [item.id, item]));
+    const walletTransactionByCheckoutSessionId = new Map(
+      walletTransactions
+        .filter((transaction) => Boolean(transaction.provider_reference))
+        .map((transaction) => [transaction.provider_reference as string, transaction]),
+    );
     const completedTopUps = walletTransactions.filter(
       (item) => item.type === "top_up" && item.status === "completed",
     );
@@ -156,17 +161,31 @@ export async function GET(request: NextRequest) {
           (item) => item.type === "top_up" && item.status === "pending",
         ).length,
       },
-      payments: (paymentsResult.data ?? []).map((payment) => ({
-        id: payment.id,
-        provider: payment.provider,
-        providerPaymentId: payment.provider_payment_id,
-        providerCheckoutSessionId: payment.provider_checkout_session_id,
-        amountCents: payment.amount_cents,
-        currency: payment.currency,
-        status: payment.status,
-        createdAt: payment.created_at,
-        confirmedAt: payment.confirmed_at,
-      })),
+      payments: (paymentsResult.data ?? []).map((payment) => {
+        const walletTransaction = payment.provider_checkout_session_id
+          ? walletTransactionByCheckoutSessionId.get(payment.provider_checkout_session_id)
+          : null;
+        const profile = walletTransaction
+          ? profilesById.get(walletTransaction.profile_id)
+          : null;
+
+        return {
+          id: payment.id,
+          provider: payment.provider,
+          providerPaymentId: payment.provider_payment_id,
+          providerCheckoutSessionId: payment.provider_checkout_session_id,
+          propertyManagerName:
+            [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
+            profile?.email ||
+            "Property Manager non associato",
+          propertyManagerEmail: profile?.email ?? null,
+          amountCents: payment.amount_cents,
+          currency: payment.currency,
+          status: payment.status,
+          createdAt: payment.created_at,
+          confirmedAt: payment.confirmed_at,
+        };
+      }),
       walletTransactions: walletTransactions.map((transaction) => {
         const profile = profilesById.get(transaction.profile_id);
 

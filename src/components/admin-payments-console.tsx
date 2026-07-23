@@ -18,6 +18,8 @@ type PaymentRecord = {
   provider: string;
   providerPaymentId: string | null;
   providerCheckoutSessionId: string | null;
+  propertyManagerName: string;
+  propertyManagerEmail: string | null;
   amountCents: number;
   currency: string;
   status: string;
@@ -133,6 +135,8 @@ export function AdminPaymentsConsole() {
       payment.status,
       payment.providerPaymentId,
       payment.providerCheckoutSessionId,
+      payment.propertyManagerName,
+      payment.propertyManagerEmail,
     ]),
   );
   const filteredWalletTransactions = walletTransactions.filter((transaction) =>
@@ -231,6 +235,8 @@ export function AdminPaymentsConsole() {
             icon: CreditCard,
             title: `${formatCents(payment.amountCents)} - ${statusLabel(payment.status)}`,
             subtitle: [
+              payment.propertyManagerName,
+              payment.propertyManagerEmail,
               payment.provider,
               payment.providerCheckoutSessionId,
               payment.providerPaymentId,

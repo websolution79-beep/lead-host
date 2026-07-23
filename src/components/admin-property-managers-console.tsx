@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownToLine,
   Building2,
   CirclePause,
   Eye,
   Mail,
   ReceiptText,
   ShieldCheck,
+  ShoppingBag,
   UserCheck,
   Users,
   WalletCards,
@@ -72,6 +74,29 @@ type PropertyManagerRecord = {
     invoiceEmail: string | null;
     updatedAt: string;
   } | null;
+  walletTransactions: Array<{
+    id: string;
+    type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+    status: "pending" | "completed" | "failed" | "cancelled";
+    amountCents: number;
+    balanceAfterCents: number | null;
+    description: string | null;
+    provider: string | null;
+    providerReference: string | null;
+    stripePaymentId: string | null;
+    stripeCheckoutSessionId: string | null;
+    leadPurchaseId: string | null;
+    createdAt: string;
+    completedAt: string | null;
+  }>;
+  leadPurchases: Array<{
+    id: string;
+    leadTitle: string;
+    mode: "shared" | "exclusive";
+    status: string;
+    amountCents: number;
+    createdAt: string;
+  }>;
   stats: {
     purchasesCount: number;
     exclusivePurchasesCount: number;
@@ -615,6 +640,42 @@ function PropertyManagerDetail({
               <MetricTile label="Condivisi" value={record.stats.sharedPurchasesCount} />
               <MetricTile label="Segnalazioni aperte" value={record.stats.openReportsCount} />
             </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-5">
+              <div className="mb-3 flex items-center gap-2">
+                <ArrowDownToLine size={17} className="text-green" />
+                <h4 className="font-semibold text-ink">Ricariche e movimenti wallet</h4>
+              </div>
+              {record.walletTransactions.length ? (
+                <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
+                  {record.walletTransactions.map((transaction) => (
+                    <WalletMovementRow key={transaction.id} transaction={transaction} />
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-muted">
+                  Nessun movimento wallet registrato.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-5">
+              <div className="mb-3 flex items-center gap-2">
+                <ShoppingBag size={17} className="text-green" />
+                <h4 className="font-semibold text-ink">Acquisti lead</h4>
+              </div>
+              {record.leadPurchases.length ? (
+                <div className="divide-y divide-slate-200 rounded-xl border border-slate-200">
+                  {record.leadPurchases.map((purchase) => (
+                    <LeadPurchaseRow key={purchase.id} purchase={purchase} />
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-muted">
+                  Nessun acquisto lead registrato.
+                </p>
+              )}
+            </div>
           </DetailSection>
 
           <DetailSection icon={ReceiptText} title="Dati fatturazione">
@@ -665,6 +726,85 @@ function PropertyManagerDetail({
       </div>
     </section>
   );
+}
+
+function WalletMovementRow({
+  transaction,
+}: {
+  transaction: PropertyManagerRecord["walletTransactions"][number];
+}) {
+  const stripeReference =
+    transaction.stripePaymentId ??
+    transaction.stripeCheckoutSessionId ??
+    transaction.providerReference;
+
+  return (
+    <article className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <div className="min-w-0">
+        <p className="font-semibold text-ink">
+          {walletTransactionTypeLabel(transaction.type)}
+          {transaction.description ? ` · ${transaction.description}` : ""}
+        </p>
+        <p className="mt-1 text-sm text-muted">
+          {formatNullableDate(transaction.completedAt ?? transaction.createdAt)} · {activityStatusLabel(transaction.status)}
+        </p>
+        {stripeReference ? (
+          <p className="mt-2 break-all text-xs text-slate-500">
+            Stripe: <span className="font-semibold text-slate-700">{stripeReference}</span>
+          </p>
+        ) : null}
+      </div>
+      <p className="font-semibold text-ink">
+        {formatCurrencyCents(transaction.amountCents, "eur")}
+      </p>
+    </article>
+  );
+}
+
+function LeadPurchaseRow({
+  purchase,
+}: {
+  purchase: PropertyManagerRecord["leadPurchases"][number];
+}) {
+  return (
+    <article className="grid gap-2 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <div className="min-w-0">
+        <p className="font-semibold text-ink">{purchase.leadTitle}</p>
+        <p className="mt-1 text-sm text-muted">
+          {purchaseModeLabel(purchase.mode)} · {activityStatusLabel(purchase.status)} · {formatNullableDate(purchase.createdAt)}
+        </p>
+        <p className="mt-2 break-all text-xs text-slate-500">
+          ID acquisto: <span className="font-semibold text-slate-700">{purchase.id}</span>
+        </p>
+      </div>
+      <p className="font-semibold text-ink">{formatCurrencyCents(purchase.amountCents, "eur")}</p>
+    </article>
+  );
+}
+
+function walletTransactionTypeLabel(type: PropertyManagerRecord["walletTransactions"][number]["type"]) {
+  return {
+    top_up: "Ricarica wallet",
+    lead_purchase: "Acquisto lead",
+    refund: "Rimborso",
+    adjustment: "Rettifica wallet",
+  }[type];
+}
+
+function purchaseModeLabel(mode: "shared" | "exclusive") {
+  return mode === "exclusive" ? "Acquisto in esclusiva" : "Acquisto condiviso";
+}
+
+function activityStatusLabel(status: string) {
+  return {
+    pending: "In attesa",
+    completed: "Completato",
+    failed: "Fallito",
+    cancelled: "Annullato",
+    paid: "Pagato",
+    contact_unlocked: "Contatto sbloccato",
+    refunded: "Rimborsato",
+  }[status] ?? status;
 }
 
 function DetailSection({

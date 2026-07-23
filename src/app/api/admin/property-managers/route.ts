@@ -70,10 +70,34 @@ type BillingProfileRow = {
 };
 
 type LeadPurchaseRow = {
+  id: string;
+  lead_id: string;
   property_manager_id: string;
   amount_cents: number;
   mode: "shared" | "exclusive";
   status: string;
+  created_at: string;
+};
+
+type WalletTransactionRow = {
+  id: string;
+  profile_id: string;
+  type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+  status: "pending" | "completed" | "failed" | "cancelled";
+  amount_cents: number;
+  balance_after_cents: number | null;
+  description: string | null;
+  provider: string | null;
+  provider_reference: string | null;
+  lead_purchase_id: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+type PaymentReferenceRow = {
+  id: string;
+  provider_payment_id: string | null;
+  provider_checkout_session_id: string | null;
 };
 
 type ReportRow = {
@@ -165,12 +189,13 @@ export async function GET(request: NextRequest) {
     const [
       { data: purchases, error: purchasesError },
       { data: reports, error: reportsError },
+      { data: walletTransactions, error: walletTransactionsError },
     ] =
       await Promise.all([
         pmProfileIds.length
           ? supabase
               .from("lead_purchases")
-              .select("property_manager_id,amount_cents,mode,status")
+              .select("id,lead_id,property_manager_id,amount_cents,mode,status,created_at")
               .in("property_manager_id", pmProfileIds)
           : Promise.resolve({ data: [], error: null }),
         pmProfileIds.length
@@ -179,15 +204,74 @@ export async function GET(request: NextRequest) {
               pmProfileIds,
             )
           : Promise.resolve({ data: [], error: null }),
+        profileIds.length
+          ? supabase
+              .from("wallet_transactions")
+              .select(
+                "id,profile_id,type,status,amount_cents,balance_after_cents,description,provider,provider_reference,lead_purchase_id,created_at,completed_at",
+              )
+              .in("profile_id", profileIds)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
     if (purchasesError) throw purchasesError;
     if (reportsError) throw reportsError;
+    if (walletTransactionsError) throw walletTransactionsError;
 
     const purchasesByPmId = groupRowsByPropertyManagerId(
       (purchases ?? []) as LeadPurchaseRow[],
     );
     const reportsByPmId = groupRowsByPropertyManagerId((reports ?? []) as ReportRow[]);
+    const walletTransactionsByProfileId = groupRowsByProfileId(
+      (walletTransactions ?? []) as WalletTransactionRow[],
+    );
+    const leadIds = Array.from(
+      new Set(((purchases ?? []) as LeadPurchaseRow[]).map((purchase) => purchase.lead_id)),
+    );
+    const paymentSessionIds = Array.from(
+      new Set(
+        ((walletTransactions ?? []) as WalletTransactionRow[])
+          .map((transaction) => transaction.provider_reference)
+          .filter((reference): reference is string => Boolean(reference)),
+      ),
+    );
+
+    const paymentsTable = supabase.from("payments" as never) as unknown as {
+      select: (columns: string) => {
+        in: (
+          column: string,
+          values: string[],
+        ) => Promise<{
+          data: PaymentReferenceRow[] | null;
+          error: { message?: string } | null;
+        }>;
+      };
+    };
+
+    const [leadTitlesResult, paymentReferencesResult] = await Promise.all([
+      leadIds.length
+        ? supabase.from("leads").select("id,title").in("id", leadIds)
+        : Promise.resolve({ data: [], error: null }),
+      paymentSessionIds.length
+        ? paymentsTable
+            .select("id,provider_payment_id,provider_checkout_session_id")
+            .in("provider_checkout_session_id", paymentSessionIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (leadTitlesResult.error) throw leadTitlesResult.error;
+    if (paymentReferencesResult.error) throw paymentReferencesResult.error;
+
+    const leadTitleById = new Map(
+      (leadTitlesResult.data ?? []).map((lead) => [lead.id, lead.title]),
+    );
+    const paymentByCheckoutSessionId = new Map(
+      ((paymentReferencesResult.data ?? []) as PaymentReferenceRow[]).map((payment) => [
+        payment.provider_checkout_session_id,
+        payment,
+      ]),
+    );
 
     const propertyManagers = ((profiles ?? []) as ProfileRow[])
       .map((profile) => {
@@ -274,6 +358,40 @@ export async function GET(request: NextRequest) {
                 updatedAt: billingProfile.updated_at,
               }
             : null,
+          walletTransactions: (walletTransactionsByProfileId.get(profile.id) ?? []).map(
+            (transaction) => {
+              const payment = transaction.provider_reference
+                ? paymentByCheckoutSessionId.get(transaction.provider_reference)
+                : undefined;
+
+              return {
+                id: transaction.id,
+                type: transaction.type,
+                status: transaction.status,
+                amountCents: transaction.amount_cents,
+                balanceAfterCents: transaction.balance_after_cents,
+                description: transaction.description,
+                provider: transaction.provider,
+                providerReference: transaction.provider_reference,
+                stripePaymentId: payment?.provider_payment_id ?? null,
+                stripeCheckoutSessionId:
+                  payment?.provider_checkout_session_id ?? transaction.provider_reference,
+                leadPurchaseId: transaction.lead_purchase_id,
+                createdAt: transaction.created_at,
+                completedAt: transaction.completed_at,
+              };
+            },
+          ),
+          leadPurchases: (pmProfile ? purchasesByPmId.get(pmProfile.id) ?? [] : []).map(
+            (purchase) => ({
+              id: purchase.id,
+              leadTitle: leadTitleById.get(purchase.lead_id) ?? "Lead acquistato",
+              mode: purchase.mode,
+              status: purchase.status,
+              amountCents: purchase.amount_cents,
+              createdAt: purchase.created_at,
+            }),
+          ),
           stats: {
             purchasesCount: completedPurchases.length,
             exclusivePurchasesCount: completedPurchases.filter(
@@ -305,6 +423,15 @@ function groupRowsByPropertyManagerId<T extends { property_manager_id: string }>
     currentRows.push(row);
     map.set(row.property_manager_id, currentRows);
 
+    return map;
+  }, new Map<string, T[]>());
+}
+
+function groupRowsByProfileId<T extends { profile_id: string }>(rows: T[]) {
+  return rows.reduce((map, row) => {
+    const currentRows = map.get(row.profile_id) ?? [];
+    currentRows.push(row);
+    map.set(row.profile_id, currentRows);
     return map;
   }, new Map<string, T[]>());
 }

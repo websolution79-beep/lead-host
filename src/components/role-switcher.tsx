@@ -6,9 +6,10 @@ import { useAppSession } from "@/components/app-session-provider";
 
 type RoleSwitcherProps = {
   section: "pm" | "admin";
+  compact?: boolean;
 };
 
-export function RoleSwitcher({ section }: RoleSwitcherProps) {
+export function RoleSwitcher({ section, compact = false }: RoleSwitcherProps) {
   const { roles } = useAppSession();
 
   const canSwitchToAdmin = section === "pm" && roles.includes("super_admin");
@@ -22,6 +23,21 @@ export function RoleSwitcher({ section }: RoleSwitcherProps) {
   if (!target) return null;
 
   const Icon = target.icon;
+
+  if (compact) {
+    return (
+      <div className="mt-2 border-t border-slate-200 p-2 pt-4">
+        <Link
+          href={target.href}
+          className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-green px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)] hover:bg-green-dark"
+        >
+          <ArrowLeftRight size={17} />
+          <Icon size={17} />
+          {target.label}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-3">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { RoleSwitcher } from "@/components/role-switcher";
 import { SupportNavBadge } from "@/components/support-nav-badge";
 
 type MobileMenuLink = {
@@ -14,6 +15,7 @@ type MobileMenuProps = {
   links: MobileMenuLink[];
   supportHref?: string;
   supportSection?: "pm" | "admin";
+  roleSwitchSection?: "pm" | "admin";
   variant?: "light" | "dark";
   label?: string;
   hideAt?: "md" | "lg";
@@ -23,6 +25,7 @@ export function MobileMenu({
   links,
   supportHref,
   supportSection,
+  roleSwitchSection,
   variant = "light",
   label = "Menu",
   hideAt = "md",
@@ -76,6 +79,9 @@ export function MobileMenu({
                 ) : null}
               </Link>
             ))}
+            {roleSwitchSection ? (
+              <RoleSwitcher section={roleSwitchSection} compact />
+            ) : null}
           </div>
         </>
       ) : null}

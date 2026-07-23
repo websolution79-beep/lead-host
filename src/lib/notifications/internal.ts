@@ -232,6 +232,28 @@ export async function createSupportReportInternalNotification({
   });
 }
 
+export async function createSupportReplyInternalNotification({
+  profileId,
+  propertyManagerId,
+  reportId,
+}: {
+  profileId: string;
+  propertyManagerId: string;
+  reportId: string;
+}) {
+  return createInternalNotification({
+    profileId,
+    propertyManagerId,
+    eventType: "support.reply",
+    title: "Risposta assistenza disponibile",
+    body: "Il team Lead Host ha risposto alla tua richiesta. Puoi consultare la risposta nella sezione Assistenza.",
+    metadata: {
+      report_id: reportId,
+      href: "/app/assistenza",
+    },
+  });
+}
+
 function getNotificationsTable(supabase: ReturnType<typeof createServiceSupabaseClient>) {
   return supabase.from("notifications" as never) as unknown as NotificationsTable;
 }

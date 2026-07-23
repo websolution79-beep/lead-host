@@ -4,10 +4,17 @@ import {
   adminApiErrorResponse,
   requireSuperAdmin,
 } from "@/lib/admin/auth";
+import { sendSupportReplyEmail } from "@/lib/email/notifications";
+import { createSupportReplyInternalNotification } from "@/lib/notifications/internal";
+import { getSupportSubjectLabel } from "@/lib/support/reports";
+import type { Database } from "@/lib/supabase/database.types";
 
 const updateReportSchema = z.object({
   reportId: z.string().uuid(),
-  status: z.enum(["pending", "reviewing", "resolved", "rejected"]),
+  status: z.enum(["pending", "reviewing", "resolved", "rejected"]).optional(),
+  reply: z.string().trim().min(1).max(2000).optional(),
+}).refine((payload) => payload.status || payload.reply, {
+  message: "Indica uno stato o una risposta.",
 });
 
 type ReportRow = {
@@ -17,6 +24,9 @@ type ReportRow = {
   subject: string;
   reason: string | null;
   details: string | null;
+  admin_reply: string | null;
+  replied_at: string | null;
+  replied_by: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   created_at: string;
   reviewed_at: string | null;
@@ -37,7 +47,7 @@ export async function GET(request: NextRequest) {
     const { data: reports, error: reportsError } = await supabase
       .from("reports")
       .select(
-        "id,lead_purchase_id,property_manager_id,subject,reason,details,status,created_at,reviewed_at",
+        "id,lead_purchase_id,property_manager_id,subject,reason,details,admin_reply,replied_at,replied_by,status,created_at,reviewed_at",
       )
       .order("created_at", { ascending: false })
       .limit(150);
@@ -113,6 +123,8 @@ export async function GET(request: NextRequest) {
           subject: report.subject,
           reason: report.reason,
           details: report.details,
+          adminReply: report.admin_reply,
+          repliedAt: report.replied_at,
           status: report.status,
           createdAt: report.created_at,
           reviewedAt: report.reviewed_at,
@@ -137,24 +149,98 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireSuperAdmin(request);
     const payload = updateReportSchema.parse(await request.json());
-    const reviewedAt =
-      payload.status === "resolved" || payload.status === "rejected"
+    const { data: report, error: reportError } = await supabase
+      .from("reports")
+      .select("id,property_manager_id,lead_purchase_id,subject,admin_reply")
+      .eq("id", payload.reportId)
+      .maybeSingle();
+
+    if (reportError) throw reportError;
+    if (!report) {
+      return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
+    }
+
+    const reviewedAt = payload.status
+      ? payload.status === "resolved" || payload.status === "rejected"
         ? new Date().toISOString()
-        : null;
+        : null
+      : undefined;
+    const updatePayload: Database["public"]["Tables"]["reports"]["Update"] = {};
+
+    if (payload.status) {
+      updatePayload.status = payload.status;
+      updatePayload.reviewed_at = reviewedAt;
+    }
+
+    if (payload.reply) {
+      updatePayload.admin_reply = payload.reply;
+      updatePayload.replied_at = new Date().toISOString();
+      updatePayload.replied_by = profile.id;
+    }
 
     const { error } = await supabase
       .from("reports")
-      .update({
-        status: payload.status,
-        reviewed_at: reviewedAt,
-      })
+      .update(updatePayload)
       .eq("id", payload.reportId);
 
     if (error) throw error;
 
-    return NextResponse.json({ ok: true });
+    if (payload.reply) {
+      const { data: manager, error: managerError } = await supabase
+        .from("property_manager_profiles")
+        .select("id,profile_id")
+        .eq("id", report.property_manager_id)
+        .single();
+
+      if (managerError) throw managerError;
+
+      const { data: recipient, error: recipientError } = await supabase
+        .from("profiles")
+        .select("id,email")
+        .eq("id", manager.profile_id)
+        .single();
+
+      if (recipientError) throw recipientError;
+
+      let leadContext = "";
+      if (report.lead_purchase_id) {
+        const { data: purchase, error: purchaseError } = await supabase
+          .from("lead_purchases")
+          .select("lead_id")
+          .eq("id", report.lead_purchase_id)
+          .maybeSingle();
+
+        if (purchaseError) throw purchaseError;
+
+        if (purchase) {
+          const { data: lead, error: leadError } = await supabase
+            .from("leads")
+            .select("title")
+            .eq("id", purchase.lead_id)
+            .maybeSingle();
+
+          if (leadError) throw leadError;
+          leadContext = lead ? `Lead acquistato: ${lead.title}.` : "";
+        }
+      }
+
+      await createSupportReplyInternalNotification({
+        profileId: recipient.id,
+        propertyManagerId: manager.id,
+        reportId: report.id,
+      });
+      await sendSupportReplyEmail({
+        profile: recipient,
+        reportId: report.id,
+        requestSubject: getSupportSubjectLabel(report.subject),
+        reply: payload.reply,
+        leadContext,
+      });
+    }
+
+    return NextResponse.json({ ok: true, replySent: Boolean(payload.reply) });
   } catch (error) {
     return adminApiErrorResponse(error);
   }

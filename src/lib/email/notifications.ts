@@ -123,6 +123,73 @@ export async function sendAdminOwnerRequestNotification({
   );
 }
 
+export async function sendSupportRequestAdminNotification({
+  reportId,
+  propertyManagerName,
+  propertyManagerEmail,
+  requestSubject,
+  requestDetails,
+  leadContext,
+}: {
+  reportId: string;
+  propertyManagerName: string;
+  propertyManagerEmail: string;
+  requestSubject: string;
+  requestDetails: string;
+  leadContext: string;
+}) {
+  const adminEmails = await getSuperAdminNotificationEmails();
+
+  return Promise.all(
+    adminEmails.map((to) =>
+      sendTransactionalEmail({
+        to,
+        eventType: "admin.support_request_pending",
+        metadata: { support_report_id: reportId },
+        templateVariables: {
+          property_manager_name: propertyManagerName,
+          property_manager_email: propertyManagerEmail,
+          request_subject: requestSubject,
+          request_details: requestDetails,
+          lead_context: leadContext,
+        },
+        subject: "",
+        html: "",
+        text: "",
+      }),
+    ),
+  );
+}
+
+export async function sendSupportReplyEmail({
+  profile,
+  reportId,
+  requestSubject,
+  reply,
+  leadContext,
+}: {
+  profile: Pick<ProfileRow, "id" | "email">;
+  reportId: string;
+  requestSubject: string;
+  reply: string;
+  leadContext: string;
+}) {
+  return sendTransactionalEmail({
+    to: profile.email,
+    profileId: profile.id,
+    eventType: "support.reply",
+    metadata: { support_report_id: reportId },
+    templateVariables: {
+      request_subject: requestSubject,
+      reply,
+      lead_context: leadContext,
+    },
+    subject: "",
+    html: "",
+    text: "",
+  });
+}
+
 export async function sendOwnerRequestCompletionEmail({
   ownerRequestId,
   to,

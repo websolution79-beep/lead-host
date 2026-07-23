@@ -481,6 +481,9 @@ export type Database = {
           reason: string | null;
           subject: string;
           details: string | null;
+          admin_reply: string | null;
+          replied_at: string | null;
+          replied_by: string | null;
           status: "pending" | "reviewing" | "resolved" | "rejected";
           created_at: string;
           reviewed_at: string | null;
@@ -492,6 +495,9 @@ export type Database = {
           reason?: string | null;
           subject?: string;
           details?: string | null;
+          admin_reply?: string | null;
+          replied_at?: string | null;
+          replied_by?: string | null;
           status?: "pending" | "reviewing" | "resolved" | "rejected";
           created_at?: string;
           reviewed_at?: string | null;
@@ -503,6 +509,9 @@ export type Database = {
           reason?: string | null;
           subject?: string;
           details?: string | null;
+          admin_reply?: string | null;
+          replied_at?: string | null;
+          replied_by?: string | null;
           status?: "pending" | "reviewing" | "resolved" | "rejected";
           created_at?: string;
           reviewed_at?: string | null;

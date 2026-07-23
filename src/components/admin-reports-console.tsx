@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  Eye,
   Clock3,
   Mail,
   Search,
   ShieldAlert,
+  Send,
+  X,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCents } from "@/lib/config/commercial";
@@ -23,6 +26,8 @@ type AdminReport = {
   subject: string;
   reason: string | null;
   details: string | null;
+  adminReply: string | null;
+  repliedAt: string | null;
   status: ReportStatus;
   createdAt: string;
   reviewedAt: string | null;
@@ -47,7 +52,12 @@ export function AdminReportsConsole() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [reply, setReply] = useState("");
+  const [replyLoading, setReplyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
 
   const filteredReports = reports.filter((report) => {
     if (filter !== "all" && report.status !== filter) return false;
@@ -140,6 +150,42 @@ export function AdminReportsConsole() {
     }
 
     setActionLoading(null);
+  }
+
+  async function sendReply() {
+    if (!selectedReport || reply.trim().length < 2) {
+      setError("Scrivi una risposta prima di inviarla.");
+      return;
+    }
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      setError("Sessione admin non disponibile.");
+      return;
+    }
+
+    setReplyLoading(true);
+    setError(null);
+
+    const response = await fetch("/api/admin/reports", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reportId: selectedReport.id, reply }),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setError(payload.error ?? "Risposta non inviata.");
+    } else {
+      setReply("");
+      await loadReports();
+    }
+
+    setReplyLoading(false);
   }
 
   return (
@@ -254,6 +300,14 @@ export function AdminReportsConsole() {
                         </span>
                       ) : null}
                     </div>
+                    <button
+                      className="mt-4 inline-flex min-h-10 items-center gap-2 text-sm font-bold text-green"
+                      type="button"
+                      onClick={() => setSelectedReportId(report.id)}
+                    >
+                      <Eye size={16} />
+                      Apri dettaglio e rispondi
+                    </button>
                   </div>
 
                   <div className="grid min-w-48 gap-2">
@@ -289,8 +343,121 @@ export function AdminReportsConsole() {
             ))
           )}
         </div>
+
+        {selectedReport ? (
+          <SupportRequestDetailPanel
+            report={selectedReport}
+            reply={reply}
+            onReplyChange={setReply}
+            onSendReply={() => void sendReply()}
+            onClose={() => {
+              setSelectedReportId(null);
+              setReply("");
+            }}
+            replyLoading={replyLoading}
+          />
+        ) : null}
       </section>
     </div>
+  );
+}
+
+function SupportRequestDetailPanel({
+  report,
+  reply,
+  onReplyChange,
+  onSendReply,
+  onClose,
+  replyLoading,
+}: {
+  report: AdminReport;
+  reply: string;
+  onReplyChange: (value: string) => void;
+  onSendReply: () => void;
+  onClose: () => void;
+  replyLoading: boolean;
+}) {
+  return (
+    <aside className="mt-5 rounded-xl border border-green/20 bg-slate-50 p-5" aria-label="Dettaglio richiesta assistenza">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="section-kicker">Dettaglio richiesta</p>
+          <h3 className="mt-2 text-xl font-semibold text-ink">
+            {getSupportSubjectLabel(report.subject)}
+          </h3>
+        </div>
+        <button
+          className="icon-button min-h-9 px-2"
+          type="button"
+          aria-label="Chiudi dettaglio"
+          onClick={onClose}
+        >
+          <X size={17} />
+        </button>
+      </div>
+
+      <div className="mt-5 grid gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-muted">
+          <span className="font-semibold text-ink">{report.propertyManagerName}</span>
+          {report.propertyManagerEmail ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Mail size={14} />
+              {report.propertyManagerEmail}
+            </span>
+          ) : null}
+          <span>{formatDateTime(report.createdAt)}</span>
+        </div>
+        {report.leadTitle ? (
+          <p className="font-semibold text-green">Lead: {report.leadTitle}</p>
+        ) : null}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+            Richiesta del PM
+          </p>
+          <p className="mt-2 whitespace-pre-wrap leading-7 text-ink">
+            {report.details ?? "Nessun testo inserito."}
+          </p>
+        </div>
+        {report.adminReply ? (
+          <div className="rounded-lg border border-green/20 bg-green/5 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-green">
+              Risposta inviata
+            </p>
+            <p className="mt-2 whitespace-pre-wrap leading-7 text-ink">
+              {report.adminReply}
+            </p>
+            {report.repliedAt ? (
+              <p className="mt-2 text-xs text-muted">{formatDateTime(report.repliedAt)}</p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <label className="grid gap-2 text-sm font-semibold text-ink">
+          Rispondi al Property Manager
+          <textarea
+            className="min-h-32 rounded-lg border border-slate-200 bg-white px-4 py-3 leading-7 outline-none transition focus:border-green"
+            maxLength={2000}
+            placeholder="Scrivi una risposta chiara e utile..."
+            value={reply}
+            onChange={(event) => onReplyChange(event.target.value)}
+          />
+        </label>
+        <button
+          className="btn btn-primary justify-center sm:w-fit"
+          type="button"
+          disabled={replyLoading}
+          onClick={onSendReply}
+        >
+          <Send size={16} />
+          {replyLoading ? "Invio in corso..." : "Invia risposta via email"}
+        </button>
+        <p className="text-xs leading-5 text-muted">
+          La risposta verrà salvata nello storico e inviata all’indirizzo email del PM.
+        </p>
+      </div>
+    </aside>
   );
 }
 

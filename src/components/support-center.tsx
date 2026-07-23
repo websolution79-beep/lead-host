@@ -32,6 +32,8 @@ type SupportReport = {
   leadTitle: string | null;
   subject: SupportSubject;
   reason: string | null;
+  adminReply: string | null;
+  repliedAt: string | null;
   details: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   createdAt: string;
@@ -295,6 +297,16 @@ export function SupportCenter() {
                   <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted">
                     {report.details}
                   </p>
+                ) : null}
+                {report.adminReply ? (
+                  <div className="mt-3 rounded-lg border border-green/20 bg-green/5 p-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-green">
+                      Risposta del team
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">
+                      {report.adminReply}
+                    </p>
+                  </div>
                 ) : null}
               </article>
             ))

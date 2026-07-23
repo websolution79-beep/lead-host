@@ -13,6 +13,8 @@ export const transactionalEmailTemplateIds = [
   "lead.new_available",
   "lead.digest",
   "owner.completion_requested",
+  "admin.support_request_pending",
+  "support.reply",
 ] as const;
 
 export type TransactionalEmailTemplateId =
@@ -169,6 +171,41 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     ctaLabel: "Completa richiesta",
     ctaUrl: "{{completion_url}}",
     variables: ["property_hint", "completion_url", "expires_at"],
+  },
+  {
+    id: "admin.support_request_pending",
+    label: "Nuova richiesta assistenza agli admin",
+    description: "Invio ai Super Admin quando un PM invia una richiesta di assistenza.",
+    enabled: true,
+    subject: "Nuova richiesta di assistenza da {{property_manager_name}}",
+    preview: "Un Property Manager ha inviato una nuova richiesta.",
+    title: "Nuova richiesta di assistenza.",
+    body:
+      "{{property_manager_name}} ha inviato: {{request_subject}}. {{lead_context}}",
+    extra: "{{request_details}}",
+    ctaLabel: "Apri richieste assistenza",
+    ctaUrl: "/admin/segnalazioni",
+    variables: [
+      "property_manager_name",
+      "property_manager_email",
+      "request_subject",
+      "request_details",
+      "lead_context",
+    ],
+  },
+  {
+    id: "support.reply",
+    label: "Risposta assistenza",
+    description: "Invio al PM quando un Super Admin risponde a una richiesta.",
+    enabled: true,
+    subject: "Risposta alla tua richiesta su Lead Host",
+    preview: "Il team Lead Host ha risposto alla tua richiesta.",
+    title: "Abbiamo risposto alla tua richiesta.",
+    body: "La tua richiesta: {{request_subject}}.",
+    extra: "{{reply}}",
+    ctaLabel: "Apri assistenza",
+    ctaUrl: "/app/assistenza",
+    variables: ["request_subject", "reply", "lead_context"],
   },
 ];
 

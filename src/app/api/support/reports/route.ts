@@ -4,8 +4,9 @@ import {
   propertyManagerApiErrorResponse,
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
+import { sendSupportRequestAdminNotification } from "@/lib/email/notifications";
 import { createSupportReportInternalNotification } from "@/lib/notifications/internal";
-import { supportSubjectOptions } from "@/lib/support/reports";
+import { getSupportSubjectLabel, supportSubjectOptions } from "@/lib/support/reports";
 
 const reportSchema = z.object({
   leadPurchaseId: z.string().uuid().optional(),
@@ -38,6 +39,8 @@ type ReportRow = {
   subject: string;
   reason: string | null;
   details: string | null;
+  admin_reply: string | null;
+  replied_at: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   created_at: string;
   reviewed_at: string | null;
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest) {
 
     const { data: reports, error: reportsError } = await supabase
       .from("reports")
-      .select("id,lead_purchase_id,subject,reason,details,status,created_at,reviewed_at")
+      .select("id,lead_purchase_id,subject,reason,details,admin_reply,replied_at,status,created_at,reviewed_at")
       .eq("property_manager_id", propertyManager.id)
       .order("created_at", { ascending: false });
 
@@ -85,6 +88,8 @@ export async function GET(request: NextRequest) {
           subject: report.subject,
           reason: report.reason,
           details: report.details,
+          adminReply: report.admin_reply,
+          repliedAt: report.replied_at,
           status: report.status,
           createdAt: report.created_at,
           reviewedAt: report.reviewed_at,
@@ -137,6 +142,22 @@ export async function POST(request: NextRequest) {
       reportId: report.id,
       subject: payload.subject,
       leadTitle: purchase ? leadTitlesById.get(purchase.lead_id) ?? "Lead acquistato" : null,
+    });
+
+    const propertyManagerName =
+      [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
+      profile.email;
+    const leadContext = purchase
+      ? `Lead acquistato: ${leadTitlesById.get(purchase.lead_id) ?? "Lead acquistato"}.`
+      : "Nessun lead acquistato associato.";
+
+    await sendSupportRequestAdminNotification({
+      reportId: report.id,
+      propertyManagerName,
+      propertyManagerEmail: profile.email,
+      requestSubject: getSupportSubjectLabel(payload.subject),
+      requestDetails: payload.details,
+      leadContext,
     });
 
     return NextResponse.json({ ok: true, report });

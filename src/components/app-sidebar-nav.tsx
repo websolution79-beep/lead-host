@@ -39,7 +39,7 @@ const adminLinks = [
   { label: "Acquisizione", href: "/admin/acquisizione", icon: Megaphone },
   { label: "Property Manager", href: "/admin/property-manager", icon: Users },
   { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText },
-  { label: "Segnalazioni", href: "/admin/segnalazioni", icon: ShieldAlert },
+  { label: "Assistenza", href: "/admin/segnalazioni", icon: ShieldAlert },
   { label: "Rimborsi", href: "/admin/rimborsi", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Email", href: "/admin/email-transazionali", icon: Mail },

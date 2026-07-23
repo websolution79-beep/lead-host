@@ -12,9 +12,10 @@ const updateReportSchema = z.object({
 
 type ReportRow = {
   id: string;
-  lead_purchase_id: string;
+  lead_purchase_id: string | null;
   property_manager_id: string;
-  reason: string;
+  subject: string;
+  reason: string | null;
   details: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   created_at: string;
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     const { data: reports, error: reportsError } = await supabase
       .from("reports")
       .select(
-        "id,lead_purchase_id,property_manager_id,reason,details,status,created_at,reviewed_at",
+        "id,lead_purchase_id,property_manager_id,subject,reason,details,status,created_at,reviewed_at",
       )
       .order("created_at", { ascending: false })
       .limit(150);
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
     const reportRows = (reports ?? []) as ReportRow[];
     const purchaseIds = Array.from(
       new Set(reportRows.map((item) => item.lead_purchase_id)),
-    );
+    ).filter((id): id is string => Boolean(id));
     const propertyManagerIds = Array.from(
       new Set(reportRows.map((item) => item.property_manager_id)),
     );
@@ -101,12 +102,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       reports: reportRows.map((report) => {
-        const purchase = purchaseById.get(report.lead_purchase_id);
+        const purchase = report.lead_purchase_id
+          ? purchaseById.get(report.lead_purchase_id)
+          : undefined;
         const manager = managerById.get(report.property_manager_id);
         const profile = manager ? profileById.get(manager.profile_id) : null;
 
         return {
           id: report.id,
+          subject: report.subject,
           reason: report.reason,
           details: report.details,
           status: report.status,
@@ -114,7 +118,7 @@ export async function GET(request: NextRequest) {
           reviewedAt: report.reviewed_at,
           leadTitle: purchase
             ? leadTitleById.get(purchase.lead_id) ?? "Lead acquistato"
-            : "Lead acquistato",
+            : null,
           purchaseMode: purchase?.mode ?? null,
           purchaseAmountCents: purchase?.amount_cents ?? null,
           propertyManagerName:

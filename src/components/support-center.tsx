@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import {
-  getReportReasonLabel,
   getReportStatusLabel,
-  reportReasonOptions,
-  type ReportReason,
+  getSupportSubjectLabel,
+  supportSubjectOptions,
+  type SupportSubject,
 } from "@/lib/support/reports";
 
 type SupportPurchase = {
@@ -28,9 +28,10 @@ type SupportPurchase = {
 
 type SupportReport = {
   id: string;
-  leadPurchaseId: string;
-  leadTitle: string;
-  reason: string;
+  leadPurchaseId: string | null;
+  leadTitle: string | null;
+  subject: SupportSubject;
+  reason: string | null;
   details: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   createdAt: string;
@@ -47,8 +48,8 @@ export function SupportCenter() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [purchases, setPurchases] = useState<SupportPurchase[]>([]);
   const [reports, setReports] = useState<SupportReport[]>([]);
+  const [subject, setSubject] = useState<SupportSubject>("platform_assistance");
   const [selectedPurchaseId, setSelectedPurchaseId] = useState("");
-  const [reason, setReason] = useState<ReportReason>("phone_invalid");
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -100,13 +101,13 @@ export function SupportCenter() {
     setError(null);
     setSuccess(null);
 
-    if (!selectedPurchaseId) {
-      setError("Seleziona un lead acquistato da segnalare.");
+    if (subject === "purchased_lead_assistance" && !selectedPurchaseId) {
+      setError("Seleziona il lead acquistato a cui si riferisce la richiesta.");
       return;
     }
 
     if (details.trim().length < 12) {
-      setError("Descrivi il problema con almeno 12 caratteri.");
+      setError("Inserisci una richiesta di almeno 12 caratteri.");
       return;
     }
 
@@ -126,8 +127,10 @@ export function SupportCenter() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        leadPurchaseId: selectedPurchaseId,
-        reason,
+        subject,
+        ...(subject === "purchased_lead_assistance"
+          ? { leadPurchaseId: selectedPurchaseId }
+          : {}),
         details,
       }),
     });
@@ -140,8 +143,8 @@ export function SupportCenter() {
     }
 
     setDetails("");
-    setReason("phone_invalid");
-    setSuccess("Segnalazione inviata. Il team la prendera in carico.");
+    setSubject("platform_assistance");
+    setSuccess("Richiesta inviata. Il team la prenderà in carico.");
     await loadSupportData();
     setSubmitting(false);
   }
@@ -155,53 +158,29 @@ export function SupportCenter() {
           </span>
           <div>
             <p className="section-kicker">Assistenza</p>
-            <h2 className="text-xl font-semibold text-ink">Segnala un problema</h2>
+            <h2 className="text-xl font-semibold text-ink">Come possiamo aiutarti?</h2>
           </div>
         </div>
 
         <p className="mt-4 leading-7 text-muted">
-          Usa questo modulo per contestare un lead acquistato. La segnalazione non
-          genera un rimborso automatico: verra verificata manualmente dal team.
+          Invia una richiesta di assistenza tecnica, chiedi informazioni sulla
+          piattaforma oppure ricevi supporto su un lead che hai acquistato.
         </p>
 
         {loading ? (
           <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm font-semibold text-muted">
             Carico assistenza...
           </div>
-        ) : purchases.length === 0 ? (
-          <div className="mt-6 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-5">
-            <p className="font-semibold text-ink">Nessun lead acquistato</p>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Le segnalazioni possono essere inviate dopo aver acquistato almeno un
-              lead.
-            </p>
-          </div>
         ) : (
           <form className="mt-6 grid gap-4" onSubmit={submitReport}>
             <label className="grid gap-2 text-sm font-semibold text-ink">
-              Lead acquistato
+              Oggetto della richiesta
               <select
                 className="filter-select"
-                value={selectedPurchaseId}
-                onChange={(event) => setSelectedPurchaseId(event.target.value)}
+                value={subject}
+                onChange={(event) => setSubject(event.target.value as SupportSubject)}
               >
-                {purchases.map((purchase) => (
-                  <option key={purchase.id} value={purchase.id}>
-                    {purchase.leadTitle} -{" "}
-                    {purchase.mode === "exclusive" ? "Esclusiva" : "Condiviso"}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="grid gap-2 text-sm font-semibold text-ink">
-              Tipo segnalazione
-              <select
-                className="filter-select"
-                value={reason}
-                onChange={(event) => setReason(event.target.value as ReportReason)}
-              >
-                {reportReasonOptions.map((option) => (
+                {supportSubjectOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -209,12 +188,37 @@ export function SupportCenter() {
               </select>
             </label>
 
+            {subject === "purchased_lead_assistance" ? (
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                Lead acquistato
+                {purchases.length > 0 ? (
+                  <select
+                    className="filter-select"
+                    value={selectedPurchaseId}
+                    onChange={(event) => setSelectedPurchaseId(event.target.value)}
+                  >
+                    <option value="">Seleziona un lead</option>
+                    {purchases.map((purchase) => (
+                      <option key={purchase.id} value={purchase.id}>
+                        {purchase.leadTitle} -{" "}
+                        {purchase.mode === "exclusive" ? "Esclusiva" : "Condiviso"}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-muted">
+                    Non hai ancora acquistato lead.
+                  </span>
+                )}
+              </label>
+            ) : null}
+
             <label className="grid gap-2 text-sm font-semibold text-ink">
-              Descrivi il problema
+              Descrivi la tua richiesta
               <textarea
                 className="min-h-36 rounded-lg border border-ink/12 bg-white px-4 py-3 leading-7 outline-none transition focus:border-green"
                 maxLength={1200}
-                placeholder="Esempio: ho chiamato il numero indicato ma risulta inesistente..."
+                placeholder="Scrivi qui come possiamo aiutarti..."
                 value={details}
                 onChange={(event) => setDetails(event.target.value)}
               />
@@ -236,7 +240,7 @@ export function SupportCenter() {
 
             <button className="btn btn-primary" type="submit" disabled={submitting}>
               <Send size={17} />
-              {submitting ? "Invio in corso..." : "Invia segnalazione"}
+              {submitting ? "Invio in corso..." : "Invia richiesta"}
             </button>
           </form>
         )}
@@ -247,7 +251,7 @@ export function SupportCenter() {
           <div>
             <p className="section-kicker">Storico</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">
-              Segnalazioni inviate
+              Richieste inviate
             </h2>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -262,7 +266,7 @@ export function SupportCenter() {
             </p>
           ) : reports.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="font-semibold text-ink">Nessuna segnalazione ancora</p>
+              <p className="font-semibold text-ink">Nessuna richiesta ancora</p>
               <p className="mt-2 text-sm leading-6 text-muted">
                 Qui troverai stato e storico dei ticket inviati.
               </p>
@@ -275,10 +279,11 @@ export function SupportCenter() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-ink">{report.leadTitle}</p>
+                    <p className="font-semibold text-ink">
+                      {report.leadTitle ?? getSupportSubjectLabel(report.subject)}
+                    </p>
                     <p className="mt-1 text-sm text-muted">
-                      {getReportReasonLabel(report.reason)} -{" "}
-                      {formatDateTime(report.createdAt)}
+                      {getSupportSubjectLabel(report.subject)} · {formatDateTime(report.createdAt)}
                     </p>
                   </div>
                   <span className={statusBadgeClassName(report.status)}>

@@ -1,5 +1,6 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
+import { getSupportSubjectLabel } from "@/lib/support/reports";
 
 type InternalNotificationPayload = {
   profileId: string;
@@ -206,19 +207,24 @@ export async function createSupportReportInternalNotification({
   profileId,
   propertyManagerId,
   reportId,
+  subject,
   leadTitle,
 }: {
   profileId: string;
   propertyManagerId: string;
   reportId: string;
-  leadTitle: string;
+  subject: string;
+  leadTitle?: string | null;
 }) {
+  const context = leadTitle ? ` sul lead ${leadTitle}` : "";
+  const subjectLabel = getSupportSubjectLabel(subject).toLowerCase();
+
   return createInternalNotification({
     profileId,
     propertyManagerId,
     eventType: "support.report_submitted",
-    title: "Segnalazione inviata",
-    body: `Abbiamo ricevuto la segnalazione sul lead ${leadTitle}. La troverai in Assistenza.`,
+    title: "Richiesta inviata",
+    body: `Abbiamo ricevuto la tua richiesta di ${subjectLabel}${context}. La troverai in Assistenza.`,
     metadata: {
       report_id: reportId,
       href: "/app/assistenza",

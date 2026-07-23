@@ -14,17 +14,19 @@ import { formatCents } from "@/lib/config/commercial";
 import {
   getReportReasonLabel,
   getReportStatusLabel,
+  getSupportSubjectLabel,
   type ReportStatus,
 } from "@/lib/support/reports";
 
 type AdminReport = {
   id: string;
-  reason: string;
+  subject: string;
+  reason: string | null;
   details: string | null;
   status: ReportStatus;
   createdAt: string;
   reviewedAt: string | null;
-  leadTitle: string;
+  leadTitle: string | null;
   purchaseMode: "shared" | "exclusive" | null;
   purchaseAmountCents: number | null;
   propertyManagerName: string;
@@ -54,7 +56,8 @@ export function AdminReportsConsole() {
       report.leadTitle,
       report.propertyManagerName,
       report.propertyManagerEmail,
-      getReportReasonLabel(report.reason),
+      getReportReasonLabel(report.reason ?? ""),
+      getSupportSubjectLabel(report.subject),
       report.details,
     ]
       .filter(Boolean)
@@ -96,7 +99,7 @@ export function AdminReportsConsole() {
     const payload = (await response.json()) as AdminReportsResponse;
 
     if (!response.ok) {
-      setError(payload.error ?? "Non sono riuscito a caricare le segnalazioni.");
+      setError(payload.error ?? "Non sono riuscito a caricare le richieste.");
       setLoading(false);
       return;
     }
@@ -156,7 +159,7 @@ export function AdminReportsConsole() {
               Revisione manuale
             </p>
             <h2 className="mt-2 text-xl font-semibold text-ink">
-              Segnalazioni lead
+              Richieste di assistenza
             </h2>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -179,7 +182,7 @@ export function AdminReportsConsole() {
           <Search size={16} />
           <input
             className="w-full bg-transparent outline-none"
-            placeholder="Cerca per lead, PM o motivo"
+            placeholder="Cerca per lead, PM, oggetto o testo"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -195,13 +198,13 @@ export function AdminReportsConsole() {
         <div className="mt-5 grid gap-3">
           {loading ? (
             <p className="rounded-lg bg-slate-50 p-4 text-sm font-semibold text-muted">
-              Carico segnalazioni...
+              Carico richieste...
             </p>
           ) : filteredReports.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="font-semibold text-ink">Nessuna segnalazione trovata</p>
+              <p className="font-semibold text-ink">Nessuna richiesta trovata</p>
               <p className="mt-2 text-sm leading-6 text-muted">
-                Le segnalazioni inviate dai PM compariranno qui.
+                Le richieste inviate dai PM compariranno qui.
               </p>
             </div>
           ) : (
@@ -221,11 +224,16 @@ export function AdminReportsConsole() {
                       </span>
                     </div>
                     <h3 className="mt-3 text-lg font-semibold text-ink">
-                      {report.leadTitle}
+                      {report.leadTitle ?? getSupportSubjectLabel(report.subject)}
                     </h3>
                     <p className="mt-1 text-sm font-semibold text-green">
-                      {getReportReasonLabel(report.reason)}
+                      {getSupportSubjectLabel(report.subject)}
                     </p>
+                    {report.reason ? (
+                      <p className="mt-1 text-sm text-muted">
+                        Motivo storico: {getReportReasonLabel(report.reason)}
+                      </p>
+                    ) : null}
                     <p className="mt-3 max-w-3xl leading-7 text-muted">
                       {report.details}
                     </p>

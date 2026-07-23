@@ -3,7 +3,7 @@ import { AdminReportsConsole } from "@/components/admin-reports-console";
 
 export default function AdminReportsPage() {
   return (
-    <AppShell section="admin" eyebrow="Segnalazioni" title="Segnalazioni">
+    <AppShell section="admin" eyebrow="Assistenza" title="Richieste di assistenza">
       <AdminReportsConsole />
     </AppShell>
   );

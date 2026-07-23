@@ -476,9 +476,10 @@ export type Database = {
       reports: {
         Row: {
           id: string;
-          lead_purchase_id: string;
+          lead_purchase_id: string | null;
           property_manager_id: string;
-          reason: string;
+          reason: string | null;
+          subject: string;
           details: string | null;
           status: "pending" | "reviewing" | "resolved" | "rejected";
           created_at: string;
@@ -486,9 +487,10 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          lead_purchase_id: string;
+          lead_purchase_id?: string | null;
           property_manager_id: string;
-          reason: string;
+          reason?: string | null;
+          subject?: string;
           details?: string | null;
           status?: "pending" | "reviewing" | "resolved" | "rejected";
           created_at?: string;
@@ -496,9 +498,10 @@ export type Database = {
         };
         Update: {
           id?: string;
-          lead_purchase_id?: string;
+          lead_purchase_id?: string | null;
           property_manager_id?: string;
-          reason?: string;
+          reason?: string | null;
+          subject?: string;
           details?: string | null;
           status?: "pending" | "reviewing" | "resolved" | "rejected";
           created_at?: string;

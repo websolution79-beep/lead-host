@@ -5,15 +5,23 @@ import {
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
 import { createSupportReportInternalNotification } from "@/lib/notifications/internal";
-import { reportReasonOptions } from "@/lib/support/reports";
+import { supportSubjectOptions } from "@/lib/support/reports";
 
 const reportSchema = z.object({
-  leadPurchaseId: z.string().uuid(),
-  reason: z.enum(reportReasonOptions.map((item) => item.value) as [
+  leadPurchaseId: z.string().uuid().optional(),
+  subject: z.enum(supportSubjectOptions.map((item) => item.value) as [
     string,
     ...string[],
   ]),
   details: z.string().trim().min(12).max(1200),
+}).superRefine((payload, context) => {
+  if (payload.subject === "purchased_lead_assistance" && !payload.leadPurchaseId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["leadPurchaseId"],
+      message: "Lead acquistato obbligatorio",
+    });
+  }
 });
 
 type PurchaseRow = {
@@ -26,8 +34,9 @@ type PurchaseRow = {
 
 type ReportRow = {
   id: string;
-  lead_purchase_id: string;
-  reason: string;
+  lead_purchase_id: string | null;
+  subject: string;
+  reason: string | null;
   details: string | null;
   status: "pending" | "reviewing" | "resolved" | "rejected";
   created_at: string;
@@ -38,19 +47,16 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase, propertyManager } = await requirePropertyManager(request);
     const purchases = await fetchPurchases(supabase, propertyManager.id);
-    const purchaseIds = purchases.map((item) => item.id);
     const leadTitlesById = await fetchLeadTitles(
       supabase,
       purchases.map((item) => item.lead_id),
     );
 
-    const { data: reports, error: reportsError } = purchaseIds.length
-      ? await supabase
-          .from("reports")
-          .select("id,lead_purchase_id,reason,details,status,created_at,reviewed_at")
-          .in("lead_purchase_id", purchaseIds)
-          .order("created_at", { ascending: false })
-      : { data: [], error: null };
+    const { data: reports, error: reportsError } = await supabase
+      .from("reports")
+      .select("id,lead_purchase_id,subject,reason,details,status,created_at,reviewed_at")
+      .eq("property_manager_id", propertyManager.id)
+      .order("created_at", { ascending: false });
 
     if (reportsError) throw reportsError;
 
@@ -66,14 +72,17 @@ export async function GET(request: NextRequest) {
         createdAt: purchase.created_at,
       })),
       reports: ((reports ?? []) as ReportRow[]).map((report) => {
-        const purchase = purchaseById.get(report.lead_purchase_id);
+        const purchase = report.lead_purchase_id
+          ? purchaseById.get(report.lead_purchase_id)
+          : undefined;
 
         return {
           id: report.id,
           leadPurchaseId: report.lead_purchase_id,
           leadTitle: purchase
             ? leadTitlesById.get(purchase.lead_id) ?? "Lead acquistato"
-            : "Lead acquistato",
+            : null,
+          subject: report.subject,
           reason: report.reason,
           details: report.details,
           status: report.status,
@@ -92,15 +101,11 @@ export async function POST(request: NextRequest) {
     const { supabase, profile, propertyManager } = await requirePropertyManager(request);
     const payload = reportSchema.parse(await request.json());
 
-    const { data: purchase, error: purchaseError } = await supabase
-      .from("lead_purchases")
-      .select("id,lead_id,property_manager_id,status")
-      .eq("id", payload.leadPurchaseId)
-      .eq("property_manager_id", propertyManager.id)
-      .in("status", ["paid", "contact_unlocked"])
-      .single();
+    const purchase = payload.leadPurchaseId
+      ? await fetchPurchase(supabase, payload.leadPurchaseId, propertyManager.id)
+      : null;
 
-    if (purchaseError || !purchase) {
+    if (payload.subject === "purchased_lead_assistance" && !purchase) {
       return NextResponse.json(
         { error: "Lead acquistato non trovato per questo profilo." },
         { status: 404 },
@@ -110,9 +115,10 @@ export async function POST(request: NextRequest) {
     const { data: report, error: reportError } = await supabase
       .from("reports")
       .insert({
-        lead_purchase_id: payload.leadPurchaseId,
+        lead_purchase_id: purchase?.id ?? null,
         property_manager_id: propertyManager.id,
-        reason: payload.reason,
+        subject: payload.subject,
+        reason: null,
         details: payload.details,
         status: "pending",
       })
@@ -121,19 +127,40 @@ export async function POST(request: NextRequest) {
 
     if (reportError) throw reportError;
 
-    const leadTitlesById = await fetchLeadTitles(supabase, [purchase.lead_id]);
+    const leadTitlesById = purchase
+      ? await fetchLeadTitles(supabase, [purchase.lead_id])
+      : new Map<string, string>();
 
     await createSupportReportInternalNotification({
       profileId: profile.id,
       propertyManagerId: propertyManager.id,
       reportId: report.id,
-      leadTitle: leadTitlesById.get(purchase.lead_id) ?? "Lead acquistato",
+      subject: payload.subject,
+      leadTitle: purchase ? leadTitlesById.get(purchase.lead_id) ?? "Lead acquistato" : null,
     });
 
     return NextResponse.json({ ok: true, report });
   } catch (error) {
     return propertyManagerApiErrorResponse(error);
   }
+}
+
+async function fetchPurchase(
+  supabase: Awaited<ReturnType<typeof requirePropertyManager>>["supabase"],
+  purchaseId: string,
+  propertyManagerId: string,
+) {
+  const { data, error } = await supabase
+    .from("lead_purchases")
+    .select("id,lead_id,property_manager_id,status")
+    .eq("id", purchaseId)
+    .eq("property_manager_id", propertyManagerId)
+    .in("status", ["paid", "contact_unlocked"])
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
 }
 
 async function fetchPurchases(

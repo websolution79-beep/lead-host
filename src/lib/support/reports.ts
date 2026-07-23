@@ -1,3 +1,11 @@
+export const supportSubjectOptions = [
+  { value: "platform_assistance", label: "Assistenza piattaforma" },
+  { value: "general_information", label: "Richiesta informazioni" },
+  { value: "purchased_lead_assistance", label: "Assistenza su Lead acquistato" },
+] as const;
+
+export type SupportSubject = (typeof supportSubjectOptions)[number]["value"];
+
 export const reportReasonOptions = [
   { value: "phone_invalid", label: "Telefono inesistente" },
   { value: "email_invalid", label: "Email inesistente" },
@@ -20,6 +28,13 @@ export const reportStatusLabels: Record<ReportStatus, string> = {
 
 export function getReportReasonLabel(reason: string) {
   return reportReasonOptions.find((item) => item.value === reason)?.label ?? reason;
+}
+
+export function getSupportSubjectLabel(subject: string) {
+  return (
+    supportSubjectOptions.find((item) => item.value === subject)?.label ??
+    "Assistenza su Lead acquistato"
+  );
 }
 
 export function getReportStatusLabel(status: string) {

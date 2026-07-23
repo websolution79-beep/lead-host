@@ -1,40 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { LogOut, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAppSession } from "@/components/app-session-provider";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
-
-type ProfileSummary = {
-  email: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-};
 
 export function AccountSummary() {
   const router = useRouter();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
-  const [profile, setProfile] = useState<ProfileSummary | null>(null);
-
-  useEffect(() => {
-    async function loadProfile() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-
-      if (!user) return;
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("email,first_name,last_name,avatar_url")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      if (data) setProfile(data);
-    }
-
-    loadProfile();
-  }, [supabase]);
+  const session = useAppSession();
 
   async function handleLogout() {
     await fetch("/api/auth/session", { method: "DELETE" });
@@ -43,17 +18,17 @@ export function AccountSummary() {
     router.refresh();
   }
 
-  const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
+  const displayName = [session.firstName, session.lastName].filter(Boolean).join(" ");
 
   return (
     <div className="mt-5 rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex items-center gap-3">
-        {profile?.avatar_url ? (
+        {session.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             alt=""
             className="size-10 rounded-full object-cover ring-1 ring-slate-200"
-            src={profile.avatar_url}
+            src={session.avatarUrl}
           />
         ) : (
           <span className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-500">
@@ -64,7 +39,7 @@ export function AccountSummary() {
           <p className="truncate text-sm font-semibold text-ink">
             {displayName || "Profilo Lead Host"}
           </p>
-          <p className="truncate text-xs text-slate-500">{profile?.email}</p>
+          <p className="truncate text-xs text-slate-500">{session.email}</p>
         </div>
       </div>
       <button

@@ -1,9 +1,6 @@
 import { AcquisitionAdminConsole } from "@/components/acquisition-admin-console";
 import { AppShell } from "@/components/app-shell";
-import { hasRole } from "@/lib/auth/roles";
-import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { getEnv } from "@/lib/env";
-import { redirect } from "next/navigation";
 
 type AcquisitionPageProps = {
   searchParams: Promise<{
@@ -14,16 +11,6 @@ type AcquisitionPageProps = {
 export default async function AcquisitionPage({
   searchParams,
 }: AcquisitionPageProps) {
-  const session = await getServerSessionProfile();
-
-  if (!session) {
-    redirect("/login?redirect=/admin/acquisizione");
-  }
-
-  if (!hasRole(session.roles, "super_admin")) {
-    redirect("/app/marketplace");
-  }
-
   const { tab } = await searchParams;
   const appUrl = getEnv("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3002";
 

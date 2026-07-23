@@ -2,44 +2,14 @@
 
 import Link from "next/link";
 import { ArrowLeftRight, BriefcaseBusiness, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { createPublicSupabaseClient } from "@/lib/supabase/client";
-import type { AppRole } from "@/lib/auth/roles";
+import { useAppSession } from "@/components/app-session-provider";
 
 type RoleSwitcherProps = {
   section: "pm" | "admin";
 };
 
 export function RoleSwitcher({ section }: RoleSwitcherProps) {
-  const supabase = useMemo(() => createPublicSupabaseClient(), []);
-  const [roles, setRoles] = useState<AppRole[]>([]);
-
-  useEffect(() => {
-    async function loadRoles() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-
-      if (!user) return;
-
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_user_id", user.id)
-        .single();
-      const profile = profileData as { id: string } | null;
-
-      if (!profile) return;
-
-      const { data: roleRows } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("profile_id", profile.id);
-
-      setRoles(((roleRows ?? []) as { role: AppRole }[]).map((item) => item.role));
-    }
-
-    loadRoles();
-  }, [supabase]);
+  const { roles } = useAppSession();
 
   const canSwitchToAdmin = section === "pm" && roles.includes("super_admin");
   const canSwitchToPm = section === "admin" && roles.includes("property_manager");

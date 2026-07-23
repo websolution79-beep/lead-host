@@ -7,7 +7,9 @@ import {
   getClearSessionCookieOptions,
   getSessionCookieOptions,
 } from "@/lib/auth/session-cookies";
+import type { AppRole } from "@/lib/auth/roles";
 import { requireEnv } from "@/lib/env";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 
 type SessionPayload = {
@@ -43,7 +45,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Sessione non valida." }, { status: 401 });
   }
 
-  const response = NextResponse.json({ ok: true });
+  const serviceSupabase = createServiceSupabaseClient();
+  const { data: profile, error: profileError } = await serviceSupabase
+    .from("profiles")
+    .select("id,status")
+    .eq("auth_user_id", user.id)
+    .single();
+
+  if (profileError || !profile || profile.status !== "active") {
+    return NextResponse.json({ error: "Profilo non attivo." }, { status: 403 });
+  }
+
+  const { data: roleRows, error: rolesError } = await serviceSupabase
+    .from("user_roles")
+    .select("role")
+    .eq("profile_id", profile.id);
+
+  if (rolesError) {
+    return NextResponse.json({ error: "Ruoli non disponibili." }, { status: 500 });
+  }
+
+  const roles = ((roleRows ?? []) as { role: AppRole }[]).map((item) => item.role);
+  const response = NextResponse.json({ ok: true, roles });
   response.cookies.set(
     ACCESS_TOKEN_COOKIE,
     payload.accessToken,

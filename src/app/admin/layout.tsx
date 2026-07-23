@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { AppAreaChrome } from "@/components/app-area-chrome";
+import { AppSessionProvider } from "@/components/app-session-provider";
 import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 
@@ -20,5 +22,19 @@ export default async function AdminAreaLayout({ children }: AdminAreaLayoutProps
     redirect("/app/marketplace");
   }
 
-  return children;
+  return (
+    <AppSessionProvider
+      session={{
+        userId: session.user.id,
+        profileId: session.profile.id,
+        email: session.profile.email,
+        firstName: session.profile.first_name,
+        lastName: session.profile.last_name,
+        avatarUrl: session.profile.avatar_url,
+        roles: session.roles,
+      }}
+    >
+      <AppAreaChrome section="admin">{children}</AppAreaChrome>
+    </AppSessionProvider>
+  );
 }

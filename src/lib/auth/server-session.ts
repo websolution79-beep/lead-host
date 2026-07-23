@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { cache } from "react";
 import { ACCESS_TOKEN_COOKIE } from "@/lib/auth/session-cookies";
 import { requireEnv } from "@/lib/env";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import type { AppRole } from "@/lib/auth/roles";
 
-export async function getServerSessionUser() {
+export const getServerSessionUser = cache(async function getServerSessionUser() {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
 
@@ -35,9 +36,9 @@ export async function getServerSessionUser() {
   }
 
   return user;
-}
+});
 
-export async function getServerSessionProfile() {
+export const getServerSessionProfile = cache(async function getServerSessionProfile() {
   const user = await getServerSessionUser();
 
   if (!user) {
@@ -67,4 +68,4 @@ export async function getServerSessionProfile() {
   const roles = ((roleRows ?? []) as { role: AppRole }[]).map((item) => item.role);
 
   return { user, profile, roles };
-}
+});

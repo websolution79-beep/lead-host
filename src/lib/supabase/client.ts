@@ -1,5 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
+
+let browserClient: SupabaseClient<Database> | null = null;
 
 export function createPublicSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,5 +13,13 @@ export function createPublicSupabaseClient() {
     throw new Error("Supabase public environment variables are not configured.");
   }
 
-  return createClient<Database>(url, publishableKey);
+  if (typeof window === "undefined") {
+    return createClient<Database>(url, publishableKey);
+  }
+
+  if (!browserClient) {
+    browserClient = createClient<Database>(url, publishableKey);
+  }
+
+  return browserClient;
 }

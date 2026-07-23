@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { useAppSession } from "@/components/app-session-provider";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 
 type Profile = {
@@ -54,6 +55,7 @@ type BillingProfile = {
 type NewLeadFrequency = "immediate" | "daily" | "every_3_days" | "off";
 
 export function ProfileCenter() {
+  const appSession = useAppSession();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [wallet, setWallet] = useState<WalletRow | null>(null);
@@ -196,6 +198,10 @@ export function ProfileCenter() {
     }
 
     setProfile(data as Profile);
+    appSession.updateProfile({
+      firstName: data.first_name,
+      lastName: data.last_name,
+    });
     setStatusMessage("Profilo aggiornato.");
   }
 
@@ -361,6 +367,7 @@ export function ProfileCenter() {
     }
 
     setProfile(data as Profile);
+    appSession.updateProfile({ avatarUrl: data.avatar_url });
     setStatusMessage("Immagine profilo aggiornata.");
   }
 

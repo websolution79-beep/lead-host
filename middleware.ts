@@ -17,6 +17,12 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request);
   }
 
+  // Layout e API eseguono comunque la validazione completa. Qui basta evitare
+  // una chiamata remota finché il token non è vicino alla scadenza.
+  if (accessToken && isAccessTokenFresh(accessToken)) {
+    return NextResponse.next();
+  }
+
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
@@ -27,16 +33,6 @@ export async function middleware(request: NextRequest) {
       },
     },
   );
-
-  if (accessToken) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser(accessToken);
-
-    if (user) {
-      return NextResponse.next();
-    }
-  }
 
   if (refreshToken) {
     const { data } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
@@ -64,6 +60,22 @@ export async function middleware(request: NextRequest) {
   response.cookies.set(REFRESH_TOKEN_COOKIE, "", getClearSessionCookieOptions());
 
   return response;
+}
+
+function isAccessTokenFresh(token: string) {
+  try {
+    const payloadPart = token.split(".")[1];
+
+    if (!payloadPart) return false;
+
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(padded)) as { exp?: number };
+
+    return typeof payload.exp === "number" && payload.exp * 1000 > Date.now() + 30_000;
+  } catch {
+    return false;
+  }
 }
 
 function redirectToLogin(request: NextRequest) {

@@ -48,33 +48,17 @@ export function LoginForm() {
         return;
       }
 
-      await fetch("/api/email/welcome", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
-        },
-      });
+      const sessionPayload = (await sessionResponse.json()) as { roles?: AppRole[] };
+      const roles = sessionPayload.roles ?? [];
+      const redirectTo = searchParams.get("redirect");
+
+      router.replace(redirectTo || getDefaultRoute(roles));
+      router.refresh();
+      return;
     }
 
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", data.user.id)
-      .single();
-    const profile = profileData as { id: string } | null;
-
-    const { data: rolesData } = profile
-      ? await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("profile_id", profile.id)
-      : { data: [] };
-
-    const roles = ((rolesData ?? []) as { role: AppRole }[]).map((item) => item.role);
-    const redirectTo = searchParams.get("redirect");
-
-    router.push(redirectTo || getDefaultRoute(roles));
-    router.refresh();
+    setError("Sessione non disponibile.");
+    setIsSubmitting(false);
   }
 
   return (

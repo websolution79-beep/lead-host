@@ -22,10 +22,7 @@ import {
   isSharedAvailable,
   parseLeadDate,
 } from "@/lib/domain/lead-state";
-import {
-  applyPropertyManagerMatching,
-  getPublishedMarketplaceLeadById,
-} from "@/lib/domain/marketplace-leads";
+import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 
 type LeadDetailPageProps = {
@@ -44,18 +41,13 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
     redirect(`/login?redirect=/app/marketplace/${leadId}`);
   }
 
-  const baseLead =
+  const lead =
     (await getPublishedMarketplaceLeadById(leadId)) ??
     demoLeads.find((item) => item.id === leadId);
 
-  if (!baseLead) {
+  if (!lead) {
     notFound();
   }
-
-  const [lead] = await applyPropertyManagerMatching({
-    profileId: session.profile.id,
-    leads: [baseLead],
-  });
 
   const expiresAt = parseLeadDate(lead.expiresAt);
   const sharedAvailable = isSharedAvailable({
@@ -148,21 +140,6 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               ))}
             </div>
           </section>
-
-          {lead.pmMatch ? (
-            <section className="mt-8 border-t border-ink/10 pt-6">
-              <h3 className="text-lg font-semibold text-ink">Matching con il tuo profilo</h3>
-              <div className={`mt-3 rounded-xl border p-4 ${getMatchStyle(lead.pmMatch.score)}`}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-bold">{lead.pmMatch.label}</p>
-                  <p className="text-sm font-extrabold">
-                    {lead.pmMatch.score === null ? "Da configurare" : `${lead.pmMatch.score}%`}
-                  </p>
-                </div>
-                <p className="mt-2 text-sm leading-6 opacity-85">{lead.pmMatch.reason}</p>
-              </div>
-            </section>
-          ) : null}
 
           <section className="mt-8 border-t border-ink/10 pt-6">
             <h3 className="text-lg font-semibold text-ink">Contatti</h3>
@@ -265,14 +242,6 @@ function ExclusiveSoldBadge() {
       Acquistato in esclusiva
     </span>
   );
-}
-
-function getMatchStyle(score: number | null) {
-  if (score === null) return "border-slate-200 bg-slate-50 text-slate-600";
-  if (score >= 80) return "border-green/20 bg-green/8 text-green";
-  if (score >= 55) return "border-blue-200 bg-blue-50 text-blue-700";
-
-  return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
 function Detail({ label, value }: { label: string; value: string }) {

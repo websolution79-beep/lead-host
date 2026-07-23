@@ -2,10 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import type { Database } from "@/lib/supabase/database.types";
-import {
-  calculateLeadMatch,
-  fetchPropertyManagerOperations,
-} from "@/lib/property-manager/operations";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -61,40 +57,6 @@ export async function getPublishedMarketplaceLeadById(id: string) {
   const [mappedLead] = await mapLeadRowsToMarketplace(supabase, [lead]);
 
   return mappedLead ?? null;
-}
-
-export async function applyPropertyManagerMatching({
-  profileId,
-  leads,
-}: {
-  profileId: string;
-  leads: MarketplaceLead[];
-}) {
-  if (!leads.length) return leads;
-
-  const supabase = createServiceSupabaseClient();
-  const { data: propertyManager, error } = await supabase
-    .from("property_manager_profiles")
-    .select("id")
-    .eq("profile_id", profileId)
-    .maybeSingle();
-
-  if (error || !propertyManager?.id) {
-    return leads.map((lead) => ({
-      ...lead,
-      pmMatch: calculateLeadMatch(lead, null),
-    }));
-  }
-
-  const operations = await fetchPropertyManagerOperations({
-    supabase,
-    propertyManagerId: propertyManager.id,
-  });
-
-  return leads.map((lead) => ({
-    ...lead,
-    pmMatch: calculateLeadMatch(lead, operations),
-  }));
 }
 
 async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[]) {

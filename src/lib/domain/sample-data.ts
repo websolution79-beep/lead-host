@@ -24,13 +24,6 @@ export type MarketplaceLead = {
   publishedAt: string;
   expiresAt: string;
   ownerDescription: string;
-  pmMatch?: {
-    score: number | null;
-    label: string;
-    serviceMatches: string[];
-    areaMatch: "city" | "province" | "region" | null;
-    reason: string;
-  };
 };
 
 export const demoLeads: MarketplaceLead[] = [

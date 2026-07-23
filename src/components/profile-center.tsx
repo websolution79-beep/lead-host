@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
-import { PmOperationsCenter } from "@/components/pm-operations-center";
 
 type Profile = {
   id: string;
@@ -528,8 +527,6 @@ export function ProfileCenter() {
             </button>
           </form>
         </section>
-
-        <PmOperationsCenter />
 
         <section className="card p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">

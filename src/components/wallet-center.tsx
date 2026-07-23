@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
+import { useAppSession } from "@/components/app-session-provider";
 
 type WalletRow = {
   id: string;
@@ -49,6 +50,7 @@ const transactionLabels: Record<WalletTransaction["type"], string> = {
 
 export function WalletCenter() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const session = useAppSession();
   const [wallet, setWallet] = useState<WalletRow | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [topUpAmount, setTopUpAmount] = useState("30");
@@ -64,9 +66,9 @@ export function WalletCenter() {
 
   useEffect(() => {
     async function loadWallet() {
-      const settingsResponse = await fetch("/api/settings/commercial", {
-        cache: "no-store",
-      }).catch(() => null);
+      const settingsResponse = await fetch("/api/settings/commercial").catch(
+        () => null,
+      );
 
       if (settingsResponse?.ok) {
         const payload = (await settingsResponse.json()) as CommercialSettingsResponse;
@@ -81,25 +83,10 @@ export function WalletCenter() {
         }
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_user_id", user.id)
-        .single();
-
-      const typedProfile = profile as { id: string } | null;
-
-      if (!typedProfile) return;
-
       const { data: walletData } = await supabase
         .from("wallets")
         .select("id,profile_id,balance_cents,currency")
-        .eq("profile_id", typedProfile.id)
+        .eq("profile_id", session.profileId)
         .maybeSingle();
 
       const typedWallet = walletData as WalletRow | null;
@@ -120,23 +107,27 @@ export function WalletCenter() {
     }
 
     loadWallet();
-  }, [supabase]);
+  }, [session.profileId, supabase]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const walletStatus = params.get("wallet");
+    const timeoutId = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const walletStatus = params.get("wallet");
 
-    if (walletStatus === "success") {
-      setCheckoutMessage(
-        "Pagamento ricevuto. Il saldo si aggiorna appena Stripe conferma il webhook.",
-      );
-      window.history.replaceState(null, "", window.location.pathname);
-    }
+      if (walletStatus === "success") {
+        setCheckoutMessage(
+          "Pagamento ricevuto. Il saldo si aggiorna appena Stripe conferma il webhook.",
+        );
+        window.history.replaceState(null, "", window.location.pathname);
+      }
 
-    if (walletStatus === "cancelled") {
-      setCheckoutError("Ricarica annullata. Puoi riprovare quando vuoi.");
-      window.history.replaceState(null, "", window.location.pathname);
-    }
+      if (walletStatus === "cancelled") {
+        setCheckoutError("Ricarica annullata. Puoi riprovare quando vuoi.");
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   const currency = wallet?.currency ?? "eur";

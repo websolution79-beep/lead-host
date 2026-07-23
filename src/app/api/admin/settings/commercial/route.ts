@@ -31,7 +31,14 @@ export async function GET(request: NextRequest) {
     const { supabase } = await requireSuperAdmin(request);
     const { settings, storageReady } = await fetchCommercialSettings(supabase);
 
-    return NextResponse.json({ settings, storageReady });
+    return NextResponse.json(
+      { settings, storageReady },
+      {
+        headers: {
+          "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
+        },
+      },
+    );
   } catch (error) {
     return adminApiErrorResponse(error);
   }

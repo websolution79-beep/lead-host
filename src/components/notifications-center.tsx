@@ -12,6 +12,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import {
+  PaginationControls,
+  type PaginationState,
+} from "@/components/pagination-controls";
 
 type NotificationItem = {
   id: string;
@@ -29,6 +33,7 @@ type NotificationsPayload = {
   notifications: NotificationItem[];
   unreadCount: number;
   counters: Record<string, number>;
+  pagination: PaginationState;
   error?: string;
 };
 
@@ -48,6 +53,7 @@ export function NotificationsCenter() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -71,6 +77,8 @@ export function NotificationsCenter() {
 
     if (activeFilter.status !== "all") params.set("status", activeFilter.status);
     if (activeFilter.type !== "all") params.set("type", activeFilter.type);
+    params.set("page", page.toString());
+    params.set("pageSize", "25");
 
     const response = await fetch(`/api/notifications?${params.toString()}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -86,10 +94,14 @@ export function NotificationsCenter() {
 
     setPayload(result);
     setLoading(false);
-  }, [activeFilter, getAccessToken]);
+  }, [activeFilter, getAccessToken, page]);
 
   useEffect(() => {
-    void loadNotifications();
+    const timeoutId = window.setTimeout(() => {
+      void loadNotifications();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadNotifications]);
 
   const updateReadState = useCallback(
@@ -172,7 +184,10 @@ export function NotificationsCenter() {
                   : "border-slate-200 bg-white text-muted hover:border-green hover:text-green"
               }`}
               type="button"
-              onClick={() => setActiveFilter(filter)}
+              onClick={() => {
+                setActiveFilter(filter);
+                setPage(1);
+              }}
             >
               {filter.label}
             </button>
@@ -211,6 +226,15 @@ export function NotificationsCenter() {
           </div>
         )}
       </section>
+      {payload && payload.pagination.totalPages > 1 ? (
+        <section className="card overflow-hidden">
+          <PaginationControls
+            pagination={payload.pagination}
+            disabled={loading}
+            onPageChange={setPage}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -224,7 +248,6 @@ function NotificationCard({
   saving: boolean;
   onMarkRead: () => void;
 }) {
-  const Icon = notificationIcon(notification.eventType);
   const isUnread = !notification.readAt;
 
   return (
@@ -240,7 +263,7 @@ function NotificationCard({
               isUnread ? "bg-green text-white" : "bg-slate-100 text-muted"
             }`}
           >
-            <Icon size={20} />
+            <NotificationIcon eventType={notification.eventType} />
           </span>
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -277,13 +300,13 @@ function NotificationCard({
   );
 }
 
-function notificationIcon(eventType: string) {
-  if (eventType.startsWith("lead.")) return Sparkles;
-  if (eventType.startsWith("wallet.")) return CircleDollarSign;
-  if (eventType.startsWith("support.")) return LifeBuoy;
-  if (eventType.startsWith("pm.")) return ShieldCheck;
+function NotificationIcon({ eventType }: { eventType: string }) {
+  if (eventType.startsWith("lead.")) return <Sparkles size={20} />;
+  if (eventType.startsWith("wallet.")) return <CircleDollarSign size={20} />;
+  if (eventType.startsWith("support.")) return <LifeBuoy size={20} />;
+  if (eventType.startsWith("pm.")) return <ShieldCheck size={20} />;
 
-  return Bell;
+  return <Bell size={20} />;
 }
 
 function formatDateTime(value: string) {

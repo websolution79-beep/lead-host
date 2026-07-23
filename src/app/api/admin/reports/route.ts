@@ -8,6 +8,7 @@ import { sendSupportReplyEmail } from "@/lib/email/notifications";
 import { createSupportReplyInternalNotification } from "@/lib/notifications/internal";
 import { getSupportSubjectLabel } from "@/lib/support/reports";
 import type { Database } from "@/lib/supabase/database.types";
+import { buildPagination, readPagination } from "@/lib/api/pagination";
 
 const updateReportSchema = z.object({
   reportId: z.string().uuid(),
@@ -52,14 +53,28 @@ type PurchaseRow = {
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
+    const pagination = readPagination(request.nextUrl.searchParams);
 
-    const { data: reports, error: reportsError } = await supabase
-      .from("reports")
-      .select(
-        "id,lead_purchase_id,property_manager_id,subject,reason,details,admin_reply,replied_at,replied_by,status,created_at,reviewed_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(150);
+    const [
+      { data: reports, error: reportsError, count: reportsCount },
+      pendingCountResult,
+      reviewingCountResult,
+      resolvedCountResult,
+      rejectedCountResult,
+    ] = await Promise.all([
+      supabase
+        .from("reports")
+        .select(
+          "id,lead_purchase_id,property_manager_id,subject,reason,details,admin_reply,replied_at,replied_by,status,created_at,reviewed_at",
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range(pagination.from, pagination.to),
+      countReportsByStatus(supabase, "pending"),
+      countReportsByStatus(supabase, "reviewing"),
+      countReportsByStatus(supabase, "resolved"),
+      countReportsByStatus(supabase, "rejected"),
+    ]);
 
     if (reportsError) throw reportsError;
 
@@ -138,6 +153,17 @@ export async function GET(request: NextRequest) {
     const profileById = new Map((profiles ?? []).map((item) => [item.id, item]));
 
     return NextResponse.json({
+      pagination: buildPagination(
+        pagination.page,
+        pagination.pageSize,
+        reportsCount ?? 0,
+      ),
+      stats: {
+        pending: pendingCountResult,
+        reviewing: reviewingCountResult,
+        resolved: resolvedCountResult,
+        rejected: rejectedCountResult,
+      },
       reports: reportRows.map((report) => {
         const purchase = report.lead_purchase_id
           ? purchaseById.get(report.lead_purchase_id)
@@ -178,6 +204,20 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+async function countReportsByStatus(
+  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"],
+  status: ReportRow["status"],
+) {
+  const { count, error } = await supabase
+    .from("reports")
+    .select("id", { count: "exact", head: true })
+    .eq("status", status);
+
+  if (error) throw error;
+
+  return count ?? 0;
 }
 
 export async function PATCH(request: NextRequest) {

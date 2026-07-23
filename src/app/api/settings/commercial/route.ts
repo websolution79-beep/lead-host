@@ -7,7 +7,14 @@ export async function GET() {
     const supabase = createServiceSupabaseClient();
     const { settings } = await fetchCommercialSettings(supabase);
 
-    return NextResponse.json({ settings });
+    return NextResponse.json(
+      { settings },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120",
+        },
+      },
+    );
   } catch {
     return NextResponse.json(
       { error: "Impostazioni commerciali non disponibili." },

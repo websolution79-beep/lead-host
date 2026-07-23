@@ -6,6 +6,8 @@ import {
   resolveLeadPricing,
 } from "@/lib/config/commercial-settings";
 import { notifyImmediateNewLead } from "@/lib/email/notifications";
+import { revalidateTag } from "next/cache";
+import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
 type RouteContext = {
   params: Promise<{
@@ -179,6 +181,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       shared_price_cents: sharedPriceCents,
       exclusive_price_cents: exclusivePriceCents,
     });
+    revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
 
     return NextResponse.json({ status: "published", lead: publishedLead });
   } catch (error) {

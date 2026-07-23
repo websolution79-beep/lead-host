@@ -20,6 +20,10 @@ import {
   getSupportSubjectLabel,
   type ReportStatus,
 } from "@/lib/support/reports";
+import {
+  PaginationControls,
+  type PaginationState,
+} from "@/components/pagination-controls";
 
 type AdminReport = {
   id: string;
@@ -48,6 +52,13 @@ type SupportMessage = {
 
 type AdminReportsResponse = {
   reports: AdminReport[];
+  pagination: PaginationState;
+  stats: {
+    pending: number;
+    reviewing: number;
+    resolved: number;
+    rejected: number;
+  };
   error?: string;
 };
 
@@ -68,6 +79,13 @@ const filterOptions: Array<{ value: FilterState; label: string }> = [
   { value: "rejected", label: "Non accolte" },
 ];
 
+const emptyReportStats = {
+  pending: 0,
+  reviewing: 0,
+  resolved: 0,
+  rejected: 0,
+};
+
 export function AdminReportsConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [reports, setReports] = useState<AdminReport[]>([]);
@@ -79,6 +97,15 @@ export function AdminReportsConsole() {
   const [reply, setReply] = useState("");
   const [replyLoading, setReplyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 1,
+  });
+  const [globalStats, setGlobalStats] = useState(emptyReportStats);
+  const [needsReplyCount, setNeedsReplyCount] = useState(0);
 
   const selectedReport = reports.find((report) => report.id === selectedReportId) ?? null;
 
@@ -109,21 +136,13 @@ export function AdminReportsConsole() {
     return query.trim() ? haystack.includes(query.trim().toLowerCase()) : true;
   });
 
-  const stats = {
-    pending: reports.filter((item) => item.status === "pending").length,
-    reviewing: reports.filter((item) => item.status === "reviewing").length,
-    resolved: reports.filter((item) => item.status === "resolved").length,
-    rejected: reports.filter((item) => item.status === "rejected").length,
-    needsReply: reports.filter((item) => isAdminActionRequired(item)).length,
-  };
-
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
 
     return data.session?.access_token ?? null;
   }, [supabase]);
 
-  const loadReports = useCallback(async () => {
+  const loadReports = useCallback(async (targetPage: number) => {
     const token = await getAccessToken();
 
     setLoading(true);
@@ -135,11 +154,20 @@ export function AdminReportsConsole() {
       return;
     }
 
-    const response = await fetch("/api/admin/reports", {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
+    const [response, summaryResponse] = await Promise.all([
+      fetch(`/api/admin/reports?page=${targetPage}&pageSize=25`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+      fetch("/api/admin/reports/summary", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+    ]);
     const payload = (await response.json()) as AdminReportsResponse;
+    const summaryPayload = (await summaryResponse.json().catch(() => ({}))) as {
+      count?: number;
+    };
 
     if (!response.ok) {
       setError(payload.error ?? "Non sono riuscito a caricare le richieste.");
@@ -148,12 +176,26 @@ export function AdminReportsConsole() {
     }
 
     setReports(payload.reports ?? []);
+    setPagination(
+      payload.pagination ?? {
+        page: targetPage,
+        pageSize: 25,
+        total: payload.reports?.length ?? 0,
+        totalPages: 1,
+      },
+    );
+    setGlobalStats(payload.stats ?? emptyReportStats);
+    setNeedsReplyCount(summaryPayload.count ?? 0);
     setLoading(false);
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadReports();
-  }, [loadReports]);
+    const timeoutId = window.setTimeout(() => {
+      void loadReports(page);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadReports, page]);
 
   async function updateStatus(reportId: string, status: ReportStatus) {
     const token = await getAccessToken();
@@ -179,7 +221,7 @@ export function AdminReportsConsole() {
     if (!response.ok) {
       setError(payload.error ?? "Aggiornamento non completato.");
     } else {
-      await loadReports();
+      await loadReports(page);
     }
 
     setActionLoading(null);
@@ -215,7 +257,7 @@ export function AdminReportsConsole() {
       setError(payload.error ?? "Risposta non inviata.");
     } else {
       setReply("");
-      await loadReports();
+      await loadReports(page);
     }
 
     setReplyLoading(false);
@@ -224,11 +266,11 @@ export function AdminReportsConsole() {
   return (
     <div className="grid gap-5">
       <div className="admin-kpi-grid">
-        <StatCard label="Da lavorare" value={stats.needsReply} tone="red" />
-        <StatCard label="Inviate" value={stats.pending} tone="slate" />
-        <StatCard label="In lavorazione" value={stats.reviewing} tone="blue" />
-        <StatCard label="Risolte" value={stats.resolved} tone="green" />
-        <StatCard label="Non accolte" value={stats.rejected} tone="red" />
+        <StatCard label="Da lavorare" value={needsReplyCount} tone="red" />
+        <StatCard label="Inviate" value={globalStats.pending} tone="slate" />
+        <StatCard label="In lavorazione" value={globalStats.reviewing} tone="blue" />
+        <StatCard label="Risolte" value={globalStats.resolved} tone="green" />
+        <StatCard label="Non accolte" value={globalStats.rejected} tone="red" />
       </div>
 
       <section className="card p-4">
@@ -385,6 +427,14 @@ export function AdminReportsConsole() {
             ))
             )}
           </div>
+
+          {!selectedReport ? (
+            <PaginationControls
+              pagination={pagination}
+              disabled={loading}
+              onPageChange={setPage}
+            />
+          ) : null}
 
         {selectedReport ? (
           <>

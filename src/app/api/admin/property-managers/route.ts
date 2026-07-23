@@ -6,6 +6,7 @@ import {
 } from "@/lib/admin/auth";
 import { getManagedPropertiesLabel } from "@/lib/domain/pm-onboarding";
 import { sendPropertyManagerVerifiedEmail } from "@/lib/email/notifications";
+import { buildPagination, readPagination } from "@/lib/api/pagination";
 
 const updatePropertyManagerSchema = z.object({
   profileId: z.string().uuid(),
@@ -136,9 +137,153 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const profileIds = requestedProfileId
-      ? [requestedProfileId]
-      : allProfileIds;
+    if (allProfileIds.length === 0) {
+      return NextResponse.json({
+        propertyManagers: [],
+        pagination: buildPagination(1, 25, 0),
+        stats: {
+          total: 0,
+          verified: 0,
+          pending: 0,
+          suspended: 0,
+        },
+      });
+    }
+
+    if (!requestedProfileId) {
+      const pagination = readPagination(request.nextUrl.searchParams);
+      const [
+        { data: profiles, error: profilesError },
+        { count: verifiedCount, error: verifiedCountError },
+        { count: pendingCount, error: pendingCountError },
+        { count: suspendedCount, error: suspendedCountError },
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id,auth_user_id,email,first_name,last_name,phone,avatar_url,status,created_at,updated_at",
+          )
+          .in("id", allProfileIds)
+          .order("created_at", { ascending: false })
+          .range(pagination.from, pagination.to),
+        supabase
+          .from("property_manager_profiles")
+          .select("id", { count: "exact", head: true })
+          .in("profile_id", allProfileIds)
+          .eq("verification_status", "verified"),
+        supabase
+          .from("property_manager_profiles")
+          .select("id", { count: "exact", head: true })
+          .in("profile_id", allProfileIds)
+          .eq("verification_status", "not_verified"),
+        supabase
+          .from("property_manager_profiles")
+          .select("id", { count: "exact", head: true })
+          .in("profile_id", allProfileIds)
+          .eq("verification_status", "suspended"),
+      ]);
+
+      if (profilesError) throw profilesError;
+      if (verifiedCountError) throw verifiedCountError;
+      if (pendingCountError) throw pendingCountError;
+      if (suspendedCountError) throw suspendedCountError;
+
+      const profileRows = (profiles ?? []) as ProfileRow[];
+      const pageProfileIds = profileRows.map((profile) => profile.id);
+      const [
+        { data: pmProfiles, error: pmProfilesError },
+        { data: wallets, error: walletsError },
+      ] = pageProfileIds.length
+        ? await Promise.all([
+            supabase
+              .from("property_manager_profiles")
+              .select("*")
+              .in("profile_id", pageProfileIds),
+            supabase
+              .from("wallets")
+              .select("profile_id,balance_cents,currency")
+              .in("profile_id", pageProfileIds),
+          ])
+        : [
+            { data: [], error: null },
+            { data: [], error: null },
+          ];
+
+      if (pmProfilesError) throw pmProfilesError;
+      if (walletsError) throw walletsError;
+
+      const pmProfilesByProfileId = new Map(
+        ((pmProfiles ?? []) as PropertyManagerProfileRow[]).map((item) => [
+          item.profile_id,
+          item,
+        ]),
+      );
+      const walletsByProfileId = new Map(
+        ((wallets ?? []) as WalletRow[]).map((item) => [
+          item.profile_id,
+          item,
+        ]),
+      );
+      const propertyManagers = profileRows.map((profile) => {
+        const pmProfile = pmProfilesByProfileId.get(profile.id);
+        const wallet = walletsByProfileId.get(profile.id);
+        const managedPropertiesRange =
+          pmProfile?.managed_properties_range ?? null;
+
+        return {
+          profileId: profile.id,
+          email: profile.email,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          phone: profile.phone,
+          avatarUrl: profile.avatar_url,
+          profileStatus: profile.status,
+          verificationStatus:
+            pmProfile?.verification_status ?? "not_verified",
+          managedPropertiesRange,
+          managedPropertiesLabel: getManagedPropertiesLabel(
+            managedPropertiesRange,
+            pmProfile?.managed_properties_count,
+          ),
+          primaryCity: pmProfile?.primary_city || "Non indicata",
+          walletBalanceCents: wallet?.balance_cents ?? 0,
+          walletCurrency: wallet?.currency ?? "eur",
+          createdAt: profile.created_at,
+        };
+      });
+
+      return NextResponse.json(
+        {
+          propertyManagers,
+          pagination: buildPagination(
+            pagination.page,
+            pagination.pageSize,
+            allProfileIds.length,
+          ),
+          stats: {
+            total: allProfileIds.length,
+            verified: verifiedCount ?? 0,
+            pending:
+              (pendingCount ?? 0) +
+              Math.max(
+                0,
+                allProfileIds.length -
+                  (verifiedCount ?? 0) -
+                  (pendingCount ?? 0) -
+                  (suspendedCount ?? 0),
+              ),
+            suspended: suspendedCount ?? 0,
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
+          },
+        },
+      );
+    }
+
+    const profileIds = [requestedProfileId];
 
     if (profileIds.length === 0) {
       return NextResponse.json({ propertyManagers: [] });
@@ -187,46 +332,6 @@ export async function GET(request: NextRequest) {
       ((wallets ?? []) as WalletRow[]).map((item) => [item.profile_id, item]),
     );
 
-    if (!requestedProfileId) {
-      const propertyManagers = ((profiles ?? []) as ProfileRow[])
-        .map((profile) => {
-          const pmProfile = pmProfilesByProfileId.get(profile.id);
-          const wallet = walletsByProfileId.get(profile.id);
-          const managedPropertiesRange =
-            pmProfile?.managed_properties_range ?? null;
-
-          return {
-            profileId: profile.id,
-            email: profile.email,
-            firstName: profile.first_name,
-            lastName: profile.last_name,
-            phone: profile.phone,
-            avatarUrl: profile.avatar_url,
-            profileStatus: profile.status,
-            verificationStatus:
-              pmProfile?.verification_status ?? "not_verified",
-            managedPropertiesRange,
-            managedPropertiesLabel: getManagedPropertiesLabel(
-              managedPropertiesRange,
-              pmProfile?.managed_properties_count,
-            ),
-            primaryCity: pmProfile?.primary_city || "Non indicata",
-            walletBalanceCents: wallet?.balance_cents ?? 0,
-            walletCurrency: wallet?.currency ?? "eur",
-            createdAt: profile.created_at,
-          };
-        })
-        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-
-      return NextResponse.json(
-        { propertyManagers },
-        {
-          headers: {
-            "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
-          },
-        },
-      );
-    }
     const billingByProfileId = new Map(
       ((billingProfilesError ? [] : billingProfiles ?? []) as BillingProfileRow[]).map(
         (item) => [item.profile_id, item],

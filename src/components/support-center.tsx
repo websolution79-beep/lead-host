@@ -16,6 +16,10 @@ import {
   supportSubjectOptions,
   type SupportSubject,
 } from "@/lib/support/reports";
+import {
+  PaginationControls,
+  type PaginationState,
+} from "@/components/pagination-controls";
 
 type SupportPurchase = {
   id: string;
@@ -51,6 +55,7 @@ type SupportMessage = {
 type SupportResponse = {
   purchases: SupportPurchase[];
   reports: SupportReport[];
+  pagination: PaginationState;
   error?: string;
 };
 
@@ -67,6 +72,13 @@ export function SupportCenter() {
   const [replySending, setReplySending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 1,
+  });
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -74,7 +86,7 @@ export function SupportCenter() {
     return data.session?.access_token ?? null;
   }, [supabase]);
 
-  const loadSupportData = useCallback(async () => {
+  const loadSupportData = useCallback(async (targetPage: number) => {
     const token = await getAccessToken();
 
     setLoading(true);
@@ -86,10 +98,13 @@ export function SupportCenter() {
       return;
     }
 
-    const response = await fetch("/api/support/reports", {
+    const response = await fetch(
+      `/api/support/reports?page=${targetPage}&pageSize=25`,
+      {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
-    });
+      },
+    );
     const payload = (await response.json()) as SupportResponse;
 
     if (!response.ok) {
@@ -100,13 +115,25 @@ export function SupportCenter() {
 
     setPurchases(payload.purchases ?? []);
     setReports(payload.reports ?? []);
+    setPagination(
+      payload.pagination ?? {
+        page: targetPage,
+        pageSize: 25,
+        total: payload.reports?.length ?? 0,
+        totalPages: 1,
+      },
+    );
     setSelectedPurchaseId((current) => current || payload.purchases?.[0]?.id || "");
     setLoading(false);
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadSupportData();
-  }, [loadSupportData]);
+    const timeoutId = window.setTimeout(() => {
+      void loadSupportData(page);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadSupportData, page]);
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -157,7 +184,8 @@ export function SupportCenter() {
     setDetails("");
     setSubject("platform_assistance");
     setSuccess("Richiesta inviata. Il team la prenderà in carico.");
-    await loadSupportData();
+    setPage(1);
+    await loadSupportData(1);
     setSubmitting(false);
   }
 
@@ -195,7 +223,7 @@ export function SupportCenter() {
     } else {
       setReplyDrafts((current) => ({ ...current, [reportId]: "" }));
       setSuccess("Messaggio inviato al team di assistenza.");
-      await loadSupportData();
+      await loadSupportData(page);
     }
 
     setReplySending(null);
@@ -307,7 +335,7 @@ export function SupportCenter() {
             </h2>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {reports.length} ticket
+            {pagination.total} ticket
           </span>
         </div>
 
@@ -410,6 +438,11 @@ export function SupportCenter() {
             ))
           )}
         </div>
+        <PaginationControls
+          pagination={pagination}
+          disabled={loading}
+          onPageChange={setPage}
+        />
       </section>
     </div>
   );

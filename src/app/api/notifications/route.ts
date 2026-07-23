@@ -5,6 +5,7 @@ import {
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
 import type { Json } from "@/lib/supabase/database.types";
+import { buildPagination, readPagination } from "@/lib/api/pagination";
 
 const patchSchema = z.discriminatedUnion("action", [
   z.object({
@@ -41,13 +42,15 @@ export async function GET(request: NextRequest) {
     const { supabase, profile } = await requirePropertyManager(request);
     const status = request.nextUrl.searchParams.get("status");
     const type = request.nextUrl.searchParams.get("type");
+    const pagination = readPagination(request.nextUrl.searchParams);
     let query = supabase
       .from("notifications")
-      .select("id,event_type,title,body,metadata,read_at,sent_at,created_at")
+      .select("id,event_type,title,body,metadata,read_at,sent_at,created_at", {
+        count: "exact",
+      })
       .eq("profile_id", profile.id)
       .eq("channel", "internal")
-      .order("created_at", { ascending: false })
-      .limit(100);
+      .order("created_at", { ascending: false });
 
     if (status === "unread") {
       query = query.is("read_at", null);
@@ -57,8 +60,11 @@ export async function GET(request: NextRequest) {
       query = query.like("event_type", `${type}.%`);
     }
 
-    const [{ data, error }, { count, error: unreadError }] = await Promise.all([
-      query,
+    const [
+      { data, error, count: filteredCount },
+      { count, error: unreadError },
+    ] = await Promise.all([
+      query.range(pagination.from, pagination.to),
       supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
@@ -86,6 +92,11 @@ export async function GET(request: NextRequest) {
       notifications,
       unreadCount: count ?? 0,
       counters: buildCounters(notifications),
+      pagination: buildPagination(
+        pagination.page,
+        pagination.pageSize,
+        filteredCount ?? 0,
+      ),
     });
   } catch (error) {
     return propertyManagerApiErrorResponse(error);

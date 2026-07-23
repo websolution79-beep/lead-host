@@ -5,6 +5,8 @@ import {
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
 import { sendLeadPurchaseEmail } from "@/lib/email/notifications";
+import { revalidateTag } from "next/cache";
+import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
@@ -81,6 +83,7 @@ export async function POST(request: NextRequest) {
       amountCents: purchase.amount_cents,
       balanceCents: purchase.balance_cents,
     });
+    revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
 
     return NextResponse.json({
       ok: true,

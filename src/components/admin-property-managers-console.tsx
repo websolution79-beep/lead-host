@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
+import {
+  PaginationControls,
+  type PaginationState,
+} from "@/components/pagination-controls";
 
 type PropertyManagerRecord = {
   profileId: string;
@@ -124,18 +128,35 @@ export function AdminPropertyManagersConsole() {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [actionProfileId, setActionProfileId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 1,
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    verified: 0,
+    pending: 0,
+    suspended: 0,
+  });
 
   useEffect(() => {
-    loadPropertyManagers();
+    const timeoutId = window.setTimeout(() => {
+      void loadPropertyManagers(page);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page]);
 
   async function getAccessToken() {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token;
   }
 
-  async function loadPropertyManagers() {
+  async function loadPropertyManagers(targetPage = page) {
     setIsLoading(true);
     setError("");
 
@@ -147,9 +168,12 @@ export function AdminPropertyManagersConsole() {
       return;
     }
 
-    const response = await fetch("/api/admin/property-managers", {
+    const response = await fetch(
+      `/api/admin/property-managers?page=${targetPage}&pageSize=25`,
+      {
       headers: { Authorization: `Bearer ${token}` },
-    });
+      },
+    );
     const payload = await response.json();
 
     if (!response.ok) {
@@ -159,6 +183,22 @@ export function AdminPropertyManagersConsole() {
     }
 
     setRecords(payload.propertyManagers ?? []);
+    setPagination(
+      payload.pagination ?? {
+        page: targetPage,
+        pageSize: 25,
+        total: payload.propertyManagers?.length ?? 0,
+        totalPages: 1,
+      },
+    );
+    setStats(
+      payload.stats ?? {
+        total: payload.propertyManagers?.length ?? 0,
+        verified: 0,
+        pending: 0,
+        suspended: 0,
+      },
+    );
     setIsLoading(false);
   }
 
@@ -229,29 +269,20 @@ export function AdminPropertyManagersConsole() {
       return;
     }
 
-    await loadPropertyManagers();
+    await loadPropertyManagers(page);
     if (selectedProfileId === profileId) {
       await openPropertyManager(profileId);
     }
     setActionProfileId(null);
   }
 
-  const verifiedCount = records.filter((record) => record.verificationStatus === "verified")
-    .length;
-  const pendingCount = records.filter(
-    (record) => record.verificationStatus === "not_verified",
-  ).length;
-  const suspendedCount = records.filter(
-    (record) =>
-      record.verificationStatus === "suspended" || record.profileStatus === "suspended",
-  ).length;
   return (
     <div className="grid gap-6">
       <section className="grid gap-3 lg:grid-cols-4">
-        <KpiCard icon={Users} label="PM totali" value={records.length.toString()} />
-        <KpiCard icon={ShieldCheck} label="Da verificare" value={pendingCount.toString()} />
-        <KpiCard icon={UserCheck} label="Verificati" value={verifiedCount.toString()} />
-        <KpiCard icon={CirclePause} label="Sospesi" value={suspendedCount.toString()} />
+        <KpiCard icon={Users} label="PM totali" value={stats.total.toString()} />
+        <KpiCard icon={ShieldCheck} label="Da verificare" value={stats.pending.toString()} />
+        <KpiCard icon={UserCheck} label="Verificati" value={stats.verified.toString()} />
+        <KpiCard icon={CirclePause} label="Sospesi" value={stats.suspended.toString()} />
       </section>
 
       <section className="card">
@@ -260,7 +291,11 @@ export function AdminPropertyManagersConsole() {
             <p className="section-kicker">Iscrizioni PM</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">Property Manager</h2>
           </div>
-          <button className="btn btn-secondary" type="button" onClick={loadPropertyManagers}>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={() => loadPropertyManagers(page)}
+          >
             Aggiorna
           </button>
         </div>
@@ -514,6 +549,11 @@ export function AdminPropertyManagersConsole() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          pagination={pagination}
+          disabled={isLoading}
+          onPageChange={setPage}
+        />
           </div>
         )}
       </section>

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getEnv } from "@/lib/env";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { revalidateTag } from "next/cache";
+import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
 type ExpireLeadsResult = {
   expired_count: number;
@@ -44,6 +46,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  if (data.expired_count > 0 || data.hidden_count > 0) {
+    revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
   }
 
   return NextResponse.json({

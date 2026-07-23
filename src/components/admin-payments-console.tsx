@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCents } from "@/lib/config/commercial";
+import {
+  PaginationControls,
+  type PaginationState,
+} from "@/components/pagination-controls";
 
 type PaymentRecord = {
   id: string;
@@ -64,6 +68,7 @@ type PaymentsResponse = {
   payments: PaymentRecord[];
   walletTransactions: WalletTransactionRecord[];
   leadPurchases: LeadPurchaseRecord[];
+  pagination: PaginationState;
   error?: string;
 };
 
@@ -77,6 +82,13 @@ const emptyStats: PaymentsResponse["stats"] = {
   pendingTopUps: 0,
 };
 
+const emptyPagination: PaginationState = {
+  page: 1,
+  pageSize: 25,
+  total: 0,
+  totalPages: 1,
+};
+
 export function AdminPaymentsConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [activeTab, setActiveTab] = useState<ActiveTab>("payments");
@@ -87,7 +99,19 @@ export function AdminPaymentsConsole() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const loadedTabs = useRef(new Set<ActiveTab>());
+  const [pageByTab, setPageByTab] = useState<Record<ActiveTab, number>>({
+    payments: 1,
+    wallet: 1,
+    lead_purchases: 1,
+  });
+  const [paginationByTab, setPaginationByTab] = useState<
+    Record<ActiveTab, PaginationState>
+  >({
+    payments: emptyPagination,
+    wallet: emptyPagination,
+    lead_purchases: emptyPagination,
+  });
+  const loadedPageByTab = useRef(new Map<ActiveTab, number>());
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -95,8 +119,12 @@ export function AdminPaymentsConsole() {
     return data.session?.access_token ?? null;
   }, [supabase]);
 
-  const loadPayments = useCallback(async (tab: ActiveTab, force = false) => {
-    if (!force && loadedTabs.current.has(tab)) {
+  const loadPayments = useCallback(async (
+    tab: ActiveTab,
+    page: number,
+    force = false,
+  ) => {
+    if (!force && loadedPageByTab.current.get(tab) === page) {
       return;
     }
 
@@ -111,10 +139,13 @@ export function AdminPaymentsConsole() {
       return;
     }
 
-    const response = await fetch(`/api/admin/payments?tab=${tab}`, {
+    const response = await fetch(
+      `/api/admin/payments?tab=${tab}&page=${page}&pageSize=25`,
+      {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
-    });
+      },
+    );
     const payload = (await response.json()) as PaymentsResponse;
 
     if (!response.ok) {
@@ -131,17 +162,24 @@ export function AdminPaymentsConsole() {
     } else {
       setLeadPurchases(payload.leadPurchases ?? []);
     }
-    loadedTabs.current.add(tab);
+    setPaginationByTab((current) => ({
+      ...current,
+      [tab]: payload.pagination ?? {
+        ...emptyPagination,
+        page,
+      },
+    }));
+    loadedPageByTab.current.set(tab, page);
     setLoading(false);
   }, [getAccessToken]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadPayments(activeTab);
+      void loadPayments(activeTab, pageByTab[activeTab]);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [activeTab, loadPayments]);
+  }, [activeTab, loadPayments, pageByTab]);
 
   const filteredPayments = payments.filter((payment) =>
     matchesQuery(query, [
@@ -197,7 +235,9 @@ export function AdminPaymentsConsole() {
           <button
             className="btn btn-secondary"
             type="button"
-            onClick={() => loadPayments(activeTab, true)}
+            onClick={() =>
+              loadPayments(activeTab, pageByTab[activeTab], true)
+            }
           >
             <RefreshCcw size={16} />
             Aggiorna
@@ -307,6 +347,21 @@ export function AdminPaymentsConsole() {
             tone: purchase.status === "refunded" ? "amber" : "green",
           }))}
         />
+      ) : null}
+
+      {!loading && paginationByTab[activeTab].totalPages > 1 ? (
+        <section className="card overflow-hidden">
+          <PaginationControls
+            pagination={paginationByTab[activeTab]}
+            disabled={loading}
+            onPageChange={(page) =>
+              setPageByTab((current) => ({
+                ...current,
+                [activeTab]: page,
+              }))
+            }
+          />
+        </section>
       ) : null}
     </div>
   );

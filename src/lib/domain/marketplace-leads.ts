@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import type { Database } from "@/lib/supabase/database.types";
+import { unstable_cache } from "next/cache";
+import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -13,6 +15,19 @@ type OwnerPublicContactRow = Pick<
 >;
 
 export async function getPublishedMarketplaceLeads() {
+  return getCachedPublishedMarketplaceLeads();
+}
+
+const getCachedPublishedMarketplaceLeads = unstable_cache(
+  loadPublishedMarketplaceLeads,
+  ["published-marketplace-leads"],
+  {
+    revalidate: 10,
+    tags: [MARKETPLACE_LEADS_CACHE_TAG],
+  },
+);
+
+async function loadPublishedMarketplaceLeads() {
   const supabase = createServiceSupabaseClient();
   const now = new Date().toISOString();
 

@@ -7,14 +7,29 @@ type SupportNavBadgeProps = {
   section: "pm" | "admin";
 };
 
+const badgeCache = new Map<
+  SupportNavBadgeProps["section"],
+  { count: number; cachedAt: number }
+>();
+const BADGE_CACHE_MS = 15_000;
+
 export function SupportNavBadge({ section }: SupportNavBadgeProps) {
-  const [count, setCount] = useState(0);
+  const [count, setCount] = useState(
+    () => badgeCache.get(section)?.count ?? 0,
+  );
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
 
   useEffect(() => {
     let active = true;
 
     async function loadCount() {
+      const cached = badgeCache.get(section);
+
+      if (cached && Date.now() - cached.cachedAt < BADGE_CACHE_MS) {
+        if (active) setCount(cached.count);
+        return;
+      }
+
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
 
@@ -31,7 +46,14 @@ export function SupportNavBadge({ section }: SupportNavBadgeProps) {
       );
       const payload = (await response.json().catch(() => ({}))) as { count?: number };
 
-      if (active && response.ok) setCount(payload.count ?? 0);
+      if (response.ok) {
+        const nextCount = payload.count ?? 0;
+        badgeCache.set(section, {
+          count: nextCount,
+          cachedAt: Date.now(),
+        });
+        if (active) setCount(nextCount);
+      }
     }
 
     void loadCount();

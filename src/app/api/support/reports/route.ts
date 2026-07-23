@@ -7,6 +7,7 @@ import {
 import { sendSupportRequestAdminNotification } from "@/lib/email/notifications";
 import { createSupportReportInternalNotification } from "@/lib/notifications/internal";
 import { getSupportSubjectLabel, supportSubjectOptions } from "@/lib/support/reports";
+import { buildPagination, readPagination } from "@/lib/api/pagination";
 
 const reportSchema = z.object({
   leadPurchaseId: z.string().uuid().optional(),
@@ -58,17 +59,22 @@ type SupportMessageRow = {
 export async function GET(request: NextRequest) {
   try {
     const { supabase, propertyManager } = await requirePropertyManager(request);
+    const pagination = readPagination(request.nextUrl.searchParams);
     const purchases = await fetchPurchases(supabase, propertyManager.id);
     const leadTitlesById = await fetchLeadTitles(
       supabase,
       purchases.map((item) => item.lead_id),
     );
 
-    const { data: reports, error: reportsError } = await supabase
+    const { data: reports, error: reportsError, count: reportsCount } = await supabase
       .from("reports")
-      .select("id,lead_purchase_id,subject,reason,details,admin_reply,replied_at,status,created_at,reviewed_at")
+      .select(
+        "id,lead_purchase_id,subject,reason,details,admin_reply,replied_at,status,created_at,reviewed_at",
+        { count: "exact" },
+      )
       .eq("property_manager_id", propertyManager.id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(pagination.from, pagination.to);
 
     if (reportsError) throw reportsError;
 
@@ -128,6 +134,11 @@ export async function GET(request: NextRequest) {
           reviewedAt: report.reviewed_at,
         };
       }),
+      pagination: buildPagination(
+        pagination.page,
+        pagination.pageSize,
+        reportsCount ?? 0,
+      ),
     });
   } catch (error) {
     return propertyManagerApiErrorResponse(error);

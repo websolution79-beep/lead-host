@@ -8,8 +8,10 @@ import {
   Save,
   Settings2,
   Trash2,
+  UserPlus,
   WalletCards,
 } from "lucide-react";
+import { AdminPmRegistrationSettings } from "@/components/admin-pm-registration-settings";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
@@ -25,7 +27,7 @@ type SettingsResponse = {
   error?: string;
 };
 
-type ActiveTab = "wallet" | "lead_prices" | "geo_rules";
+type ActiveTab = "registrations" | "wallet" | "lead_prices" | "geo_rules";
 
 const emptySettings: CommercialSettings = {
   minTopUpCents: 3000,
@@ -157,15 +159,17 @@ export function AdminCommercialSettings() {
               approvazione lead. Gli acquisti lead usano sempre il credito wallet interno.
             </p>
           </div>
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={saving || loading}
-            onClick={saveSettings}
-          >
-            <Save size={17} />
-            {saving ? "Salvataggio..." : "Salva impostazioni"}
-          </button>
+          {activeTab !== "registrations" ? (
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={saving || loading}
+              onClick={saveSettings}
+            >
+              <Save size={17} />
+              {saving ? "Salvataggio..." : "Salva impostazioni"}
+            </button>
+          ) : null}
         </div>
 
         {!storageReady ? (
@@ -187,7 +191,13 @@ export function AdminCommercialSettings() {
         ) : null}
       </section>
 
-      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 lg:grid-cols-3">
+      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-4">
+        <TabButton
+          active={activeTab === "registrations"}
+          icon={UserPlus}
+          label="Iscrizioni PM"
+          onClick={() => setActiveTab("registrations")}
+        />
         <TabButton
           active={activeTab === "wallet"}
           icon={WalletCards}
@@ -214,6 +224,10 @@ export function AdminCommercialSettings() {
 
       {!loading && activeTab === "wallet" ? (
         <WalletSettings settings={settings} onChange={updateSettings} />
+      ) : null}
+
+      {!loading && activeTab === "registrations" ? (
+        <AdminPmRegistrationSettings />
       ) : null}
 
       {!loading && activeTab === "lead_prices" ? (

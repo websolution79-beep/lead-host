@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { managedPropertiesOptions } from "@/lib/domain/pm-onboarding";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -18,6 +19,31 @@ export function PmSignupForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationStatus, setRegistrationStatus] = useState<
+    "loading" | "open" | "closed"
+  >("loading");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadRegistrationStatus() {
+      const response = await fetch("/api/registration/pm", {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        open?: boolean;
+      };
+
+      if (!active) return;
+      setRegistrationStatus(response.ok && payload.open === false ? "closed" : "open");
+    }
+
+    void loadRegistrationStatus();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,38 +51,61 @@ export function PmSignupForm() {
     setError("");
     setIsSubmitting(true);
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo:
-          typeof window !== "undefined"
-            ? `${window.location.origin}/auth/callback`
-            : undefined,
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          managed_properties_range: managedPropertiesRange,
-          primary_city: primaryCity,
-        },
-      },
+    const registrationResponse = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName,
+        lastName,
+        email,
+        phone,
+        managedPropertiesRange,
+        primaryCity,
+        password,
+      }),
     });
+    const registrationPayload = (await registrationResponse.json()) as {
+      code?: string;
+      error?: string;
+      session?: {
+        accessToken: string;
+        refreshToken: string;
+        expiresAt: number | null;
+      } | null;
+    };
 
-    if (signUpError) {
-      setError("Non sono riuscito a creare l'account. Controlla i dati inseriti.");
+    if (!registrationResponse.ok) {
+      if (registrationPayload.code === "pm_registrations_closed") {
+        setRegistrationStatus("closed");
+      } else {
+        setError(
+          registrationPayload.error ??
+            "Non sono riuscito a creare l'account. Controlla i dati inseriti.",
+        );
+      }
       setIsSubmitting(false);
       return;
     }
 
-    if (data.session && data.user) {
+    if (registrationPayload.session) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: registrationPayload.session.accessToken,
+        refresh_token: registrationPayload.session.refreshToken,
+      });
+
+      if (sessionError) {
+        setError("Account creato, ma non sono riuscito a inizializzare la sessione.");
+        setIsSubmitting(false);
+        return;
+      }
+
       const sessionResponse = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-          expiresAt: data.session.expires_at,
+          accessToken: registrationPayload.session.accessToken,
+          refreshToken: registrationPayload.session.refreshToken,
+          expiresAt: registrationPayload.session.expiresAt,
         }),
       });
 
@@ -69,7 +118,7 @@ export function PmSignupForm() {
       await fetch("/api/email/welcome", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${data.session.access_token}`,
+          Authorization: `Bearer ${registrationPayload.session.accessToken}`,
         },
       });
 
@@ -80,6 +129,47 @@ export function PmSignupForm() {
 
     router.push("/registrazione-completata?check_email=1");
     setIsSubmitting(false);
+  }
+
+  if (registrationStatus === "loading") {
+    return (
+      <div className="card flex min-h-72 items-center justify-center p-6 text-center">
+        <p className="font-semibold text-muted">Verifico le iscrizioni disponibili...</p>
+      </div>
+    );
+  }
+
+  if (registrationStatus === "closed") {
+    return (
+      <div className="card grid min-h-72 content-center gap-5 border-red-200 p-6">
+        <div>
+          <p className="section-kicker">Iscrizioni Property Manager</p>
+          <h2 className="mt-2 text-2xl font-semibold text-ink">
+            Iscrizioni momentaneamente chiuse
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted">
+            Le iscrizioni a Lead Host sono momentaneamente chiuse. Entra nel{" "}
+            <Link
+              className="font-bold text-green underline decoration-green/30 underline-offset-4"
+              href="https://t.me/+nZiF2verYaUzNzg0"
+              target="_blank"
+              rel="noreferrer"
+            >
+              canale ufficiale Telegram
+            </Link>{" "}
+            per scoprire quando potrai accedere.
+          </p>
+        </div>
+        <Link
+          className="btn btn-primary w-full"
+          href="https://t.me/+nZiF2verYaUzNzg0"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Entra nel canale Telegram
+        </Link>
+      </div>
+    );
   }
 
   return (

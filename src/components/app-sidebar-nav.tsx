@@ -13,6 +13,7 @@ import {
   Map,
   Megaphone,
   ReceiptText,
+  Send,
   Settings,
   ShieldAlert,
   UserCircle,
@@ -44,6 +45,7 @@ const adminLinks = [
   { label: "Riaccrediti", href: "/admin/rimborsi", icon: CreditCard },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Email", href: "/admin/email-transazionali", icon: Mail },
+  { label: "Telegram", href: "/admin/telegram", icon: Send },
   { label: "Impostazioni", href: "/admin/impostazioni", icon: Settings },
   { label: "Profilo", href: "/admin/profilo", icon: UserCircle },
 ];

@@ -29,6 +29,7 @@ const adminLinks = [
   { label: "Riaccrediti", href: "/admin/rimborsi" },
   { label: "Analytics", href: "/admin/analytics" },
   { label: "Email", href: "/admin/email-transazionali" },
+  { label: "Telegram", href: "/admin/telegram" },
   { label: "Impostazioni", href: "/admin/impostazioni" },
   { label: "Profilo", href: "/admin/profilo" },
 ];

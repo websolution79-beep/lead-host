@@ -6,6 +6,7 @@ import {
   resolveLeadPricing,
 } from "@/lib/config/commercial-settings";
 import { notifyImmediateNewLead } from "@/lib/email/notifications";
+import { notifyNewLeadOnTelegram } from "@/lib/telegram/service";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
@@ -173,13 +174,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     });
 
-    await notifyImmediateNewLead({
-      id: leadId,
-      title: leadTitle,
-      city: property.city,
-      province: property.province,
-      shared_price_cents: sharedPriceCents,
-      exclusive_price_cents: exclusivePriceCents,
+    const notificationResults = await Promise.allSettled([
+      notifyImmediateNewLead({
+        id: leadId,
+        title: leadTitle,
+        city: property.city,
+        province: property.province,
+        shared_price_cents: sharedPriceCents,
+        exclusive_price_cents: exclusivePriceCents,
+      }),
+      notifyNewLeadOnTelegram({
+        id: leadId,
+        title: leadTitle,
+        city: property.city,
+        province: property.province,
+        propertyType: property.property_type,
+        sharedPriceCents,
+        exclusivePriceCents,
+        sharedSlotsSold: 0,
+      }),
+    ]);
+
+    notificationResults.forEach((result, index) => {
+      if (result.status === "rejected") {
+        console.warn(
+          index === 0
+            ? "New lead email notification failed:"
+            : "New lead Telegram notification failed:",
+          result.reason,
+        );
+      }
     });
     revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
 

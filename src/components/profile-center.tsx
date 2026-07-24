@@ -6,11 +6,13 @@ import {
   BellRing,
   Building2,
   Camera,
+  CheckCircle2,
   KeyRound,
   ReceiptText,
   UserCircle,
   UserRoundX,
   Wallet,
+  X,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { useAppSession } from "@/components/app-session-provider";
@@ -85,6 +87,7 @@ export function ProfileCenter() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [isBillingSuccessVisible, setIsBillingSuccessVisible] = useState(false);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingBilling, setIsSavingBilling] = useState(false);
@@ -173,12 +176,23 @@ export function ProfileCenter() {
     loadProfile();
   }, [supabase]);
 
+  useEffect(() => {
+    if (!isBillingSuccessVisible) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setIsBillingSuccessVisible(false);
+    }, 5000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isBillingSuccessVisible]);
+
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!profile) return;
 
     setError("");
     setStatusMessage("");
+    setIsBillingSuccessVisible(false);
     setIsSaving(true);
 
     const { data, error: updateError } = await supabase
@@ -213,6 +227,7 @@ export function ProfileCenter() {
 
     setError("");
     setStatusMessage("");
+    setIsBillingSuccessVisible(false);
 
     const normalizedSdiCode = billingSdiCode.trim().toUpperCase();
     const normalizedPec = billingPec.trim().toLowerCase();
@@ -289,7 +304,7 @@ export function ProfileCenter() {
       return;
     }
 
-    setStatusMessage("Dati di fatturazione aggiornati.");
+    setIsBillingSuccessVisible(true);
   }
 
   async function handleEmailPreferencesSubmit(event: FormEvent<HTMLFormElement>) {
@@ -406,6 +421,29 @@ export function ProfileCenter() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+      {isBillingSuccessVisible ? (
+        <div
+          className="fixed inset-x-4 top-4 z-[100] mx-auto flex max-w-md items-start gap-3 rounded-xl border border-green/20 bg-white p-4 shadow-xl"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-green/10 text-green">
+            <CheckCircle2 size={21} />
+          </span>
+          <p className="min-w-0 flex-1 pt-2 text-sm font-semibold leading-6 text-ink">
+            Dati di fatturazione aggiornati con successo.
+          </p>
+          <button
+            className="flex size-10 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-ink"
+            type="button"
+            aria-label="Chiudi avviso"
+            onClick={() => setIsBillingSuccessVisible(false)}
+          >
+            <X size={18} />
+          </button>
+        </div>
+      ) : null}
+
       <main className="grid gap-6">
         <section className="card p-6">
         <div className="flex flex-wrap items-center gap-5">

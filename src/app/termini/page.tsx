@@ -32,7 +32,7 @@ const sections: TermsSection[] = [
         <p className="whitespace-pre-line font-semibold text-ink">
           {`SOGI
 Sede legale: Via Cogliate, Roma
-Codice Fiscale / Partita IVA: [DATI]
+Partita IVA: 17750971008
 Email: info@leadhost.it`}
         </p>
         <p>

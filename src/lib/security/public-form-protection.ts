@@ -6,11 +6,6 @@ type RateLimitResult = {
   retryAfterSeconds: number;
 };
 
-type RateLimitRow = {
-  allowed: boolean;
-  retry_after_seconds: number;
-};
-
 export async function consumeOwnerRequestRateLimit(
   request: Request,
 ): Promise<RateLimitResult> {
@@ -21,18 +16,7 @@ export async function consumeOwnerRequestRateLimit(
     .update(`owner-request:${forwardedFor || realIp || "unknown"}:${userAgent || "unknown"}`)
     .digest("hex");
   const supabase = createServiceSupabaseClient();
-  const rateLimitRpc = supabase.rpc as unknown as (
-    name: string,
-    args: {
-      p_fingerprint_hash: string;
-      p_limit: number;
-      p_window_seconds: number;
-    },
-  ) => Promise<{
-    data: RateLimitRow[] | null;
-    error: { message?: string } | null;
-  }>;
-  const { data, error } = await rateLimitRpc("consume_public_form_rate_limit", {
+  const { data, error } = await supabase.rpc("consume_public_form_rate_limit", {
     p_fingerprint_hash: fingerprint,
     p_limit: 8,
     p_window_seconds: 900,

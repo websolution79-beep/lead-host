@@ -761,6 +761,17 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      consume_public_form_rate_limit: {
+        Args: {
+          p_fingerprint_hash: string;
+          p_limit?: number;
+          p_window_seconds?: number;
+        };
+        Returns: {
+          allowed: boolean;
+          retry_after_seconds: number;
+        }[];
+      };
       claim_paid_lead_purchase: {
         Args: {
           p_purchase_attempt_id: string;

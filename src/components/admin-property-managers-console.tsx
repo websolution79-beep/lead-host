@@ -9,7 +9,6 @@ import {
   Eye,
   Mail,
   ReceiptText,
-  ShieldCheck,
   ShoppingBag,
   UserCheck,
   Users,
@@ -111,12 +110,6 @@ type PropertyManagerRecord = {
   };
 };
 
-const verificationLabels: Record<PropertyManagerRecord["verificationStatus"], string> = {
-  not_verified: "Da verificare",
-  verified: "Verificato",
-  suspended: "Sospeso",
-};
-
 export function AdminPropertyManagersConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<PropertyManagerRecord[]>([]);
@@ -137,8 +130,7 @@ export function AdminPropertyManagersConsole() {
   });
   const [stats, setStats] = useState({
     total: 0,
-    verified: 0,
-    pending: 0,
+    active: 0,
     suspended: 0,
   });
 
@@ -194,8 +186,7 @@ export function AdminPropertyManagersConsole() {
     setStats(
       payload.stats ?? {
         total: payload.propertyManagers?.length ?? 0,
-        verified: 0,
-        pending: 0,
+        active: payload.propertyManagers?.length ?? 0,
         suspended: 0,
       },
     );
@@ -237,9 +228,7 @@ export function AdminPropertyManagersConsole() {
 
   async function updatePropertyManager(
     profileId: string,
-    update: Partial<
-      Pick<PropertyManagerRecord, "profileStatus" | "verificationStatus">
-    >,
+    action: "suspend" | "reactivate",
   ) {
     setActionProfileId(profileId);
     setError("");
@@ -258,7 +247,7 @@ export function AdminPropertyManagersConsole() {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ profileId, ...update }),
+      body: JSON.stringify({ profileId, action }),
     });
 
     const payload = await response.json();
@@ -278,10 +267,9 @@ export function AdminPropertyManagersConsole() {
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-3 lg:grid-cols-4">
+      <section className="grid gap-3 lg:grid-cols-3">
         <KpiCard icon={Users} label="PM totali" value={stats.total.toString()} />
-        <KpiCard icon={ShieldCheck} label="Da verificare" value={stats.pending.toString()} />
-        <KpiCard icon={UserCheck} label="Verificati" value={stats.verified.toString()} />
+        <KpiCard icon={UserCheck} label="Attivi" value={stats.active.toString()} />
         <KpiCard icon={CirclePause} label="Sospesi" value={stats.suspended.toString()} />
       </section>
 
@@ -319,17 +307,11 @@ export function AdminPropertyManagersConsole() {
                 setSelectedProfileId(null);
                 setSelectedRecord(null);
               }}
-              onVerify={() =>
-                updatePropertyManager(selectedRecord.profileId, {
-                  verificationStatus: "verified",
-                  profileStatus: "active",
-                })
-              }
               onSuspend={() =>
-                updatePropertyManager(selectedRecord.profileId, {
-                  verificationStatus: "suspended",
-                  profileStatus: "suspended",
-                })
+                updatePropertyManager(selectedRecord.profileId, "suspend")
+              }
+              onReactivate={() =>
+                updatePropertyManager(selectedRecord.profileId, "reactivate")
               }
             />
           </div>
@@ -347,6 +329,7 @@ export function AdminPropertyManagersConsole() {
                 "Senza nome";
               const isBusy = actionProfileId === record.profileId;
               const isSelected = false;
+              const isSuspended = isPropertyManagerSuspended(record);
 
               return (
                 <article
@@ -391,32 +374,23 @@ export function AdminPropertyManagersConsole() {
                     >
                       <Eye size={14} className="inline-block" /> Dettaglio
                     </button>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
                       <button
-                        className="rounded-lg border border-green/20 bg-green/10 px-3 py-2 text-sm font-semibold text-green disabled:opacity-50"
+                        className={`rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                          isSuspended
+                            ? "border-green/20 bg-green/10 text-green"
+                            : "border-red-200 bg-red-50 text-red-700"
+                        }`}
                         type="button"
                         disabled={isBusy}
                         onClick={() =>
-                          updatePropertyManager(record.profileId, {
-                            verificationStatus: "verified",
-                            profileStatus: "active",
-                          })
+                          updatePropertyManager(
+                            record.profileId,
+                            isSuspended ? "reactivate" : "suspend",
+                          )
                         }
                       >
-                        Verifica
-                      </button>
-                      <button
-                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
-                        type="button"
-                        disabled={isBusy}
-                        onClick={() =>
-                          updatePropertyManager(record.profileId, {
-                            verificationStatus: "suspended",
-                            profileStatus: "suspended",
-                          })
-                        }
-                      >
-                        Sospendi
+                        {isSuspended ? "Riattiva" : "Sospendi"}
                       </button>
                     </div>
                   </div>
@@ -456,6 +430,7 @@ export function AdminPropertyManagersConsole() {
                     "Senza nome";
                   const isBusy = actionProfileId === record.profileId;
                   const isSelected = false;
+                  const isSuspended = isPropertyManagerSuspended(record);
 
                   return (
                     <tr
@@ -482,17 +457,12 @@ export function AdminPropertyManagersConsole() {
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            record.verificationStatus === "verified"
-                              ? "bg-green/10 text-green"
-                              : record.verificationStatus === "suspended" ||
-                                  record.profileStatus === "suspended"
-                                ? "bg-red-50 text-red-700"
-                                : "bg-slate-100 text-slate-600"
+                            isSuspended
+                              ? "bg-red-50 text-red-700"
+                              : "bg-green/10 text-green"
                           }`}
                         >
-                          {record.profileStatus === "suspended"
-                            ? "Account sospeso"
-                            : verificationLabels[record.verificationStatus]}
+                          {isSuspended ? "Sospeso" : "Attivo"}
                         </span>
                       </td>
                       <td className="px-5 py-4">
@@ -509,30 +479,21 @@ export function AdminPropertyManagersConsole() {
                             <Eye size={14} className="inline-block" /> Dettaglio
                           </button>
                           <button
-                            className="rounded-lg border border-green/20 bg-green/10 px-3 py-2 text-xs font-semibold text-green disabled:opacity-50"
+                            className={`rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50 ${
+                              isSuspended
+                                ? "border-green/20 bg-green/10 text-green"
+                                : "border-red-200 bg-red-50 text-red-700"
+                            }`}
                             type="button"
                             disabled={isBusy}
                             onClick={() =>
-                              updatePropertyManager(record.profileId, {
-                                verificationStatus: "verified",
-                                profileStatus: "active",
-                              })
+                              updatePropertyManager(
+                                record.profileId,
+                                isSuspended ? "reactivate" : "suspend",
+                              )
                             }
                           >
-                            Verifica
-                          </button>
-                          <button
-                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-50"
-                            type="button"
-                            disabled={isBusy}
-                            onClick={() =>
-                              updatePropertyManager(record.profileId, {
-                                verificationStatus: "suspended",
-                                profileStatus: "suspended",
-                              })
-                            }
-                          >
-                            Sospendi
+                            {isSuspended ? "Riattiva" : "Sospendi"}
                           </button>
                         </div>
                       </td>
@@ -565,18 +526,19 @@ function PropertyManagerDetail({
   record,
   isBusy,
   onClose,
-  onVerify,
   onSuspend,
+  onReactivate,
 }: {
   record: PropertyManagerRecord;
   isBusy: boolean;
   onClose: () => void;
-  onVerify: () => void;
   onSuspend: () => void;
+  onReactivate: () => void;
 }) {
   const displayName =
     [record.firstName, record.lastName].filter(Boolean).join(" ") || "Senza nome";
   const billing = record.billingProfile;
+  const isSuspended = isPropertyManagerSuspended(record);
 
   return (
     <section className="card overflow-hidden">
@@ -625,20 +587,16 @@ function PropertyManagerDetail({
             <X size={16} className="inline-block" /> Chiudi
           </button>
           <button
-            className="rounded-lg border border-green/20 bg-green/10 px-4 py-2 text-sm font-semibold text-green disabled:opacity-50"
+            className={`rounded-lg border px-4 py-2 text-sm font-semibold disabled:opacity-50 ${
+              isSuspended
+                ? "border-green/20 bg-green/10 text-green"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
             type="button"
             disabled={isBusy}
-            onClick={onVerify}
+            onClick={isSuspended ? onReactivate : onSuspend}
           >
-            Verifica PM
-          </button>
-          <button
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
-            type="button"
-            disabled={isBusy}
-            onClick={onSuspend}
-          >
-            Sospendi
+            {isSuspended ? "Riattiva" : "Sospendi"}
           </button>
         </div>
       </div>
@@ -932,20 +890,20 @@ function MetricTile({ label, value }: { label: string; value: string | number })
 }
 
 function StatusBadge({ record }: { record: PropertyManagerRecord }) {
-  const isSuspended =
-    record.profileStatus === "suspended" || record.verificationStatus === "suspended";
-  const className = isSuspended
-    ? "bg-red-50 text-red-700"
-    : record.verificationStatus === "verified"
-      ? "bg-green/10 text-green"
-      : "bg-slate-100 text-slate-600";
+  const isSuspended = isPropertyManagerSuspended(record);
+  const className = isSuspended ? "bg-red-50 text-red-700" : "bg-green/10 text-green";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
-      {record.profileStatus === "suspended"
-        ? "Account sospeso"
-        : verificationLabels[record.verificationStatus]}
+      {isSuspended ? "Sospeso" : "Attivo"}
     </span>
+  );
+}
+
+function isPropertyManagerSuspended(record: PropertyManagerRecord) {
+  return (
+    record.profileStatus === "suspended" ||
+    record.verificationStatus === "suspended"
   );
 }
 

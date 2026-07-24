@@ -86,7 +86,7 @@ async function createMissingPropertyManagerProfile(
     .insert({
       profile_id: profile.id,
       company_name: fallbackCompanyName,
-      verification_status: "not_verified",
+      verification_status: "verified",
     })
     .select("*")
     .single();

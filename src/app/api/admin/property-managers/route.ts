@@ -5,13 +5,11 @@ import {
   requireSuperAdmin,
 } from "@/lib/admin/auth";
 import { getManagedPropertiesLabel } from "@/lib/domain/pm-onboarding";
-import { sendPropertyManagerVerifiedEmail } from "@/lib/email/notifications";
 import { buildPagination, readPagination } from "@/lib/api/pagination";
 
 const updatePropertyManagerSchema = z.object({
   profileId: z.string().uuid(),
-  profileStatus: z.enum(["active", "suspended"]).optional(),
-  verificationStatus: z.enum(["not_verified", "verified", "suspended"]).optional(),
+  action: z.enum(["suspend", "reactivate"]),
 });
 
 type ProfileRow = {
@@ -143,8 +141,7 @@ export async function GET(request: NextRequest) {
         pagination: buildPagination(1, 25, 0),
         stats: {
           total: 0,
-          verified: 0,
-          pending: 0,
+          active: 0,
           suspended: 0,
         },
       });
@@ -154,8 +151,6 @@ export async function GET(request: NextRequest) {
       const pagination = readPagination(request.nextUrl.searchParams);
       const [
         { data: profiles, error: profilesError },
-        { count: verifiedCount, error: verifiedCountError },
-        { count: pendingCount, error: pendingCountError },
         { count: suspendedCount, error: suspendedCountError },
       ] = await Promise.all([
         supabase
@@ -170,22 +165,10 @@ export async function GET(request: NextRequest) {
           .from("property_manager_profiles")
           .select("id", { count: "exact", head: true })
           .in("profile_id", allProfileIds)
-          .eq("verification_status", "verified"),
-        supabase
-          .from("property_manager_profiles")
-          .select("id", { count: "exact", head: true })
-          .in("profile_id", allProfileIds)
-          .eq("verification_status", "not_verified"),
-        supabase
-          .from("property_manager_profiles")
-          .select("id", { count: "exact", head: true })
-          .in("profile_id", allProfileIds)
           .eq("verification_status", "suspended"),
       ]);
 
       if (profilesError) throw profilesError;
-      if (verifiedCountError) throw verifiedCountError;
-      if (pendingCountError) throw pendingCountError;
       if (suspendedCountError) throw suspendedCountError;
 
       const profileRows = (profiles ?? []) as ProfileRow[];
@@ -262,16 +245,7 @@ export async function GET(request: NextRequest) {
           ),
           stats: {
             total: allProfileIds.length,
-            verified: verifiedCount ?? 0,
-            pending:
-              (pendingCount ?? 0) +
-              Math.max(
-                0,
-                allProfileIds.length -
-                  (verifiedCount ?? 0) -
-                  (pendingCount ?? 0) -
-                  (suspendedCount ?? 0),
-              ),
+            active: Math.max(0, allProfileIds.length - (suspendedCount ?? 0)),
             suspended: suspendedCount ?? 0,
           },
         },
@@ -618,48 +592,33 @@ export async function PATCH(request: NextRequest) {
 
     if (profileFetchError) throw profileFetchError;
 
-    if (payload.profileStatus) {
-      const { error: profileUpdateError } = await supabase
-        .from("profiles")
-        .update({ status: payload.profileStatus })
-        .eq("id", payload.profileId);
+    const profileStatus = payload.action === "suspend" ? "suspended" : "active";
+    const verificationStatus =
+      payload.action === "suspend" ? "suspended" : "verified";
 
-      if (profileUpdateError) throw profileUpdateError;
-    }
+    const { error: profileUpdateError } = await supabase
+      .from("profiles")
+      .update({ status: profileStatus })
+      .eq("id", payload.profileId);
 
-    if (payload.verificationStatus) {
-      const fallbackCompanyName =
-        [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
-        profile.email;
+    if (profileUpdateError) throw profileUpdateError;
 
-      const { data: pmProfile, error: pmUpdateError } = await supabase
-        .from("property_manager_profiles")
-        .upsert(
-          {
-            profile_id: payload.profileId,
-            company_name: fallbackCompanyName,
-            verification_status: payload.verificationStatus,
-          },
-          { onConflict: "profile_id" },
-        )
-        .select("id")
-        .single();
+    const fallbackCompanyName =
+      [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() ||
+      profile.email;
 
-      if (pmUpdateError) throw pmUpdateError;
+    const { error: pmUpdateError } = await supabase
+      .from("property_manager_profiles")
+      .upsert(
+        {
+          profile_id: payload.profileId,
+          company_name: fallbackCompanyName,
+          verification_status: verificationStatus,
+        },
+        { onConflict: "profile_id" },
+      );
 
-      if (payload.verificationStatus === "verified") {
-        await sendPropertyManagerVerifiedEmail(
-          {
-            id: profile.id,
-            email: profile.email,
-            first_name: profile.first_name,
-            last_name: profile.last_name,
-            status: payload.profileStatus ?? "active",
-          },
-          pmProfile?.id,
-        );
-      }
-    }
+    if (pmUpdateError) throw pmUpdateError;
 
     return NextResponse.json({ ok: true });
   } catch (error) {

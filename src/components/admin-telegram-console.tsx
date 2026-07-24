@@ -64,6 +64,7 @@ export function AdminTelegramConsole() {
   const [connection, setConnection] = useState<TelegramConnection | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingAutomation, setSavingAutomation] = useState(false);
   const [testing, setTesting] = useState<"connection" | "message" | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -104,6 +105,29 @@ export function AdminTelegramConsole() {
     setStorageReady(payload.storageReady);
     setLogsReady(payload.logsReady);
     setLoading(false);
+
+    if (
+      payload.environment.botTokenConfigured &&
+      payload.environment.channelIdConfigured
+    ) {
+      setTesting("connection");
+      const connectionResponse = await requestTelegramAction(
+        token,
+        "check_connection",
+      );
+
+      if (connectionResponse.ok) {
+        setConnection(connectionResponse.connection ?? null);
+      } else {
+        setConnection(null);
+        setError(
+          connectionResponse.error ??
+            "Non riesco a verificare automaticamente i permessi del bot.",
+        );
+      }
+
+      setTesting(null);
+    }
   }, [getAccessToken]);
 
   useEffect(() => {
@@ -148,6 +172,49 @@ export function AdminTelegramConsole() {
     setSaving(false);
   }
 
+  async function toggleAutomation() {
+    const token = await getAccessToken();
+    const nextSettings = {
+      ...settings,
+      enabled: !settings.enabled,
+    };
+    setSavingAutomation(true);
+    setError("");
+    setSuccess("");
+
+    if (!token) {
+      setError("Sessione admin non trovata.");
+      setSavingAutomation(false);
+      return;
+    }
+
+    const response = await fetch("/api/admin/telegram", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(nextSettings),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setError(
+        payload.error ?? "Non sono riuscito ad aggiornare gli invii automatici.",
+      );
+      setSavingAutomation(false);
+      return;
+    }
+
+    setSettings(nextSettings);
+    setSuccess(
+      nextSettings.enabled
+        ? "Invii automatici Telegram attivati e salvati."
+        : "Invii automatici Telegram disattivati e salvati.",
+    );
+    setSavingAutomation(false);
+  }
+
   async function runTest(action: "check_connection" | "send_test") {
     const token = await getAccessToken();
     setTesting(action === "check_connection" ? "connection" : "message");
@@ -160,20 +227,9 @@ export function AdminTelegramConsole() {
       return;
     }
 
-    const response = await fetch("/api/admin/telegram", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action }),
-    });
-    const payload = (await response.json()) as {
-      error?: string;
-      connection?: TelegramConnection;
-    };
+    const payload = await requestTelegramAction(token, action);
 
-    if (!response.ok) {
+    if (!payload.ok) {
       setError(payload.error ?? "Test Telegram non riuscito.");
       setTesting(null);
       return;
@@ -214,13 +270,15 @@ export function AdminTelegramConsole() {
                 : "border-slate-200 bg-slate-50 text-slate-600"
             }`}
             type="button"
-            disabled={loading}
-            onClick={() =>
-              setSettings((current) => ({ ...current, enabled: !current.enabled }))
-            }
+            disabled={loading || savingAutomation}
+            onClick={() => void toggleAutomation()}
           >
             <Power size={17} />
-            {settings.enabled ? "Invii attivi" : "Invii disattivati"}
+            {savingAutomation
+              ? "Salvataggio..."
+              : settings.enabled
+                ? "Invii attivi"
+                : "Invii disattivati"}
           </button>
         </div>
 
@@ -242,10 +300,18 @@ export function AdminTelegramConsole() {
           tone={environmentReady ? "success" : "error"}
         />
         <StatusCard
-          icon={connection?.canPost ? ShieldCheck : CircleOff}
+          icon={
+            testing === "connection"
+              ? RefreshCw
+              : connection?.canPost
+                ? ShieldCheck
+                : CircleOff
+          }
           label="Permessi bot"
           value={
-            connection
+            testing === "connection"
+              ? "Verifica in corso"
+              : connection
               ? connection.canPost
                 ? "Pubblicazione consentita"
                 : "Permesso mancante"
@@ -483,4 +549,27 @@ function formatDate(value: string) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+async function requestTelegramAction(
+  token: string,
+  action: "check_connection" | "send_test",
+) {
+  const response = await fetch("/api/admin/telegram", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action }),
+  });
+  const payload = (await response.json()) as {
+    error?: string;
+    connection?: TelegramConnection;
+  };
+
+  return {
+    ...payload,
+    ok: response.ok,
+  };
 }

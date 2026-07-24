@@ -3,6 +3,7 @@ import { AccountSummary } from "@/components/account-summary";
 import { AppSidebarNav } from "@/components/app-sidebar-nav";
 import { BrandLogo } from "@/components/brand-logo";
 import { MobileMenu } from "@/components/mobile-menu";
+import { SiteFooter } from "@/components/site-footer";
 
 type AppAreaChromeProps = {
   children: ReactNode;
@@ -45,7 +46,7 @@ export function AppAreaChrome({ children, section }: AppAreaChromeProps) {
         <AppSidebarNav section={section} />
         <AccountSummary />
       </aside>
-      <section className="app-content">
+      <section className="app-content flex min-h-screen flex-col">
         <div className="premium-header app-mobile-bar relative z-[90] items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
           <BrandLogo href={homeHref} />
           <MobileMenu
@@ -57,7 +58,8 @@ export function AppAreaChrome({ children, section }: AppAreaChromeProps) {
             hideAt="lg"
           />
         </div>
-        {children}
+        <div className="flex-1">{children}</div>
+        <SiteFooter />
       </section>
     </main>
   );

@@ -16,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { ADMIN_PENDING_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { formatCents } from "@/lib/config/commercial";
 
@@ -139,7 +140,7 @@ export function AdminLeadsConsole() {
     }
 
       setRecords(payload.records ?? []);
-    setStats(
+    const nextStats =
       payload.stats ?? {
         waitingCompletion: 0,
         duplicates: 0,
@@ -148,7 +149,12 @@ export function AdminLeadsConsole() {
         sold: 0,
         expired: 0,
         rejected: 0,
-      },
+      };
+    setStats(nextStats);
+    window.dispatchEvent(
+      new CustomEvent(ADMIN_PENDING_LEADS_COUNT_EVENT, {
+        detail: nextStats.pending,
+      }),
     );
     setLoading(false);
   }, [getAccessToken]);

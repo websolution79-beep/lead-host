@@ -54,6 +54,7 @@ export function AppAreaChrome({ children, section }: AppAreaChromeProps) {
             links={links}
             supportHref={section === "admin" ? "/admin/segnalazioni" : "/app/assistenza"}
             supportSection={section}
+            pendingLeadsHref={section === "admin" ? "/admin/leads" : undefined}
             roleSwitchSection={section}
             label="Menu"
             hideAt="lg"

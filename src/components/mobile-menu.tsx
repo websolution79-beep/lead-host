@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { AdminLeadNavBadge } from "@/components/admin-lead-nav-badge";
 import { RoleSwitcher } from "@/components/role-switcher";
 import { SupportNavBadge } from "@/components/support-nav-badge";
 
@@ -15,6 +16,7 @@ type MobileMenuProps = {
   links: MobileMenuLink[];
   supportHref?: string;
   supportSection?: "pm" | "admin";
+  pendingLeadsHref?: string;
   roleSwitchSection?: "pm" | "admin";
   variant?: "light" | "dark";
   label?: string;
@@ -25,6 +27,7 @@ export function MobileMenu({
   links,
   supportHref,
   supportSection,
+  pendingLeadsHref,
   roleSwitchSection,
   variant = "light",
   label = "Menu",
@@ -74,6 +77,7 @@ export function MobileMenu({
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}
+                {link.href === pendingLeadsHref ? <AdminLeadNavBadge /> : null}
                 {link.href === supportHref && supportSection ? (
                   <SupportNavBadge section={supportSection} />
                 ) : null}

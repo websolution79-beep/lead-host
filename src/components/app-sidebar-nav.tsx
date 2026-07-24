@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { RoleSwitcher } from "@/components/role-switcher";
+import { AdminLeadNavBadge } from "@/components/admin-lead-nav-badge";
 import { SupportNavBadge } from "@/components/support-nav-badge";
 
 type AppSidebarNavProps = {
@@ -100,6 +101,9 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
               <Icon size={17} />
             </span>
             {link.label}
+            {section === "admin" && link.href === "/admin/leads" ? (
+              <AdminLeadNavBadge />
+            ) : null}
             {link.href === supportBadgeHref ? <SupportNavBadge section={section} /> : null}
           </Link>
         );

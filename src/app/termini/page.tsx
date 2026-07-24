@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 
 const termsDocument = {
   version: "1.0",
-  lastUpdated: "[DATA]",
-  effectiveFrom: "[DATA]",
+  lastUpdated: "24 luglio 2026",
+  effectiveFrom: "24 luglio 2026",
 } as const;
 
 type TermsSection = {
@@ -30,11 +30,10 @@ const sections: TermsSection[] = [
       <>
         <p>Lead Host è un servizio gestito da:</p>
         <p className="whitespace-pre-line font-semibold text-ink">
-          {`[RAGIONE SOCIALE]
-Sede legale: [INDIRIZZO]
+          {`SOGI
+Sede legale: Via Cogliate, Roma
 Codice Fiscale / Partita IVA: [DATI]
-Email: [EMAIL]
-PEC: [PEC, SE PRESENTE]`}
+Email: info@leadhost.it`}
         </p>
         <p>
           di seguito anche <strong>“Lead Host”</strong>, <strong>“Gestore”</strong>{" "}
@@ -1554,7 +1553,7 @@ PEC: [PEC, SE PRESENTE]`}
           consenta una scelta convenzionale del foro, le parti individuano come
           foro esclusivo:
         </p>
-        <Callout>[FORO DA INDICARE]</Callout>
+        <Callout>ROMA</Callout>
         <p>
           Restano ferme le competenze inderogabili eventualmente previste per gli
           utenti qualificabili come consumatori.
@@ -1570,10 +1569,7 @@ PEC: [PEC, SE PRESENTE]`}
       <>
         <p>Per comunicazioni relative al Servizio:</p>
         <p className="whitespace-pre-line font-semibold text-ink">
-          {`Lead Host
-Email: [EMAIL ASSISTENZA]
-PEC: [PEC]
-Sede: [INDIRIZZO]`}
+          {`Email: info@leadhost.it`}
         </p>
         <p>
           Per richieste relative all&apos;account è possibile utilizzare anche la

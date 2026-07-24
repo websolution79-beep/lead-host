@@ -83,14 +83,19 @@ Email: info@leadhost.it`}
             l&apos;accesso ai dati di contatto previsti dalla piattaforma.
           </p>
         </Definition>
-        <Definition title="Wallet">
-          Il saldo virtuale interno associato all&apos;account del Property Manager
-          e utilizzabile per acquistare Lead.
+        <Definition title="Wallet Lead Host">
+          Il sistema interno di contabilizzazione dei crediti Lead Host associati
+          all&apos;account del Property Manager e utilizzabili esclusivamente per
+          l&apos;acquisto dei servizi disponibili sulla piattaforma.
+        </Definition>
+        <Definition title="Credito Lead Host">
+          Il credito prepagato contabilizzato nel Wallet Lead Host e utilizzabile
+          esclusivamente per acquistare i servizi disponibili sulla piattaforma.
         </Definition>
         <Definition title="Ricarica">
-          L&apos;operazione mediante la quale il Property Manager aggiunge credito
-          al proprio Wallet attraverso i metodi di pagamento messi a disposizione
-          da Lead Host.
+          L&apos;operazione mediante la quale il Property Manager acquista credito
+          prepagato Lead Host, contabilizzato nel proprio Wallet e destinato
+          esclusivamente all&apos;acquisto dei servizi disponibili sulla piattaforma.
         </Definition>
         <Definition title="Acquisto condiviso">
           La modalità di acquisto con cui il Lead può essere acquistato da più
@@ -102,9 +107,10 @@ Email: info@leadhost.it`}
           di altri Property Manager.
         </Definition>
         <Definition title="Riaccredito">
-          L&apos;operazione con cui Lead Host, a seguito dell&apos;accoglimento di
-          una contestazione, restituisce nel Wallet del Property Manager
-          l&apos;intero importo effettivamente corrisposto per il Lead contestato.
+          L&apos;operazione con cui Lead Host, a seguito dell&apos;accoglimento di una
+          contestazione relativa a un Lead, riconosce nuovamente nel Wallet del
+          Property Manager il 100% dell&apos;importo effettivamente pagato per lo
+          specifico Lead contestato.
         </Definition>
       </>
     ),
@@ -124,7 +130,7 @@ Email: info@leadhost.it`}
             "consultare opportunità relative a immobili;",
             "visualizzare informazioni preliminari sulla richiesta;",
             "conoscere il prezzo richiesto per accedere al Lead;",
-            "acquistare Lead utilizzando il saldo disponibile nel Wallet;",
+            "acquistare Lead utilizzando il credito disponibile nel Wallet Lead Host;",
             "accedere, dopo l'acquisto, ai dati di contatto associati al Lead;",
             "consultare lo storico dei Lead acquistati;",
             "utilizzare le ulteriori funzionalità rese disponibili dalla piattaforma.",
@@ -149,14 +155,22 @@ Email: info@leadhost.it`}
     content: (
       <>
         <p>
-          Lead Host è principalmente rivolto a Property Manager, imprese,
-          professionisti e soggetti che operano o intendono operare nel settore
-          della gestione immobiliare.
+          Lead Host è un servizio destinato esclusivamente a professionisti,
+          imprese, Property Manager e altri operatori che utilizzano la piattaforma
+          nell&apos;ambito della propria attività imprenditoriale o professionale.
         </p>
         <p>
-          Qualora un Utente utilizzi il Servizio in qualità di consumatore ai sensi
-          della normativa applicabile, restano ferme tutte le disposizioni
-          inderogabili poste dalla legge a tutela del consumatore.
+          Il Servizio non è destinato all&apos;acquisto o all&apos;utilizzo per
+          finalità personali estranee all&apos;attività professionale o
+          imprenditoriale dell&apos;Utente.
+        </p>
+        <p>
+          Registrandosi e utilizzando le funzionalità a pagamento di Lead Host,
+          l&apos;Utente dichiara di agire nell&apos;ambito della propria attività
+          professionale o imprenditoriale e non in qualità di consumatore.
+        </p>
+        <p>
+          Restano ferme eventuali disposizioni inderogabili previste dalla legge.
         </p>
         <p>
           In caso di contrasto tra le presenti Condizioni e disposizioni
@@ -403,7 +417,8 @@ Email: info@leadhost.it`}
               "sopralluogo;",
               "trattativa;",
               "affidamento dell'immobile;",
-              "conclusione di un contratto.",
+              "conclusione di un contratto;",
+              "conversione.",
             ]}
           />
         </Subsection>
@@ -449,27 +464,38 @@ Email: info@leadhost.it`}
     slug: "wallet-lead-host",
     content: (
       <>
-        <p>Gli acquisti vengono effettuati utilizzando il saldo disponibile nel Wallet.</p>
         <p>
-          Il Wallet rappresenta un saldo interno utilizzabile per usufruire dei
-          servizi Lead Host.
+          Gli acquisti vengono effettuati utilizzando il credito disponibile nel
+          Wallet Lead Host.
+        </p>
+        <p>
+          Il Wallet Lead Host rappresenta un sistema interno di contabilizzazione
+          di crediti prepagati utilizzabili esclusivamente per l&apos;acquisto dei
+          servizi disponibili sulla piattaforma Lead Host.
+        </p>
+        <p>
+          Il Wallet non costituisce un conto corrente o un conto di pagamento e non
+          è destinato all&apos;effettuazione di pagamenti verso soggetti terzi.
         </p>
         <p>Il credito:</p>
         <LegalList
           items={[
-            "viene espresso in euro;",
-            "è utilizzabile per acquistare Lead;",
+            "è espresso in euro ai fini della contabilizzazione interna;",
+            "è utilizzabile esclusivamente per acquistare servizi Lead Host;",
+            "non produce interessi;",
             "non è trasferibile tra utenti;",
-            "non può essere ceduto a terzi;",
+            "non può essere ceduto ad altri utenti;",
+            "non può essere utilizzato per pagare soggetti terzi;",
+            "non può essere utilizzato al di fuori di Lead Host;",
             "non può essere prelevato tramite le normali funzionalità della piattaforma.",
           ]}
         />
         <p>
-          Il Wallet non prevede attualmente una scadenza automatica del saldo
+          Il Wallet non prevede attualmente una scadenza automatica del credito
           durante la normale operatività dell&apos;account.
         </p>
         <p>
-          Il trattamento dell&apos;eventuale saldo residuo in occasione della
+          Il trattamento dell&apos;eventuale credito residuo in occasione della
           chiusura definitiva dell&apos;account viene gestito secondo la normativa
           applicabile e le modalità comunicate da Lead Host.
         </p>
@@ -483,12 +509,12 @@ Email: info@leadhost.it`}
     content: (
       <>
         <p>
-          Il Wallet può essere ricaricato attraverso i sistemi di pagamento messi a
-          disposizione dalla piattaforma.
+          Il Property Manager può acquistare credito Lead Host attraverso i sistemi
+          di pagamento messi a disposizione dalla piattaforma.
         </p>
         <p>
-          La ricarica viene accreditata solo dopo che Lead Host riceve conferma
-          dell&apos;avvenuto pagamento attraverso i sistemi previsti.
+          A seguito della corretta conferma del pagamento, il corrispondente credito
+          viene contabilizzato nel Wallet dell&apos;Utente.
         </p>
         <p>In caso di:</p>
         <LegalList
@@ -500,8 +526,8 @@ Email: info@leadhost.it`}
           ]}
         />
         <p>
-          il saldo non viene accreditato fino alla corretta conferma della
-          transazione.
+          il credito non viene contabilizzato nel Wallet fino alla corretta conferma
+          della transazione.
         </p>
         <p>Lead Host può stabilire:</p>
         <LegalList
@@ -592,7 +618,7 @@ Email: info@leadhost.it`}
             "Lead selezionato;",
             "modalità di acquisto;",
             "prezzo;",
-            "importo che verrà scalato dal Wallet.",
+            "importo di credito che verrà addebitato nel Wallet.",
           ]}
         />
         <p>L&apos;acquisto richiede una conferma esplicita.</p>
@@ -611,11 +637,14 @@ Email: info@leadhost.it`}
   },
   {
     number: "18",
-    title: "SALDO INSUFFICIENTE",
+    title: "CREDITO INSUFFICIENTE",
     slug: "saldo-insufficiente",
     content: (
       <>
-        <p>Se il saldo Wallet non è sufficiente per l&apos;acquisto:</p>
+        <p>
+          Se il credito disponibile nel Wallet non è sufficiente per
+          l&apos;acquisto:
+        </p>
         <LegalList
           items={[
             "l'operazione non viene completata;",
@@ -642,9 +671,9 @@ Email: info@leadhost.it`}
         <LegalList
           items={[
             "il sistema verifica la disponibilità del Lead;",
-            "verifica il saldo;",
+            "verifica il credito disponibile nel Wallet;",
             "registra l'acquisto;",
-            "scala il relativo importo dal Wallet;",
+            "addebita il relativo importo sul credito contabilizzato nel Wallet;",
             "abilita l'accesso ai dati riservati.",
           ]}
         />
@@ -734,6 +763,7 @@ Email: info@leadhost.it`}
             "accettazione della proposta;",
             "affidamento dell'immobile;",
             "firma di un contratto;",
+            "acquisizione di un cliente;",
             "redditività dell'immobile;",
             "risultato economico.",
           ]}
@@ -988,11 +1018,17 @@ Email: info@leadhost.it`}
         <LegalList
           items={[
             "restituito sulla carta utilizzata per ricaricare il Wallet;",
+            "restituito tramite Stripe refund;",
             "versato tramite bonifico;",
             "trasferito ad altro account;",
-            "convertito in denaro attraverso la piattaforma.",
+            "convertito in denaro attraverso le normali funzionalità della piattaforma.",
           ]}
         />
+        <p>
+          Il riconoscimento dell&apos;invalidità del Lead determina un riaccredito
+          nel Wallet e non un rimborso automatico del metodo di pagamento utilizzato
+          per la ricarica.
+        </p>
         <p>Il credito torna disponibile per acquistare altri Lead.</p>
         <p>Restano salvi eventuali diritti inderogabili previsti dalla legge.</p>
       </>

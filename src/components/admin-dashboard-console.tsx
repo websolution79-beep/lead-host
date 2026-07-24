@@ -152,7 +152,7 @@ export function AdminDashboardConsole() {
             <QueueTile label="Da completare" value={dashboard.queues.waitingCompletion} />
             <QueueTile label="Possibili duplicati" value={dashboard.queues.duplicateWarnings} />
             <QueueTile label="Segnalazioni aperte" value={dashboard.queues.openReports} />
-            <QueueTile label="Rimborsi in gestione" value={dashboard.queues.pendingRefunds} />
+            <QueueTile label="Riaccrediti in gestione" value={dashboard.queues.pendingRefunds} />
           </div>
         </div>
 

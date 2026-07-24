@@ -22,12 +22,17 @@ export function AuthCallbackClient() {
         requestedNext.startsWith("/") && !requestedNext.startsWith("//")
           ? requestedNext
           : "/registrazione-completata?confirmed=1";
+      const isPasswordRecovery = next === "/reimposta-password";
 
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (error && isMounted) {
-          setMessage("Il link di conferma non è più valido. Prova ad accedere o richiedi una nuova email.");
+          setMessage(
+            isPasswordRecovery
+              ? "Il link per reimpostare la password non è più valido. Richiedine uno nuovo."
+              : "Il link di conferma non è più valido. Prova ad accedere o richiedi una nuova email.",
+          );
           setIsBlocked(true);
           return;
         }
@@ -38,7 +43,11 @@ export function AuthCallbackClient() {
 
       if (!session) {
         if (isMounted) {
-          setMessage("Email confermata. Ora puoi accedere con le tue credenziali.");
+          setMessage(
+            isPasswordRecovery
+              ? "Il link non è più valido. Richiedi una nuova email per reimpostare la password."
+              : "Email confermata. Ora puoi accedere con le tue credenziali.",
+          );
           setIsBlocked(true);
         }
         return;
@@ -54,12 +63,14 @@ export function AuthCallbackClient() {
         }),
       });
 
-      await fetch("/api/email/welcome", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      if (!isPasswordRecovery) {
+        await fetch("/api/email/welcome", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+      }
 
       router.replace(next);
       router.refresh();
@@ -74,8 +85,8 @@ export function AuthCallbackClient() {
 
   return (
     <div className="card mx-auto max-w-md p-6 text-center sm:p-8">
-      <p className="section-kicker">Conferma email</p>
-      <h1 className="mt-3 text-3xl font-semibold text-ink">Account in verifica</h1>
+      <p className="section-kicker">Accesso sicuro</p>
+      <h1 className="mt-3 text-3xl font-semibold text-ink">Verifica del link</h1>
       <p className="mt-4 text-sm leading-6 text-muted">{message}</p>
       {isBlocked ? (
         <Link className="btn btn-primary mt-6 w-full" href="/login">

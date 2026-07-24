@@ -5,9 +5,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
-  CreditCard,
   RefreshCcw,
   Search,
+  WalletCards,
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -73,7 +73,6 @@ export function AdminRefundsConsole() {
   const [query, setQuery] = useState("");
   const [selectedPurchaseId, setSelectedPurchaseId] = useState("");
   const [reason, setReason] = useState("");
-  const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -104,7 +103,7 @@ export function AdminRefundsConsole() {
     const payload = (await response.json()) as RefundsResponse;
 
     if (!response.ok) {
-      setError(payload.error ?? "Non riesco a caricare i rimborsi.");
+      setError(payload.error ?? "Non riesco a caricare i riaccrediti.");
       setLoading(false);
       return;
     }
@@ -121,9 +120,6 @@ export function AdminRefundsConsole() {
     return () => window.clearTimeout(timeoutId);
   }, [loadRefunds]);
 
-  const selectedPurchase = refundablePurchases.find(
-    (purchase) => purchase.id === selectedPurchaseId,
-  );
   const filteredRefunds = refunds.filter((refund) => {
     if (filter !== "all" && refund.status !== filter) return false;
 
@@ -161,19 +157,17 @@ export function AdminRefundsConsole() {
       },
       body: JSON.stringify({
         leadPurchaseId: selectedPurchaseId,
-        amountCents: amount.trim() ? parseEuroCents(amount) : undefined,
         reason,
       }),
     });
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Rimborso non creato.");
+      setError(payload.error ?? "Pratica di riaccredito non creata.");
     } else {
       setSelectedPurchaseId("");
       setReason("");
-      setAmount("");
-      setSuccess("Richiesta rimborso creata.");
+      setSuccess("Pratica di riaccredito creata.");
       await loadRefunds();
     }
 
@@ -206,12 +200,12 @@ export function AdminRefundsConsole() {
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Aggiornamento rimborso non riuscito.");
+      setError(payload.error ?? "Aggiornamento riaccredito non riuscito.");
     } else {
       setSuccess(
         action === "pay"
-          ? "Rimborso accreditato nel wallet."
-          : "Rimborso aggiornato.",
+          ? "Importo riaccreditato nel Wallet."
+          : "Pratica di riaccredito aggiornata.",
       );
       await loadRefunds();
     }
@@ -224,19 +218,19 @@ export function AdminRefundsConsole() {
       <div className="admin-kpi-grid">
         <StatCard label="In attesa" value={String(stats.pending)} tone="slate" />
         <StatCard label="Approvati" value={String(stats.approved)} tone="blue" />
-        <StatCard label="Pagati" value={String(stats.paid)} tone="green" />
+        <StatCard label="Riaccreditati" value={String(stats.paid)} tone="green" />
         <StatCard label="Respinti" value={String(stats.rejected)} tone="red" />
-        <StatCard label="Totale rimborsato" value={formatCents(stats.paidCents)} tone="amber" />
+        <StatCard label="Totale riaccreditato" value={formatCents(stats.paidCents)} tone="amber" />
       </div>
 
       <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
         <div className="card p-4">
           <p className="section-kicker flex items-center gap-2">
-            <CreditCard size={15} />
-            Nuovo rimborso
+            <WalletCards size={15} />
+            Nuovo riaccredito
           </p>
           <h2 className="mt-2 text-xl font-semibold text-ink">
-            Crea rimborso manuale
+            Apri pratica di riaccredito
           </h2>
 
           <div className="mt-5 grid gap-3">
@@ -245,13 +239,7 @@ export function AdminRefundsConsole() {
               <select
                 className="filter-select"
                 value={selectedPurchaseId}
-                onChange={(event) => {
-                  const purchase = refundablePurchases.find(
-                    (item) => item.id === event.target.value,
-                  );
-                  setSelectedPurchaseId(event.target.value);
-                  setAmount(purchase ? String(purchase.amountCents / 100) : "");
-                }}
+                onChange={(event) => setSelectedPurchaseId(event.target.value)}
               >
                 <option value="">Seleziona acquisto</option>
                 {refundablePurchases.map((purchase) => (
@@ -263,22 +251,16 @@ export function AdminRefundsConsole() {
               </select>
             </label>
 
-            <label className="grid gap-2 text-sm font-semibold text-ink">
-              Importo rimborso
-              <input
-                className="min-h-11 rounded-lg border border-slate-200 px-3 outline-none focus:border-green"
-                inputMode="decimal"
-                placeholder={selectedPurchase ? String(selectedPurchase.amountCents / 100) : "0"}
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-              />
-            </label>
+            <p className="rounded-lg border border-green/15 bg-green/8 px-4 py-3 text-sm leading-6 text-slate-700">
+              In caso di accoglimento verrà riaccreditato nel Wallet il 100%
+              dell&apos;importo effettivamente pagato per l&apos;acquisto selezionato.
+            </p>
 
             <label className="grid gap-2 text-sm font-semibold text-ink">
               Motivazione
               <textarea
                 className="min-h-24 rounded-lg border border-slate-200 p-3 outline-none focus:border-green"
-                placeholder="Esempio: contatto non raggiungibile, lead non valido, rimborso commerciale..."
+                placeholder="Descrivi l'esito della verifica e il motivo del riaccredito..."
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
               />
@@ -290,8 +272,8 @@ export function AdminRefundsConsole() {
               disabled={actionLoading === "create"}
               onClick={createRefund}
             >
-              <CreditCard size={17} />
-              Crea richiesta rimborso
+              <WalletCards size={17} />
+              Crea pratica di riaccredito
             </button>
           </div>
         </div>
@@ -299,9 +281,9 @@ export function AdminRefundsConsole() {
         <div className="card p-4">
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
             <div>
-              <p className="section-kicker">Workflow rimborsi</p>
+              <p className="section-kicker">Workflow riaccrediti</p>
               <h2 className="mt-2 text-xl font-semibold text-ink">
-                Rimborsi da gestire
+                Riaccrediti da gestire
               </h2>
             </div>
             <button className="btn btn-secondary" type="button" onClick={loadRefunds}>
@@ -354,10 +336,10 @@ export function AdminRefundsConsole() {
       ) : null}
 
       {loading ? (
-        <section className="card p-8 text-center text-muted">Carico rimborsi...</section>
+        <section className="card p-8 text-center text-muted">Carico riaccrediti...</section>
       ) : filteredRefunds.length === 0 ? (
         <section className="card p-8 text-center text-muted">
-          Nessun rimborso trovato.
+          Nessun riaccredito trovato.
         </section>
       ) : (
         <section className="card divide-y divide-slate-200 overflow-hidden">
@@ -379,10 +361,8 @@ export function AdminRefundsConsole() {
                 </p>
                 <p className="mt-3 text-sm leading-6 text-muted">{refund.reason}</p>
                 <p className="mt-3 text-sm font-semibold text-ink">
-                  Rimborso {formatCents(refund.amountCents ?? refund.purchaseAmountCents ?? 0)}
-                  {refund.purchaseAmountCents
-                    ? ` su acquisto ${formatCents(refund.purchaseAmountCents)}`
-                    : ""}
+                  Riaccredito Wallet{" "}
+                  {formatCents(refund.purchaseAmountCents ?? refund.amountCents ?? 0)}
                 </p>
               </div>
 
@@ -395,7 +375,7 @@ export function AdminRefundsConsole() {
                     onClick={() => updateRefund(refund, "approve")}
                   >
                     <Clock3 size={16} />
-                    Approva
+                    Approva riaccredito
                   </button>
                 ) : null}
                 {refund.status === "pending" || refund.status === "approved" ? (
@@ -406,7 +386,7 @@ export function AdminRefundsConsole() {
                     onClick={() => updateRefund(refund, "pay")}
                   >
                     <CheckCircle2 size={16} />
-                    Paga su wallet
+                    Esegui riaccredito Wallet
                   </button>
                 ) : null}
                 {refund.status === "pending" || refund.status === "approved" ? (
@@ -470,7 +450,7 @@ function refundStatusLabel(status: FilterState) {
     pending: "In attesa",
     approved: "Approvati",
     rejected: "Respinti",
-    paid: "Pagati",
+    paid: "Riaccreditati",
   };
 
   return labels[status];
@@ -484,13 +464,6 @@ function refundBadgeClassName(status: RefundStatus) {
   if (status === "rejected") return `${base} bg-red-50 text-red-700`;
 
   return `${base} bg-slate-100 text-slate-600`;
-}
-
-function parseEuroCents(value: string) {
-  const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
-  const amount = Number.parseFloat(normalized);
-
-  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
 }
 
 function formatDateTime(value: string) {

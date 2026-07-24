@@ -13,6 +13,10 @@ type OwnerPublicContactRow = Pick<
   Database["public"]["Tables"]["owner_contacts"]["Row"],
   "precise_address"
 >;
+type OwnerRequestTimestampRow = Pick<
+  Database["public"]["Tables"]["owner_requests"]["Row"],
+  "id" | "created_at"
+>;
 
 export async function getPublishedMarketplaceLeads() {
   return getCachedPublishedMarketplaceLeads();
@@ -82,7 +86,12 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
     return [];
   }
 
-  const [propertiesResult, contactsResult] = await Promise.all([
+  const [
+    propertiesResult,
+    contactsResult,
+    ownerRequestsResult,
+    attributionResult,
+  ] = await Promise.all([
     supabase
       .from("properties")
       .select(
@@ -93,10 +102,28 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
       .from("owner_contacts")
       .select("owner_request_id,precise_address")
       .in("owner_request_id", ownerRequestIds),
+    supabase
+      .from("owner_requests")
+      .select("id,created_at")
+      .in("id", ownerRequestIds),
+    supabase
+      .from("marketing_attribution")
+      .select("owner_request_id,acquired_at")
+      .in("owner_request_id", ownerRequestIds),
   ]);
 
-  if (propertiesResult.error || contactsResult.error) {
-    console.error(propertiesResult.error ?? contactsResult.error);
+  if (
+    propertiesResult.error ||
+    contactsResult.error ||
+    ownerRequestsResult.error ||
+    attributionResult.error
+  ) {
+    console.error(
+      propertiesResult.error ??
+        contactsResult.error ??
+        ownerRequestsResult.error ??
+        attributionResult.error,
+    );
     return [];
   }
 
@@ -105,6 +132,17 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
   );
   const contactsByRequestId = new Map(
     (contactsResult.data ?? []).map((item) => [item.owner_request_id, item]),
+  );
+  const ownerRequestsById = new Map(
+    ((ownerRequestsResult.data ?? []) as OwnerRequestTimestampRow[]).map(
+      (item) => [item.id, item],
+    ),
+  );
+  const acquiredAtByRequestId = new Map(
+    (attributionResult.data ?? []).map((item) => [
+      item.owner_request_id,
+      item.acquired_at,
+    ]),
   );
 
   return leads
@@ -119,6 +157,9 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
         lead,
         property,
         contactsByRequestId.get(lead.owner_request_id) ?? null,
+        acquiredAtByRequestId.get(lead.owner_request_id) ??
+          ownerRequestsById.get(lead.owner_request_id)?.created_at ??
+          lead.created_at,
       );
     })
     .filter((lead): lead is MarketplaceLead => Boolean(lead));
@@ -142,6 +183,7 @@ function mapDbLeadToMarketplaceLead(
     | "requested_services"
   >,
   contact: OwnerPublicContactRow | null,
+  requestedAt: string,
 ): MarketplaceLead {
   const now = new Date();
   const expiresAt = lead.expires_at ?? lead.visible_until ?? lead.created_at;
@@ -177,6 +219,7 @@ function mapDbLeadToMarketplaceLead(
     sharedPriceCents: lead.shared_price_cents,
     exclusivePriceCents: lead.exclusive_price_cents,
     exclusivePurchaseId: lead.exclusive_purchase_id,
+    requestedAt,
     publishedAt: lead.published_at ?? lead.created_at,
     expiresAt,
     ownerDescription:

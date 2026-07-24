@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { LeadPurchaseActions } from "@/components/lead-purchase-actions";
-import { demoLeads } from "@/lib/domain/sample-data";
 import {
   LEAD_EXCLUSIVE_PRICE_CENTS,
   LEAD_SHARED_PRICE_CENTS,
@@ -35,9 +34,7 @@ export const dynamic = "force-dynamic";
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { leadId } = await params;
 
-  const lead =
-    (await getPublishedMarketplaceLeadById(leadId)) ??
-    demoLeads.find((item) => item.id === leadId);
+  const lead = await getPublishedMarketplaceLeadById(leadId);
 
   if (!lead) {
     notFound();
@@ -102,8 +99,8 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
 
           <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Detail
-              label="Data richiesta"
-              value={formatLeadRequestDate(lead.publishedAt)}
+              label="Richiesta ricevuta"
+              value={formatLeadRequestDate(lead.requestedAt)}
             />
             <Detail label="Camere" value={String(lead.bedrooms)} />
             <Detail label="Bagni" value={String(lead.bathrooms)} />
@@ -195,6 +192,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           <div className="mt-6">
             <LeadPurchaseActions
               leadId={lead.id}
+              leadTitle={lead.title}
               sharedAvailable={sharedAvailable}
               exclusiveAvailable={exclusiveAvailable}
               sharedPriceCents={lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS}
@@ -215,11 +213,26 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
 }
 
 function formatLeadRequestDate(value: string) {
+  const date = parseLeadDate(value);
+  const now = new Date();
+  const time = new Intl.DateTimeFormat("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+
+  if (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  ) {
+    return `Oggi alle ${time}`;
+  }
+
   return new Intl.DateTimeFormat("it-IT", {
     day: "2-digit",
     month: "long",
     year: "numeric",
-  }).format(parseLeadDate(value));
+  }).format(date);
 }
 
 function ExclusiveSoldBadge() {

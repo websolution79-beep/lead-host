@@ -10,6 +10,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import {
   sendAdminOwnerRequestNotification,
 } from "@/lib/email/notifications";
+import { consumeOwnerRequestRateLimit } from "@/lib/security/public-form-protection";
 
 const ownerRequestSchema = z.object({
   region: z.string().min(1),
@@ -43,6 +44,8 @@ const ownerRequestSchema = z.object({
   phone: z.string().trim().min(6).max(30),
   privacyConsent: z.literal(true),
   dataSharingConsent: z.literal(true),
+  website: z.string().max(300).optional().default(""),
+  startedAt: z.coerce.number().int().positive(),
   attribution: z
     .object({
       landingPage: z.string().max(500).optional(),
@@ -76,7 +79,9 @@ const allowedServices = new Set([
 ]);
 
 export async function POST(request: Request) {
-  const payload = ownerRequestSchema.safeParse(await request.json());
+  const payload = ownerRequestSchema.safeParse(
+    await request.json().catch(() => null),
+  );
 
   if (!payload.success) {
     return NextResponse.json(
@@ -86,6 +91,44 @@ export async function POST(request: Request) {
   }
 
   const data = payload.data;
+
+  if (data.website.trim()) {
+    return NextResponse.json({
+      status: "received",
+      reference: "LH-RICEVUTA",
+    });
+  }
+
+  if (Date.now() - data.startedAt < 2_000) {
+    return NextResponse.json(
+      { error: "Invio troppo rapido. Attendi qualche secondo e riprova." },
+      { status: 429 },
+    );
+  }
+
+  let rateLimit: Awaited<ReturnType<typeof consumeOwnerRequestRateLimit>>;
+
+  try {
+    rateLimit = await consumeOwnerRequestRateLimit(request);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { error: "Servizio temporaneamente non disponibile. Riprova tra poco." },
+      { status: 503 },
+    );
+  }
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Hai inviato troppe richieste. Riprova tra qualche minuto." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      },
+    );
+  }
 
   if (!isValidGeoSelection(data.region, data.province, data.city)) {
     return NextResponse.json(

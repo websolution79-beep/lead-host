@@ -176,7 +176,7 @@ export function AdminAnalyticsConsole() {
           <div className="mt-5 grid gap-3">
             <MoneyRow label="Ricariche wallet" value={analytics.totals.topUpCents} />
             <MoneyRow label="Ricavi lead" value={analytics.totals.leadRevenueCents} />
-            <MoneyRow label="Rimborsi pagati" value={analytics.totals.refundCents} />
+            <MoneyRow label="Riaccrediti Wallet" value={analytics.totals.refundCents} />
             <MoneyRow label="Movimento netto wallet" value={analytics.totals.netWalletMovementCents} />
           </div>
         </div>

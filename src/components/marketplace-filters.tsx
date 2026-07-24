@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Filter, RotateCcw } from "lucide-react";
+import { BellRing, Filter, RotateCcw } from "lucide-react";
 import { LeadCard } from "@/components/lead-card";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import {
@@ -98,6 +98,22 @@ export function MarketplaceFilters({ leads }: MarketplaceFiltersProps) {
   function handleProvince(value: string) {
     setProvince(value);
     setCity("all");
+  }
+
+  if (leads.length === 0) {
+    return (
+      <section className="card px-5 py-12 text-center sm:px-8 sm:py-16">
+        <span className="mx-auto grid size-14 place-items-center rounded-xl bg-green/10 text-green">
+          <BellRing size={26} />
+        </span>
+        <h2 className="mt-5 text-2xl font-semibold text-ink">
+          Nessuna nuova opportunità disponibile in questo momento.
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl leading-7 text-muted">
+          Ti avviseremo quando arriveranno nuove richieste.
+        </p>
+      </section>
+    );
   }
 
   return (

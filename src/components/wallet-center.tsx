@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   ArrowDownLeft,
   ArrowUpRight,
   CreditCard,
@@ -13,6 +14,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { useAppSession } from "@/components/app-session-provider";
+import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 
 type WalletRow = {
   id: string;
@@ -41,10 +43,15 @@ type CommercialSettingsResponse = {
   };
 };
 
+type WalletReadiness = {
+  billingComplete: boolean;
+  missingLabels: string[];
+};
+
 const transactionLabels: Record<WalletTransaction["type"], string> = {
   top_up: "Ricarica wallet",
   lead_purchase: "Acquisto lead",
-  refund: "Rimborso",
+  refund: "Riaccredito Wallet",
   adjustment: "Rettifica",
 };
 
@@ -63,6 +70,8 @@ export function WalletCenter() {
   const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [readiness, setReadiness] = useState<WalletReadiness | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     async function loadWallet() {
@@ -80,6 +89,22 @@ export function WalletCenter() {
           setTopUpAmount((current) =>
             current === "30" ? formatAmountInput(commercialSettings.minTopUpCents) : current,
           );
+        }
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (accessToken) {
+        const readinessResponse = await fetch("/api/purchases/wallet-readiness", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }).catch(() => null);
+
+        if (readinessResponse?.ok) {
+          const readinessPayload =
+            (await readinessResponse.json()) as WalletReadiness;
+          setReadiness(readinessPayload);
         }
       }
 
@@ -133,6 +158,8 @@ export function WalletCenter() {
   const currency = wallet?.currency ?? "eur";
   const topUpAmountCents = parseTopUpAmountCents(topUpAmount);
   const canTopUp = topUpAmountCents >= minTopUpCents;
+  const canStartCheckout =
+    canTopUp && readiness?.billingComplete === true && termsAccepted;
   const leadPurchaseTransactions = transactions.filter(
     (transaction) => transaction.type === "lead_purchase",
   );
@@ -165,15 +192,30 @@ export function WalletCenter() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ amountCents: topUpAmountCents }),
+        body: JSON.stringify({
+          amountCents: topUpAmountCents,
+          termsAccepted,
+          termsVersion: CURRENT_TERMS_VERSION,
+        }),
       });
       const payload = (await response.json()) as {
         checkoutUrl?: string;
         error?: string;
+        code?: string;
+        missingLabels?: string[];
       };
 
       if (!response.ok || !payload.checkoutUrl) {
         setCheckoutError(payload.error ?? "Non sono riuscito ad aprire Stripe.");
+        if (payload.code === "BILLING_PROFILE_INCOMPLETE") {
+          setReadiness({
+            billingComplete: false,
+            missingLabels: payload.missingLabels ?? [],
+          });
+        }
+        if (payload.code === "TERMS_VERSION_CHANGED") {
+          setTermsAccepted(false);
+        }
         return;
       }
 
@@ -201,7 +243,7 @@ export function WalletCenter() {
           {wallet ? formatCurrencyCents(wallet.balance_cents, currency) : "0,00 EUR"}
         </p>
         <p className="mt-3 leading-7 text-muted">
-          Il wallet sara usato per ricariche, acquisti lead, rimborsi e riconciliazioni
+          Il wallet sarà usato per ricariche, acquisti lead, riaccrediti e riconciliazioni
           amministrative.
         </p>
 
@@ -253,6 +295,57 @@ export function WalletCenter() {
             </p>
           ) : null}
 
+          {readiness?.billingComplete === false ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <p className="flex items-center gap-2 font-semibold text-amber-900">
+                <AlertCircle size={18} />
+                Completa i dati di fatturazione
+              </p>
+              <p className="mt-2 text-sm leading-6 text-amber-800">
+                Prima di effettuare una ricarica devi completare i dati necessari
+                alla fatturazione.
+              </p>
+              {readiness.missingLabels.length ? (
+                <p className="mt-2 text-xs text-amber-800">
+                  Dati mancanti: {readiness.missingLabels.join(", ")}.
+                </p>
+              ) : null}
+              <Link
+                className="btn btn-secondary mt-3 w-full"
+                href="/app/profilo#fatturazione"
+              >
+                Completa il profilo
+              </Link>
+            </div>
+          ) : null}
+
+          {!isLoading && readiness === null ? (
+            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
+              Non riesco a verificare i dati di fatturazione. Aggiorna la pagina
+              prima di procedere.
+            </p>
+          ) : null}
+
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+            <input
+              className="mt-1 size-4 shrink-0 accent-green"
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(event) => setTermsAccepted(event.target.checked)}
+            />
+            <span>
+              Ho letto e accetto le{" "}
+              <Link
+                className="font-semibold text-green underline underline-offset-2"
+                href="/termini"
+                target="_blank"
+              >
+                Condizioni del Servizio
+              </Link>{" "}
+              di Lead Host.
+            </span>
+          </label>
+
           {checkoutMessage ? (
             <p className="mt-3 rounded-lg border border-green/20 bg-green/10 px-3 py-2 text-xs font-semibold text-green">
               {checkoutMessage}
@@ -268,7 +361,7 @@ export function WalletCenter() {
           <button
             className="btn btn-primary mt-4 w-full"
             type="button"
-            disabled={!canTopUp || isCreatingCheckout}
+            disabled={!canStartCheckout || isCreatingCheckout}
             onClick={createCheckout}
           >
             <CreditCard size={17} />
@@ -277,7 +370,7 @@ export function WalletCenter() {
               : `Ricarica ${formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)}`}
           </button>
           <p className="mt-3 text-xs leading-5 text-muted">
-            Pagamento sicuro con Stripe. Il credito verra aggiunto al wallet dopo
+            Pagamento sicuro con Stripe. Il credito verrà aggiunto al wallet dopo
             conferma server-side del pagamento.
           </p>
         </div>
@@ -367,7 +460,7 @@ export function WalletCenter() {
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
               <p className="font-semibold text-ink">Nessuna transazione ancora</p>
               <p className="mt-2 text-sm leading-6 text-muted">
-                Qui compariranno ricariche wallet, acquisti lead, rimborsi e rettifiche.
+                Qui compariranno ricariche wallet, acquisti lead, riaccrediti e rettifiche.
               </p>
             </div>
             ) : (

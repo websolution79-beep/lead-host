@@ -4,14 +4,12 @@ import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 
 const createRefundSchema = z.object({
   leadPurchaseId: z.string().uuid(),
-  amountCents: z.number().int().min(100).max(200000).optional(),
   reason: z.string().trim().min(3).max(600),
 });
 
 const updateRefundSchema = z.object({
   refundId: z.string().uuid(),
   action: z.enum(["approve", "reject", "pay"]),
-  amountCents: z.number().int().min(100).max(200000).optional(),
   reason: z.string().trim().max(600).optional(),
 });
 
@@ -158,16 +156,7 @@ export async function POST(request: NextRequest) {
 
     if (!["paid", "contact_unlocked"].includes(purchase.status)) {
       return NextResponse.json(
-        { error: "Questo acquisto non è rimborsabile." },
-        { status: 422 },
-      );
-    }
-
-    const amountCents = payload.amountCents ?? purchase.amount_cents;
-
-    if (amountCents > purchase.amount_cents) {
-      return NextResponse.json(
-        { error: "Il rimborso non può superare l'importo dell'acquisto." },
+        { error: "Questo acquisto non è idoneo al riaccredito." },
         { status: 422 },
       );
     }
@@ -176,7 +165,7 @@ export async function POST(request: NextRequest) {
     const { error } = await refundsTable.insert({
       lead_purchase_id: purchase.id,
       requested_by_property_manager_id: purchase.property_manager_id,
-      amount_cents: amountCents,
+      amount_cents: purchase.amount_cents,
       status: "pending",
       reason: payload.reason,
       reviewed_by: profile.id,
@@ -219,13 +208,13 @@ export async function PATCH(request: NextRequest) {
         .single();
 
       if (error || !data) {
-        const message = error?.message ?? "Rimborso non pagato.";
+        const message = error?.message ?? "Riaccredito Wallet non completato.";
 
         if (error?.code === "PGRST202" || message.includes("pay_wallet_refund")) {
           return NextResponse.json(
             {
               error:
-                "Database non aggiornato per workflow rimborsi. Applica la migration refund_workflow e riprova.",
+                "Database non aggiornato per i riaccrediti Wallet. Applica la migration commercial_safety_hardening e riprova.",
             },
             { status: 409 },
           );
@@ -241,7 +230,6 @@ export async function PATCH(request: NextRequest) {
       payload.action === "approve"
         ? {
             status: "approved",
-            amount_cents: payload.amountCents,
             reason: payload.reason,
             reviewed_by: profile.id,
             reviewed_at: new Date().toISOString(),

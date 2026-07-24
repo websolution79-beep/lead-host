@@ -7,10 +7,14 @@ import {
 import { sendLeadPurchaseEmail } from "@/lib/email/notifications";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
+import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
   mode: z.enum(["shared", "exclusive"]),
+  expectedAmountCents: z.number().int().positive(),
+  termsAccepted: z.literal(true),
+  termsVersion: z.string().trim().min(1),
 });
 
 type WalletPurchaseResult = {
@@ -39,6 +43,8 @@ type WalletPurchaseRpcClient = {
       p_property_manager_id: string;
       p_lead_id: string;
       p_mode: "shared" | "exclusive";
+      p_expected_amount_cents: number;
+      p_terms_version: string;
     },
   ) => {
     single: () => Promise<{
@@ -52,7 +58,34 @@ export async function POST(request: NextRequest) {
   try {
     const { supabase, profile, propertyManager } =
       await requirePropertyManager(request);
-    const payload = purchaseSchema.parse(await request.json());
+    const parsedPayload = purchaseSchema.safeParse(
+      await request.json().catch(() => null),
+    );
+
+    if (!parsedPayload.success) {
+      return NextResponse.json(
+        {
+          error: "Devi accettare le Condizioni del Servizio per acquistare il Lead.",
+          code: "TERMS_ACCEPTANCE_REQUIRED",
+        },
+        { status: 422 },
+      );
+    }
+
+    const payload = parsedPayload.data;
+
+    if (payload.termsVersion !== CURRENT_TERMS_VERSION) {
+      return NextResponse.json(
+        {
+          error:
+            "Le Condizioni del Servizio sono state aggiornate. Rileggile e conferma nuovamente.",
+          code: "TERMS_VERSION_CHANGED",
+          termsVersion: CURRENT_TERMS_VERSION,
+        },
+        { status: 409 },
+      );
+    }
+
     const rpc = supabase as unknown as WalletPurchaseRpcClient;
     const { data: purchase, error } = await rpc
       .rpc("purchase_lead_with_wallet", {
@@ -60,6 +93,8 @@ export async function POST(request: NextRequest) {
         p_property_manager_id: propertyManager.id,
         p_lead_id: payload.leadId,
         p_mode: payload.mode,
+        p_expected_amount_cents: payload.expectedAmountCents,
+        p_terms_version: CURRENT_TERMS_VERSION,
       })
       .single();
 
@@ -106,7 +141,7 @@ function walletPurchaseErrorResponse(error: RpcError | null) {
     return NextResponse.json(
       {
         error:
-          "Database non aggiornato per acquisti wallet atomici. Applica la migration atomic_wallet_purchase e riprova.",
+          "Database non aggiornato per gli acquisti sicuri. Applica la migration commercial_safety_hardening e riprova.",
         code: "DATABASE_MIGRATION_REQUIRED",
       },
       { status: 409 },
@@ -124,10 +159,22 @@ function walletPurchaseErrorResponse(error: RpcError | null) {
     );
   }
 
+  if (message.includes("price_changed")) {
+    return NextResponse.json(
+      {
+        error:
+          "Il prezzo del Lead è cambiato. Controlla il nuovo importo e conferma nuovamente.",
+        code: "PRICE_CHANGED",
+        ...parsePriceChangedDetails(error?.details),
+      },
+      { status: 409 },
+    );
+  }
+
   if (message.includes("already_purchased") || error?.code === "23505") {
     return NextResponse.json(
       {
-        error: "Hai gia acquistato questo lead. Lo trovi in I miei lead.",
+        error: "Hai già acquistato questo lead. Lo trovi in I miei lead.",
         code: "ALREADY_PURCHASED",
       },
       { status: 409 },
@@ -148,7 +195,7 @@ function walletPurchaseErrorResponse(error: RpcError | null) {
   ) {
     return NextResponse.json(
       {
-        error: "Questo lead non e piu acquistabile.",
+        error: "Questo lead non è più acquistabile.",
         code: "LEAD_NOT_AVAILABLE",
       },
       { status: 409 },
@@ -162,11 +209,21 @@ function walletPurchaseErrorResponse(error: RpcError | null) {
     );
   }
 
+  if (message.includes("terms_acceptance_required")) {
+    return NextResponse.json(
+      {
+        error: "Devi accettare le Condizioni del Servizio per acquistare il Lead.",
+        code: "TERMS_ACCEPTANCE_REQUIRED",
+      },
+      { status: 422 },
+    );
+  }
+
   if (error?.code === "23514") {
     return NextResponse.json(
       {
         error:
-          "Database non aggiornato per prezzi configurabili sugli acquisti. Applica la migration atomic_wallet_purchase e riprova.",
+          "Database non aggiornato per gli acquisti sicuri. Applica la migration commercial_safety_hardening e riprova.",
         code: "DATABASE_MIGRATION_REQUIRED",
       },
       { status: 409 },
@@ -174,9 +231,27 @@ function walletPurchaseErrorResponse(error: RpcError | null) {
   }
 
   return NextResponse.json(
-    { error: "Non e stato possibile acquistare il lead.", code: "PURCHASE_FAILED" },
+    { error: "Non è stato possibile acquistare il lead.", code: "PURCHASE_FAILED" },
     { status: 409 },
   );
+}
+
+function parsePriceChangedDetails(details?: string) {
+  if (!details) return {};
+
+  try {
+    const parsed = JSON.parse(details) as {
+      expected_amount_cents?: number;
+      current_amount_cents?: number;
+    };
+
+    return {
+      expectedAmountCents: parsed.expected_amount_cents,
+      currentAmountCents: parsed.current_amount_cents,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function parseInsufficientCreditDetails(details?: string) {

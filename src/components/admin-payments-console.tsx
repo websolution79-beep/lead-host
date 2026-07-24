@@ -216,7 +216,7 @@ export function AdminPaymentsConsole() {
       <div className="admin-kpi-grid">
         <StatCard label="Ricariche wallet" value={formatCents(stats.topUpsCents)} tone="green" />
         <StatCard label="Vendite lead" value={formatCents(stats.leadSalesCents)} tone="blue" />
-        <StatCard label="Rimborsi" value={formatCents(stats.refundsCents)} tone="amber" />
+        <StatCard label="Riaccrediti Wallet" value={formatCents(stats.refundsCents)} tone="amber" />
         <StatCard label="Falliti/annullati" value={String(stats.failedPayments)} tone="red" />
         <StatCard label="Ricariche pending" value={String(stats.pendingTopUps)} tone="slate" />
       </div>
@@ -470,7 +470,7 @@ function transactionTypeLabel(type: WalletTransactionRecord["type"]) {
   const labels = {
     top_up: "Ricarica wallet",
     lead_purchase: "Acquisto lead",
-    refund: "Rimborso",
+    refund: "Riaccredito Wallet",
     adjustment: "Rettifica",
   };
 
@@ -486,7 +486,7 @@ function statusLabel(status: string) {
     cancelled: "Annullato",
     paid: "Pagato",
     contact_unlocked: "Contatto sbloccato",
-    refunded: "Rimborsato",
+    refunded: "Riaccreditato",
   };
 
   return labels[status] ?? status;

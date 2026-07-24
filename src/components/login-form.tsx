@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -80,9 +81,18 @@ export function LoginForm() {
           required
         />
       </label>
-      <label className="grid gap-2 text-sm font-semibold text-ink">
-        Password
+      <div className="grid gap-2 text-sm font-semibold text-ink">
+        <span className="flex items-center justify-between gap-3">
+          <label htmlFor="login-password">Password</label>
+          <Link
+            className="text-xs font-semibold text-green hover:underline"
+            href="/password-dimenticata"
+          >
+            Password dimenticata?
+          </Link>
+        </span>
         <input
+          id="login-password"
           className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
           type="password"
           autoComplete="current-password"
@@ -91,7 +101,7 @@ export function LoginForm() {
           onChange={(event) => setPassword(event.target.value)}
           required
         />
-      </label>
+      </div>
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {error}

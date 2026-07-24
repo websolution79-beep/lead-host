@@ -50,13 +50,13 @@ export type NormalizedMetaLead = {
     region: string | null;
     province: string | null;
     city: string | null;
-    property_type: string;
+    property_type: string | null;
     bedrooms: number | null;
     bathrooms: number | null;
     approximate_area_sqm: number | null;
     current_status: string[];
     requested_services: string[];
-    timing: string;
+    timing: string | null;
     description: string | null;
   };
   contact: {
@@ -234,7 +234,6 @@ export function normalizeMetaLead(
   const requestedServices = normalizeMultiOption(
     pickField(mappedFields, "requestedServices"),
     requestedServiceOptions,
-    ["Non lo so, vorrei essere consigliato"],
   );
 
   return {
@@ -245,7 +244,6 @@ export function normalizeMetaLead(
       property_type: normalizeOption(
         pickField(mappedFields, "propertyType"),
         propertyTypeOptions,
-        "Appartamento",
       ),
       bedrooms: parseInteger(pickField(mappedFields, "bedrooms")),
       bathrooms: parseInteger(pickField(mappedFields, "bathrooms")),
@@ -253,13 +251,11 @@ export function normalizeMetaLead(
       current_status: normalizeMultiOption(
         pickField(mappedFields, "currentStatus"),
         currentStatusOptions,
-        ["Mai usato per affitti brevi"],
       ),
       requested_services: requestedServices,
       timing: normalizeOption(
         pickField(mappedFields, "timing"),
         timingOptions,
-        "Sto solo valutando",
       ),
       description: pickField(mappedFields, "description") || null,
     },
@@ -354,23 +350,27 @@ function normalizeLocation({
   };
 }
 
-function normalizeOption(value: string, options: string[], fallback: string) {
+function normalizeOption(value: string, options: string[]) {
+  const cleanValue = value.trim();
+
+  if (!cleanValue) return null;
+
   const valueKey = normalizeComparable(value);
   const match = options.find((option) => normalizeComparable(option) === valueKey);
 
-  return match ?? fallback;
+  return match ?? cleanValue;
 }
 
-function normalizeMultiOption(value: string, options: string[], fallback: string[]) {
+function normalizeMultiOption(value: string, options: string[]) {
   const values = value
     .split(/[,;\n|]+/)
     .map((item) => item.trim())
     .filter(Boolean);
   const matches = values
-    .map((item) => normalizeOption(item, options, ""))
+    .map((item) => normalizeOption(item, options))
     .filter(Boolean);
 
-  return matches.length ? Array.from(new Set(matches)) : fallback;
+  return Array.from(new Set(matches)) as string[];
 }
 
 function parseInteger(value: string) {

@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -60,12 +61,21 @@ type SupportResponse = {
 };
 
 export function SupportCenter() {
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const requestedSubject = searchParams.get("subject");
+  const initialSubject = supportSubjectOptions.some(
+    (option) => option.value === requestedSubject,
+  )
+    ? (requestedSubject as SupportSubject)
+    : "platform_assistance";
   const [purchases, setPurchases] = useState<SupportPurchase[]>([]);
   const [reports, setReports] = useState<SupportReport[]>([]);
-  const [subject, setSubject] = useState<SupportSubject>("platform_assistance");
+  const [subject, setSubject] = useState<SupportSubject>(initialSubject);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState("");
-  const [details, setDetails] = useState("");
+  const [details, setDetails] = useState(
+    () => searchParams.get("message")?.slice(0, 2000) ?? "",
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});

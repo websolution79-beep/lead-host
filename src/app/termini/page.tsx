@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ArrowUp, BookOpen, CalendarDays, FileText } from "lucide-react";
 import { PublicNav } from "@/components/public-nav";
+import {
+  CURRENT_TERMS_EFFECTIVE_FROM,
+  CURRENT_TERMS_LAST_UPDATED,
+  CURRENT_TERMS_VERSION,
+} from "@/lib/legal/terms";
 
 export const metadata: Metadata = {
   title: "Condizioni Generali del Servizio",
@@ -9,9 +14,9 @@ export const metadata: Metadata = {
 };
 
 const termsDocument = {
-  version: "1.0",
-  lastUpdated: "24 luglio 2026",
-  effectiveFrom: "24 luglio 2026",
+  version: CURRENT_TERMS_VERSION,
+  lastUpdated: CURRENT_TERMS_LAST_UPDATED,
+  effectiveFrom: CURRENT_TERMS_EFFECTIVE_FROM,
 } as const;
 
 type TermsSection = {

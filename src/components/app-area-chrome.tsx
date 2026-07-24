@@ -25,7 +25,7 @@ const adminLinks = [
   { label: "Property Manager", href: "/admin/property-manager" },
   { label: "Pagamenti", href: "/admin/pagamenti" },
   { label: "Assistenza", href: "/admin/segnalazioni" },
-  { label: "Rimborsi", href: "/admin/rimborsi" },
+  { label: "Riaccrediti", href: "/admin/rimborsi" },
   { label: "Analytics", href: "/admin/analytics" },
   { label: "Email", href: "/admin/email-transazionali" },
   { label: "Impostazioni", href: "/admin/impostazioni" },

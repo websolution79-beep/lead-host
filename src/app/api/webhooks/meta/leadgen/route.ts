@@ -161,7 +161,8 @@ async function processLeadgenChange({
             ownerRequestId: ownerRequest.id,
             reference: `LH-${ownerRequest.id.slice(0, 8).toUpperCase()}`,
             city: normalized.property.city ?? "Da verificare",
-            propertyType: normalized.property.property_type,
+            propertyType:
+              normalized.property.property_type ?? "Tipologia da verificare",
           }),
     ]);
 
@@ -417,6 +418,7 @@ function getMissingCompletionFields(normalized: NormalizedMetaLead) {
   if (!normalized.property.province) missing.push("province");
   if (!normalized.property.city) missing.push("city");
   if (!normalized.contact.precise_address) missing.push("address");
+  if (!normalized.property.property_type) missing.push("property_type");
   if (!normalized.property.bedrooms && normalized.property.bedrooms !== 0) {
     missing.push("bedrooms");
   }
@@ -424,6 +426,11 @@ function getMissingCompletionFields(normalized: NormalizedMetaLead) {
     missing.push("bathrooms");
   }
   if (!normalized.property.approximate_area_sqm) missing.push("area_sqm");
+  if (!normalized.property.current_status.length) missing.push("current_status");
+  if (!normalized.property.requested_services.length) {
+    missing.push("requested_services");
+  }
+  if (!normalized.property.timing) missing.push("timing");
   if (!normalized.contact.first_name) missing.push("first_name");
   if (!normalized.contact.last_name) missing.push("last_name");
   if (!normalized.contact.email) missing.push("email");

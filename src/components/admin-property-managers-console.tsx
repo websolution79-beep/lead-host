@@ -860,7 +860,7 @@ function walletTransactionTypeLabel(type: PropertyManagerRecord["walletTransacti
   return {
     top_up: "Ricarica wallet",
     lead_purchase: "Acquisto lead",
-    refund: "Rimborso",
+    refund: "Riaccredito Wallet",
     adjustment: "Rettifica wallet",
   }[type];
 }
@@ -877,7 +877,7 @@ function activityStatusLabel(status: string) {
     cancelled: "Annullato",
     paid: "Pagato",
     contact_unlocked: "Contatto sbloccato",
-    refunded: "Rimborsato",
+    refunded: "Riaccreditato",
   }[status] ?? status;
 }
 

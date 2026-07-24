@@ -6,11 +6,16 @@ import {
   propertyManagerApiErrorResponse,
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
+import { getBillingReadiness } from "@/lib/billing/server";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { appUrl, getEnv } from "@/lib/env";
+import { recordTermsAcceptance } from "@/lib/legal/acceptances";
+import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 
 const checkoutSchema = z.object({
   amountCents: z.number().int().positive().max(200000),
+  termsAccepted: z.literal(true),
+  termsVersion: z.string().trim().min(1),
 });
 
 type WalletRow = {
@@ -24,8 +29,51 @@ export async function POST(request: NextRequest) {
   try {
     const { supabase, profile, propertyManager } =
       await requirePropertyManager(request);
-    const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
+    const parsedPayload = checkoutSchema.safeParse(
+      await request.json().catch(() => null),
+    );
 
+    if (!parsedPayload.success) {
+      return NextResponse.json(
+        {
+          error:
+            "Devi accettare le Condizioni del Servizio per effettuare la ricarica.",
+          code: "TERMS_ACCEPTANCE_REQUIRED",
+        },
+        { status: 422 },
+      );
+    }
+
+    const payload = parsedPayload.data;
+
+    if (payload.termsVersion !== CURRENT_TERMS_VERSION) {
+      return NextResponse.json(
+        {
+          error:
+            "Le Condizioni del Servizio sono state aggiornate. Rileggile e conferma nuovamente.",
+          code: "TERMS_VERSION_CHANGED",
+          termsVersion: CURRENT_TERMS_VERSION,
+        },
+        { status: 409 },
+      );
+    }
+
+    const billing = await getBillingReadiness(supabase, profile.id);
+
+    if (!billing.complete) {
+      return NextResponse.json(
+        {
+          error:
+            "Prima di effettuare una ricarica devi completare i dati necessari alla fatturazione.",
+          code: "BILLING_PROFILE_INCOMPLETE",
+          missingFields: billing.missingFields,
+          missingLabels: billing.missingLabels,
+        },
+        { status: 422 },
+      );
+    }
+
+    const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
     if (!stripeSecretKey) {
       return NextResponse.json(
         { error: "Stripe non configurato.", code: "STRIPE_NOT_CONFIGURED" },
@@ -33,7 +81,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const payload = checkoutSchema.parse(await request.json());
     const { settings } = await fetchCommercialSettings(supabase);
 
     if (payload.amountCents < settings.minTopUpCents) {
@@ -67,12 +114,39 @@ export async function POST(request: NextRequest) {
         metadata: {
           property_manager_id: propertyManager.id,
           profile_email: profile.email,
+          terms_version: CURRENT_TERMS_VERSION,
         },
       })
       .select("id,wallet_id,profile_id,amount_cents,status")
       .single();
 
     if (transactionError || !transaction) throw transactionError;
+
+    const { error: acceptanceError } = await recordTermsAcceptance(supabase, {
+      profileId: profile.id,
+      context: "wallet_top_up",
+      termsVersion: CURRENT_TERMS_VERSION,
+      walletTransactionId: transaction.id,
+      metadata: {
+        amount_cents: payload.amountCents,
+      },
+    });
+
+    if (acceptanceError) {
+      await supabase
+        .from("wallet_transactions")
+        .update({ status: "failed" })
+        .eq("id", transaction.id);
+
+      return NextResponse.json(
+        {
+          error:
+            "Il sistema di registrazione delle Condizioni non è ancora disponibile. Riprova dopo l'aggiornamento del database.",
+          code: "TERMS_ACCEPTANCE_UNAVAILABLE",
+        },
+        { status: 409 },
+      );
+    }
 
     const stripe = new Stripe(stripeSecretKey);
     const checkoutSession = await stripe.checkout.sessions.create(
@@ -88,6 +162,7 @@ export async function POST(request: NextRequest) {
           wallet_id: wallet.id,
           profile_id: profile.id,
           property_manager_id: propertyManager.id,
+          terms_version: CURRENT_TERMS_VERSION,
         },
         payment_intent_data: {
           metadata: {
@@ -95,6 +170,7 @@ export async function POST(request: NextRequest) {
             wallet_transaction_id: transaction.id,
             wallet_id: wallet.id,
             profile_id: profile.id,
+            terms_version: CURRENT_TERMS_VERSION,
           },
         },
         line_items: [
@@ -136,6 +212,7 @@ export async function POST(request: NextRequest) {
           property_manager_id: propertyManager.id,
           profile_email: profile.email,
           stripe_checkout_session_id: checkoutSession.id,
+          terms_version: CURRENT_TERMS_VERSION,
         },
       })
       .eq("id", transaction.id);

@@ -2,10 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  getManagedPropertiesCount,
-  managedPropertiesOptions,
-} from "@/lib/domain/pm-onboarding";
+import { managedPropertiesOptions } from "@/lib/domain/pm-onboarding";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 export function PmSignupForm() {
@@ -67,43 +64,6 @@ export function PmSignupForm() {
         setError("Account creato, ma non sono riuscito a inizializzare la sessione.");
         setIsSubmitting(false);
         return;
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_user_id", data.user.id)
-        .single();
-
-      if (profile) {
-        const profileId = (profile as { id: string }).id;
-        const managedPropertiesCount = getManagedPropertiesCount(managedPropertiesRange);
-        const fallbackCompanyName =
-          [firstName, lastName].filter(Boolean).join(" ").trim() || email.trim();
-
-        const { error: pmProfileError } = await supabase.from("property_manager_profiles").upsert(
-          {
-            profile_id: profileId,
-            company_name: fallbackCompanyName,
-            managed_properties_count: managedPropertiesCount,
-            managed_properties_range: managedPropertiesRange,
-            primary_city: primaryCity.trim(),
-            verification_status: "not_verified",
-          },
-          { onConflict: "profile_id" },
-        );
-
-        if (pmProfileError) {
-          await supabase.from("property_manager_profiles").upsert(
-            {
-              profile_id: profileId,
-              company_name: fallbackCompanyName,
-              managed_properties_count: managedPropertiesCount,
-              verification_status: "not_verified",
-            },
-            { onConflict: "profile_id" },
-          );
-        }
       }
 
       await fetch("/api/email/welcome", {

@@ -537,7 +537,7 @@ export function ProfileCenter() {
           </form>
         </section>
 
-        <section className="card p-6" id="fatturazione">
+        <section className="card scroll-mt-28 p-6" id="fatturazione">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="section-kicker">Fatturazione</p>

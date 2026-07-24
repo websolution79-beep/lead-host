@@ -295,35 +295,29 @@ export function WalletCenter() {
             </p>
           ) : null}
 
-          {readiness?.billingComplete === false ? (
+          {!isLoading && readiness?.billingComplete !== true ? (
             <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
               <p className="flex items-center gap-2 font-semibold text-amber-900">
                 <AlertCircle size={18} />
-                Completa i dati di fatturazione
+                Dati di fatturazione mancanti
               </p>
               <p className="mt-2 text-sm leading-6 text-amber-800">
-                Prima di effettuare una ricarica devi completare i dati necessari
-                alla fatturazione.
+                Non hai inserito i dati di fatturazione. Aggiungili nella pagina
+                Profilo per procedere.{" "}
+                <Link
+                  className="font-bold underline underline-offset-2"
+                  href="/app/profilo#fatturazione"
+                >
+                  Clicca qui e vai alla Pagina PROFILO
+                </Link>
+                .
               </p>
-              {readiness.missingLabels.length ? (
+              {readiness?.missingLabels.length ? (
                 <p className="mt-2 text-xs text-amber-800">
                   Dati mancanti: {readiness.missingLabels.join(", ")}.
                 </p>
               ) : null}
-              <Link
-                className="btn btn-secondary mt-3 w-full"
-                href="/app/profilo#fatturazione"
-              >
-                Completa il profilo
-              </Link>
             </div>
-          ) : null}
-
-          {!isLoading && readiness === null ? (
-            <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
-              Non riesco a verificare i dati di fatturazione. Aggiorna la pagina
-              prima di procedere.
-            </p>
           ) : null}
 
           <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">

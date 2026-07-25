@@ -870,6 +870,17 @@ function TestTab({
       value: consent.marketing ? "Consentito" : "Non consentito",
       passed: consent.marketing,
     },
+    {
+      label: "Meta Page View",
+      value:
+        settings.events.page_view.enabled &&
+        settings.events.page_view.providers.includes("meta")
+          ? "Evento attivo"
+          : "Evento disattivato",
+      passed:
+        settings.events.page_view.enabled &&
+        settings.events.page_view.providers.includes("meta"),
+    },
     ...trackingProviderIds.map((providerId) => {
       const identifier = getProviderIdentifier(settings, providerId);
       return {

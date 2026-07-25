@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { managedPropertiesOptions } from "@/lib/domain/pm-onboarding";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
-import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
+import {
+  dispatchBrowserTrackingEvent,
+  getBrowserTrackingConsentSnapshot,
+} from "@/lib/tracking/browser-events";
 
 export function PmSignupForm() {
   const router = useRouter();
@@ -51,6 +54,7 @@ export function PmSignupForm() {
     setMessage("");
     setError("");
     setIsSubmitting(true);
+    const trackingConsent = getBrowserTrackingConsentSnapshot();
 
     const registrationResponse = await fetch("/api/auth/register", {
       method: "POST",
@@ -63,11 +67,13 @@ export function PmSignupForm() {
         managedPropertiesRange,
         primaryCity,
         password,
+        trackingConsent,
       }),
     });
     const registrationPayload = (await registrationResponse.json()) as {
       code?: string;
       error?: string;
+      trackingEventId?: string | null;
       session?: {
         accessToken: string;
         refreshToken: string;
@@ -88,7 +94,9 @@ export function PmSignupForm() {
       return;
     }
 
-    dispatchBrowserTrackingEvent("lead");
+    dispatchBrowserTrackingEvent("lead", {
+      eventId: registrationPayload.trackingEventId,
+    });
 
     if (registrationPayload.session) {
       const { error: sessionError } = await supabase.auth.setSession({
@@ -118,14 +126,23 @@ export function PmSignupForm() {
         return;
       }
 
-      await fetch("/api/email/welcome", {
+      const welcomeResponse = await fetch("/api/email/welcome", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${registrationPayload.session.accessToken}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          trackingConsent: getBrowserTrackingConsentSnapshot(),
+        }),
       });
+      const welcomePayload = (await welcomeResponse.json().catch(() => ({}))) as {
+        trackingEventId?: string | null;
+      };
 
-      dispatchBrowserTrackingEvent("complete_registration");
+      dispatchBrowserTrackingEvent("complete_registration", {
+        eventId: welcomePayload.trackingEventId,
+      });
 
       router.push("/app/profilo");
       router.refresh();

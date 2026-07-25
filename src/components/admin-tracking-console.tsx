@@ -61,6 +61,7 @@ type TrackingResponse = {
   eventCatalog: TrackingEventDefinition[];
   environment: {
     metaConversionsApiConfigured: boolean;
+    metaGraphApiVersion: string;
     ga4MeasurementProtocolConfigured: boolean;
   };
   error?: string;
@@ -126,6 +127,7 @@ export function AdminTrackingConsole() {
   const [eventCatalog, setEventCatalog] = useState<TrackingEventDefinition[]>([]);
   const [environment, setEnvironment] = useState({
     metaConversionsApiConfigured: false,
+    metaGraphApiVersion: "v25.0",
     ga4MeasurementProtocolConfigured: false,
   });
   const [storageReady, setStorageReady] = useState(false);
@@ -908,7 +910,7 @@ function TestTab({
     {
       label: "Meta Conversions API",
       value: environment.metaConversionsApiConfigured
-        ? "Token server configurato"
+        ? `Token server configurato · ${environment.metaGraphApiVersion}`
         : "Token server non configurato",
       passed: environment.metaConversionsApiConfigured,
     },

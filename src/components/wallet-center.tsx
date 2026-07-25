@@ -15,6 +15,7 @@ import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { useAppSession } from "@/components/app-session-provider";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
+import { getBrowserTrackingConsentSnapshot } from "@/lib/tracking/browser-events";
 
 type WalletRow = {
   id: string;
@@ -196,7 +197,7 @@ export function WalletCenter() {
           amountCents: topUpAmountCents,
           termsAccepted,
           termsVersion: CURRENT_TERMS_VERSION,
-          trackingConsent: getTrackingConsentSnapshot(),
+          trackingConsent: getBrowserTrackingConsentSnapshot(),
         }),
       });
       const payload = (await response.json()) as {
@@ -579,14 +580,4 @@ function parseTopUpAmountCents(value: string) {
 
 function formatAmountInput(amountCents: number) {
   return String(amountCents / 100);
-}
-
-function getTrackingConsentSnapshot() {
-  const consent = window.__leadHostTrackingConsent;
-
-  return {
-    resolved: consent?.resolved === true,
-    measurement: consent?.measurement === true,
-    marketing: consent?.marketing === true,
-  };
 }

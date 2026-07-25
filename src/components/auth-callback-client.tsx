@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
-import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
+import {
+  dispatchBrowserTrackingEvent,
+  getBrowserTrackingConsentSnapshot,
+} from "@/lib/tracking/browser-events";
 
 export function AuthCallbackClient() {
   const router = useRouter();
@@ -65,16 +68,27 @@ export function AuthCallbackClient() {
       });
 
       if (!isPasswordRecovery) {
-        if (code) {
-          dispatchBrowserTrackingEvent("complete_registration");
-        }
-
-        await fetch("/api/email/welcome", {
+        const welcomeResponse = await fetch("/api/email/welcome", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            trackingConsent: getBrowserTrackingConsentSnapshot(),
+          }),
         });
+        const welcomePayload = (await welcomeResponse
+          .json()
+          .catch(() => ({}))) as {
+          trackingEventId?: string | null;
+        };
+
+        if (code) {
+          dispatchBrowserTrackingEvent("complete_registration", {
+            eventId: welcomePayload.trackingEventId,
+          });
+        }
       }
 
       router.replace(next);

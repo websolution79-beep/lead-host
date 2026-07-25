@@ -9,6 +9,10 @@ import {
   trackingProviderIds,
   type TrackingSettings,
 } from "@/lib/config/tracking-settings";
+import {
+  getMetaGraphApiVersion,
+  isMetaConversionsApiConfigured,
+} from "@/lib/tracking/meta-conversions-api";
 
 const scopesSchema = z.object({
   public: z.boolean(),
@@ -61,9 +65,8 @@ export async function GET(request: NextRequest) {
         storageReady,
         eventCatalog: trackingEventCatalog,
         environment: {
-          metaConversionsApiConfigured: Boolean(
-            process.env.META_CONVERSIONS_API_TOKEN,
-          ),
+          metaConversionsApiConfigured: isMetaConversionsApiConfigured(),
+          metaGraphApiVersion: getMetaGraphApiVersion(),
           ga4MeasurementProtocolConfigured: Boolean(
             process.env.GA4_MEASUREMENT_PROTOCOL_SECRET,
           ),

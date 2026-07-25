@@ -1,8 +1,12 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { fetchPmRegistrationSettings } from "@/lib/config/pm-registration-settings";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerTrackingEventId,
+  trackMetaHybridEvent,
+} from "@/lib/tracking/server-events";
 
 const registrationSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
@@ -17,6 +21,13 @@ const registrationSchema = z.object({
   ]),
   primaryCity: z.string().trim().min(2).max(120),
   password: z.string().min(8).max(128),
+  trackingConsent: z
+    .object({
+      resolved: z.boolean(),
+      measurement: z.boolean(),
+      marketing: z.boolean(),
+    })
+    .optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -63,8 +74,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const trackingEventId = data.user
+      ? createServerTrackingEventId("lead", data.user.id)
+      : null;
+
+    if (data.user && trackingEventId) {
+      const trackingConsent = payload.trackingConsent ?? {
+        resolved: false,
+        measurement: false,
+        marketing: false,
+      };
+      const trackingUser = {
+        profileId: data.user.id,
+        email: payload.email,
+        phone: payload.phone,
+      };
+
+      after(async () => {
+        const trackingClient = createServiceSupabaseClient();
+        await trackMetaHybridEvent({
+          supabase: trackingClient,
+          input: {
+            eventName: "lead",
+            eventId: trackingEventId,
+            pagePath: "/",
+            occurredAt: new Date().toISOString(),
+            consent: trackingConsent,
+            user: trackingUser,
+          },
+        });
+      });
+    }
+
     return NextResponse.json({
       userId: data.user?.id ?? null,
+      trackingEventId,
       session: data.session
         ? {
             accessToken: data.session.access_token,

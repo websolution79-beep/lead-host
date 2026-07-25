@@ -70,6 +70,54 @@ export async function recordTrackingEventLog({
   return data;
 }
 
+export async function findTrackingEventLog({
+  supabase,
+  provider,
+  eventId,
+}: {
+  supabase: ServiceClient;
+  provider: TrackingProviderId;
+  eventId: string;
+}) {
+  const { data, error } = await supabase
+    .from("tracking_event_logs")
+    .select("*")
+    .eq("provider", provider)
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function updateTrackingEventLogStatus({
+  supabase,
+  logId,
+  status,
+  errorMessage,
+}: {
+  supabase: ServiceClient;
+  logId: string;
+  status: "queued" | "sent" | "failed" | "skipped";
+  errorMessage?: string | null;
+}) {
+  const { data, error } = await supabase
+    .from("tracking_event_logs")
+    .update({
+      status,
+      error_message: normalizeOptionalText(errorMessage, 2000),
+      sent_at: status === "sent" ? new Date().toISOString() : null,
+    })
+    .eq("id", logId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
+
 function sanitizeMetadata(metadata: Record<string, Json>) {
   const entries = Object.entries(metadata).slice(0, 40);
   const sanitized: Record<string, Json> = {};

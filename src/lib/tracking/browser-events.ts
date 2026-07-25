@@ -1,4 +1,8 @@
 import type { TrackingEventId } from "@/lib/config/tracking-settings";
+import {
+  parseIubendaConsent,
+  pendingTrackingConsent,
+} from "@/lib/tracking/consent";
 
 export const BROWSER_TRACKING_EVENT = "leadhost:browser-tracking-event";
 
@@ -23,13 +27,16 @@ const MAX_PENDING_EVENTS = 20;
 
 export function dispatchBrowserTrackingEvent(
   eventName: BrowserTrackingEventName,
+  options?: {
+    eventId?: string | null;
+  },
 ) {
   if (typeof window === "undefined") return null;
 
-  const consent = window.__leadHostTrackingConsent;
+  const consent = getResolvedBrowserConsent();
   const event: BrowserTrackingEvent = {
     eventName,
-    eventId: createEventId(eventName),
+    eventId: normalizeEventId(options?.eventId) ?? createEventId(eventName),
     occurredAt: new Date().toISOString(),
     pagePath: window.location.pathname,
     consentAtDispatch: {
@@ -51,6 +58,38 @@ export function dispatchBrowserTrackingEvent(
   );
 
   return event.eventId;
+}
+
+export function getBrowserTrackingConsentSnapshot() {
+  if (typeof window === "undefined") {
+    return {
+      resolved: false,
+      measurement: false,
+      marketing: false,
+    };
+  }
+
+  const consent = getResolvedBrowserConsent();
+
+  return {
+    resolved: consent?.resolved === true,
+    measurement: consent?.measurement === true,
+    marketing: consent?.marketing === true,
+  };
+}
+
+function getResolvedBrowserConsent() {
+  const current = window.__leadHostTrackingConsent;
+  if (current?.resolved) return current;
+
+  try {
+    const preference = window._iub?.cs?.api?.getPreferences?.();
+    const parsed = parseIubendaConsent(preference);
+
+    return parsed.resolved ? parsed : current ?? pendingTrackingConsent;
+  } catch {
+    return current ?? pendingTrackingConsent;
+  }
 }
 
 export function getPendingBrowserTrackingEvents() {
@@ -80,6 +119,11 @@ function createEventId(eventName: BrowserTrackingEventName) {
   }
 
   return `${eventName}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function normalizeEventId(value: string | null | undefined) {
+  const normalized = value?.trim();
+  return normalized && normalized.length <= 160 ? normalized : null;
 }
 
 declare global {

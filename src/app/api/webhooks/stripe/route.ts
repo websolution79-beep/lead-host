@@ -206,6 +206,7 @@ async function trackWalletTopUpPurchase({
     return await queuePurchaseTrackingEvent({
       supabase,
       input: {
+        profileId: result.profile_id,
         walletTransactionId: result.wallet_transaction_id,
         paymentId: result.payment_id,
         stripeCheckoutSessionId: session.id,

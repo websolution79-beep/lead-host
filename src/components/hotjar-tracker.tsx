@@ -15,6 +15,7 @@ import {
 } from "@/lib/tracking/consent";
 import {
   initializeHotjar,
+  isHotjarLoaded,
   setHotjarContentSuppression,
   trackHotjarBrowserEvent,
   trackHotjarStateChange,
@@ -34,8 +35,20 @@ export function HotjarTracker() {
   const [configuration, setConfiguration] =
     useState<PublicTrackingResponse | null>(null);
   const previousTrackedPath = useRef<string | null>(null);
+  const previousMeasurementConsent = useRef<boolean | null>(null);
   const scope = useMemo(() => getTrackingScope(pathname), [pathname]);
   const suppressPageContent = scope !== "public";
+
+  useEffect(() => {
+    if (!consent.resolved) return;
+
+    const previous = previousMeasurementConsent.current;
+    previousMeasurementConsent.current = consent.measurement;
+
+    if (previous === true && !consent.measurement && isHotjarLoaded()) {
+      window.location.reload();
+    }
+  }, [consent.measurement, consent.resolved]);
 
   useEffect(() => {
     const controller = new AbortController();

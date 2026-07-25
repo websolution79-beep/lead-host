@@ -11,7 +11,12 @@ export const BROWSER_TRACKING_EVENT = "leadhost:browser-tracking-event";
 
 export type BrowserTrackingEventName = Extract<
   TrackingEventId,
-  "telegram_join_click" | "lead" | "complete_registration"
+  | "view_content"
+  | "telegram_join_click"
+  | "lead"
+  | "complete_registration"
+  | "initiate_checkout"
+  | "lead_purchase"
 >;
 
 export type BrowserTrackingEvent = {

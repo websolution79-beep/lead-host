@@ -61,6 +61,20 @@ export type TrackingEventDefinition = {
   metaEventName: string | null;
 };
 
+export const trackingEventProviderCapabilities: Record<
+  TrackingEventId,
+  TrackingProviderId[]
+> = {
+  page_view: ["meta", "ga4", "hotjar"],
+  view_content: ["meta", "ga4", "hotjar"],
+  telegram_join_click: ["meta", "ga4", "hotjar"],
+  lead: ["meta", "ga4", "hotjar"],
+  complete_registration: ["meta", "ga4", "hotjar"],
+  initiate_checkout: ["meta", "ga4", "hotjar"],
+  purchase: ["meta", "ga4"],
+  lead_purchase: ["meta", "ga4", "hotjar"],
+};
+
 const SETTINGS_KEY = "tracking.configuration";
 
 const publicOnlyScopes: TrackingScopes = {
@@ -136,8 +150,8 @@ export const trackingEventCatalog: TrackingEventDefinition[] = [
   {
     id: "view_content",
     label: "View Content",
-    description: "Visualizzazione di una landing o del dettaglio di un lead.",
-    trigger: "Apertura contenuto rilevante",
+    description: "Visualizzazione del dettaglio di un lead nel marketplace.",
+    trigger: "Apertura dettaglio lead marketplace",
     source: "browser",
     metaEventName: "ViewContent",
   },
@@ -170,7 +184,7 @@ export const trackingEventCatalog: TrackingEventDefinition[] = [
     label: "Avvio pagamento",
     description: "Creazione della sessione Stripe per la ricarica wallet.",
     trigger: "Checkout Stripe creato",
-    source: "hybrid",
+    source: "browser",
     metaEventName: "InitiateCheckout",
   },
   {
@@ -186,8 +200,8 @@ export const trackingEventCatalog: TrackingEventDefinition[] = [
     label: "Acquisto lead",
     description: "Acquisto di un lead tramite credito wallet.",
     trigger: "Acquisto wallet atomico completato",
-    source: "server",
-    metaEventName: null,
+    source: "browser",
+    metaEventName: "LeadPurchase",
   },
 ];
 
@@ -276,7 +290,7 @@ function parseTrackingSettings(value: Json | undefined): TrackingSettings {
     events: Object.fromEntries(
       trackingEventIds.map((eventId) => [
         eventId,
-        parseEvent(events[eventId], defaults.events[eventId]),
+        parseEvent(events[eventId], defaults.events[eventId], eventId),
       ]),
     ) as TrackingSettings["events"],
   };
@@ -315,6 +329,7 @@ function parseScopes(value: Json | undefined, fallback: TrackingScopes) {
 function parseEvent(
   value: Json | undefined,
   fallback: TrackingSettings["events"][TrackingEventId],
+  eventId: TrackingEventId,
 ) {
   if (!isJsonRecord(value)) {
     return { ...fallback, providers: [...fallback.providers] };
@@ -324,9 +339,14 @@ function parseEvent(
     ? value.providers.filter(
         (provider): provider is TrackingProviderId =>
           typeof provider === "string" &&
-          trackingProviderIds.includes(provider as TrackingProviderId),
+          trackingProviderIds.includes(provider as TrackingProviderId) &&
+          trackingEventProviderCapabilities[eventId].includes(
+            provider as TrackingProviderId,
+          ),
       )
-    : fallback.providers;
+    : fallback.providers.filter((provider) =>
+        trackingEventProviderCapabilities[eventId].includes(provider),
+      );
 
   return {
     enabled: value.enabled === true,

@@ -19,9 +19,12 @@ type MetaPixelRuntime = {
 };
 
 export type MetaBrowserEventName =
+  | "view_content"
   | "telegram_join_click"
   | "lead"
-  | "complete_registration";
+  | "complete_registration"
+  | "initiate_checkout"
+  | "lead_purchase";
 
 export function grantMetaPixelConsent(pixelId: string) {
   const fbq = ensureMetaPixelQueue();
@@ -100,17 +103,23 @@ export function trackMetaBrowserEvent({
     return null;
   }
 
-  if (eventName === "telegram_join_click") {
+  if (eventName === "view_content") {
+    window.fbq("track", "ViewContent", {}, { eventID: eventId });
+  } else if (eventName === "telegram_join_click") {
     window.fbq("trackCustom", "TelegramJoinClick", {}, { eventID: eventId });
   } else if (eventName === "lead") {
     window.fbq("track", "Lead", {}, { eventID: eventId });
-  } else {
+  } else if (eventName === "complete_registration") {
     window.fbq(
       "track",
       "CompleteRegistration",
       {},
       { eventID: eventId },
     );
+  } else if (eventName === "initiate_checkout") {
+    window.fbq("track", "InitiateCheckout", {}, { eventID: eventId });
+  } else {
+    window.fbq("trackCustom", "LeadPurchase", {}, { eventID: eventId });
   }
 
   runtime.trackedEventIds.add(eventId);

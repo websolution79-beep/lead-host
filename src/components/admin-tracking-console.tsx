@@ -24,6 +24,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import {
   trackingEventIds,
+  trackingEventProviderCapabilities,
   trackingProviderIds,
   type TrackingEventDefinition,
   type TrackingEventId,
@@ -596,7 +597,7 @@ function EventsTab({
                   Provider
                 </legend>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {trackingProviderIds.map((providerId) => {
+                  {trackingEventProviderCapabilities[definition.id].map((providerId) => {
                     const checked = event.providers.includes(providerId);
                     return (
                       <label
@@ -641,7 +642,7 @@ function EventsTab({
 
               <div className="flex items-start justify-between gap-3 xl:justify-end">
                 <span className="text-sm font-semibold text-slate-600 xl:hidden">
-                  Evento attivo
+                  {event.enabled ? "Evento attivo" : "Evento disattivato"}
                 </span>
                 <Toggle
                   checked={event.enabled}
@@ -874,6 +875,7 @@ function TestTab({
     },
     ...[
       { id: "page_view" as const, label: "Meta Page View" },
+      { id: "view_content" as const, label: "Meta View Content" },
       {
         id: "telegram_join_click" as const,
         label: "Meta Clic Telegram",
@@ -883,7 +885,12 @@ function TestTab({
         id: "complete_registration" as const,
         label: "Meta Registrazione completata",
       },
+      {
+        id: "initiate_checkout" as const,
+        label: "Meta Avvio pagamento",
+      },
       { id: "purchase" as const, label: "Meta Purchase da Stripe" },
+      { id: "lead_purchase" as const, label: "Meta Acquisto lead" },
     ].map((event) => {
       const isActive =
         settings.events[event.id].enabled &&
@@ -897,6 +904,7 @@ function TestTab({
     }),
     ...[
       { id: "page_view" as const, label: "GA4 Page View" },
+      { id: "view_content" as const, label: "GA4 View Item" },
       {
         id: "telegram_join_click" as const,
         label: "GA4 Clic Telegram",
@@ -906,7 +914,12 @@ function TestTab({
         id: "complete_registration" as const,
         label: "GA4 Registrazione completata",
       },
+      {
+        id: "initiate_checkout" as const,
+        label: "GA4 Begin Checkout",
+      },
       { id: "purchase" as const, label: "GA4 Purchase da Stripe" },
+      { id: "lead_purchase" as const, label: "GA4 Acquisto lead" },
     ].map((event) => {
       const isActive =
         settings.events[event.id].enabled &&
@@ -920,6 +933,7 @@ function TestTab({
     }),
     ...[
       { id: "page_view" as const, label: "Hotjar navigazione SPA" },
+      { id: "view_content" as const, label: "Hotjar dettaglio lead" },
       {
         id: "telegram_join_click" as const,
         label: "Hotjar Clic Telegram",
@@ -929,6 +943,11 @@ function TestTab({
         id: "complete_registration" as const,
         label: "Hotjar registrazione confermata",
       },
+      {
+        id: "initiate_checkout" as const,
+        label: "Hotjar avvio pagamento",
+      },
+      { id: "lead_purchase" as const, label: "Hotjar acquisto lead" },
     ].map((event) => {
       const isActive =
         settings.events[event.id].enabled &&

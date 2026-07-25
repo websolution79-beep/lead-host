@@ -14,6 +14,7 @@ import { formatCents } from "@/lib/config/commercial";
 import type { PurchaseMode } from "@/lib/domain/lead-state";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
+import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
 
 type LeadPurchaseActionsProps = {
   leadId: string;
@@ -131,6 +132,7 @@ export function LeadPurchaseActions({
       balanceCents?: number;
       missingAmountCents?: number;
       currentAmountCents?: number;
+      purchaseId?: string;
     };
 
     if (!response.ok) {
@@ -164,6 +166,11 @@ export function LeadPurchaseActions({
       status: "success",
       leadId,
       balanceCents: result.balanceCents ?? 0,
+    });
+    dispatchBrowserTrackingEvent("lead_purchase", {
+      eventId: result.purchaseId
+        ? `lead_purchase_${result.purchaseId}`
+        : null,
     });
     setConfirmation(null);
     router.refresh();

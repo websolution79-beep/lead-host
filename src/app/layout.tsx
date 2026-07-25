@@ -7,6 +7,7 @@ import { HotjarTracker } from "@/components/hotjar-tracker";
 import { IubendaConsentBridge } from "@/components/iubenda-consent-bridge";
 import { MetaPixelTracker } from "@/components/meta-pixel-tracker";
 import { TelegramClickTracker } from "@/components/telegram-click-tracker";
+import { ViewContentTracker } from "@/components/view-content-tracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -85,6 +86,7 @@ _iub.csLangConfiguration = {"it":{"cookiePolicyId":12644511}};`,
         <GoogleAnalyticsTracker />
         <HotjarTracker />
         <TelegramClickTracker />
+        <ViewContentTracker />
         {children}
         <GlobalSiteFooter />
       </body>

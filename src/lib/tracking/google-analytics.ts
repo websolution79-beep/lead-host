@@ -12,9 +12,12 @@ export const ga4BrowserEventNames: Record<
   BrowserTrackingEventName,
   string
 > = {
+  view_content: "view_item",
   telegram_join_click: "telegram_join_click",
   lead: "generate_lead",
   complete_registration: "sign_up",
+  initiate_checkout: "begin_checkout",
+  lead_purchase: "lead_purchase",
 };
 
 export function grantGoogleAnalyticsConsent(measurementId: string) {

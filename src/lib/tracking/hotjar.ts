@@ -11,9 +11,12 @@ export const hotjarBrowserEventNames: Record<
   BrowserTrackingEventName,
   string
 > = {
+  view_content: "marketplace_lead_viewed",
   telegram_join_click: "telegram_join_click",
   lead: "pm_registration_created",
   complete_registration: "pm_registration_confirmed",
+  initiate_checkout: "wallet_checkout_started",
+  lead_purchase: "marketplace_lead_purchased",
 };
 
 export function initializeHotjar({
@@ -99,6 +102,13 @@ export function setHotjarContentSuppression(suppress: boolean) {
     document.body.removeAttribute("data-hj-suppress");
     delete document.body.dataset.leadHostHotjarSuppressed;
   }
+}
+
+export function isHotjarLoaded() {
+  return (
+    typeof document !== "undefined" &&
+    Boolean(document.getElementById(SCRIPT_ID))
+  );
 }
 
 function ensureHotjarQueue(): Hotjar {

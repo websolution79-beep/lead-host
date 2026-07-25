@@ -6,6 +6,7 @@ import {
   saveTrackingSettings,
   trackingEventCatalog,
   trackingEventIds,
+  trackingEventProviderCapabilities,
   trackingProviderIds,
   type TrackingSettings,
 } from "@/lib/config/tracking-settings";
@@ -43,7 +44,7 @@ const settingsSchema = z.object({
     }),
     hotjar: z.object({
       enabled: z.boolean(),
-      siteId: z.union([z.literal(""), z.string().regex(/^\d{3,30}$/)]),
+      siteId: z.union([z.literal(""), z.string().regex(/^\d{3,12}$/)]),
       scopes: scopesSchema,
     }),
   }),
@@ -110,7 +111,9 @@ function normalizeEventProviders(settings: TrackingSettings): TrackingSettings {
         {
           ...settings.events[eventId],
           providers: Array.from(new Set(settings.events[eventId].providers)).filter(
-            (provider) => trackingProviderIds.includes(provider),
+            (provider) =>
+              trackingProviderIds.includes(provider) &&
+              trackingEventProviderCapabilities[eventId].includes(provider),
           ),
         },
       ]),

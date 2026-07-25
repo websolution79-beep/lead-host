@@ -15,7 +15,10 @@ import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { useAppSession } from "@/components/app-session-provider";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
-import { getBrowserTrackingConsentSnapshot } from "@/lib/tracking/browser-events";
+import {
+  dispatchBrowserTrackingEvent,
+  getBrowserTrackingConsentSnapshot,
+} from "@/lib/tracking/browser-events";
 import { getGoogleAnalyticsClientId } from "@/lib/tracking/google-analytics";
 
 type WalletRow = {
@@ -209,6 +212,7 @@ export function WalletCenter() {
       });
       const payload = (await response.json()) as {
         checkoutUrl?: string;
+        checkoutSessionId?: string;
         error?: string;
         code?: string;
         missingLabels?: string[];
@@ -228,6 +232,11 @@ export function WalletCenter() {
         return;
       }
 
+      dispatchBrowserTrackingEvent("initiate_checkout", {
+        eventId: payload.checkoutSessionId
+          ? `initiate_checkout_${payload.checkoutSessionId}`
+          : null,
+      });
       window.location.href = payload.checkoutUrl;
     } catch {
       setCheckoutError("Non sono riuscito ad aprire Stripe. Riprova tra poco.");

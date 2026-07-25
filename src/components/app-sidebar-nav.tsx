@@ -7,6 +7,7 @@ import {
   Bell,
   Building2,
   CreditCard,
+  Crosshair,
   Inbox,
   LifeBuoy,
   Mail,
@@ -47,6 +48,7 @@ const adminLinks = [
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { label: "Email", href: "/admin/email-transazionali", icon: Mail },
   { label: "Telegram", href: "/admin/telegram", icon: Send },
+  { label: "Tracking", href: "/admin/tracking", icon: Crosshair },
   { label: "Impostazioni", href: "/admin/impostazioni", icon: Settings },
   { label: "Profilo", href: "/admin/profilo", icon: UserCircle },
 ];

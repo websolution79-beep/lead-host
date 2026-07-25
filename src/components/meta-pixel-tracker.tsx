@@ -134,6 +134,7 @@ export function MetaPixelTracker() {
           pixelId,
           eventName: event.eventName,
           eventId: event.eventId,
+          pagePath: event.pagePath,
         });
       }
 

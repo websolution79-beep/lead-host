@@ -87,10 +87,12 @@ export function trackMetaBrowserEvent({
   pixelId,
   eventName,
   eventId,
+  pagePath,
 }: {
   pixelId: string;
   eventName: MetaBrowserEventName;
   eventId: string;
+  pagePath: string;
 }) {
   const runtime = getMetaPixelRuntime();
 
@@ -106,7 +108,17 @@ export function trackMetaBrowserEvent({
   if (eventName === "view_content") {
     window.fbq("track", "ViewContent", {}, { eventID: eventId });
   } else if (eventName === "telegram_join_click") {
-    window.fbq("trackCustom", "TelegramJoinClick", {}, { eventID: eventId });
+    const pageUrl = new URL(pagePath, window.location.origin).toString();
+    window.fbq(
+      "trackCustom",
+      "TelegramJoinClick",
+      {
+        event_source_url: pageUrl,
+        page_path: pagePath,
+        page_url: pageUrl,
+      },
+      { eventID: eventId },
+    );
   } else if (eventName === "lead") {
     window.fbq("track", "Lead", {}, { eventID: eventId });
   } else if (eventName === "complete_registration") {

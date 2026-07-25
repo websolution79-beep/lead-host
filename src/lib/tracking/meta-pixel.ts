@@ -15,15 +15,25 @@ type MetaPixelRuntime = {
   consentGranted: boolean;
   lastPageViewKey: string | null;
   lastEventId: string | null;
+  trackedEventIds: Set<string>;
 };
+
+export type MetaBrowserEventName =
+  | "telegram_join_click"
+  | "lead"
+  | "complete_registration";
 
 export function grantMetaPixelConsent(pixelId: string) {
   const fbq = ensureMetaPixelQueue();
   const runtime = getMetaPixelRuntime();
 
-  fbq("consent", "revoke");
-  ensureMetaPixelScript();
-  fbq("consent", "grant");
+  if (!runtime.consentGranted) {
+    fbq("consent", "revoke");
+    ensureMetaPixelScript();
+    fbq("consent", "grant");
+  } else {
+    ensureMetaPixelScript();
+  }
 
   if (runtime.initializedPixelId !== pixelId) {
     fbq("init", pixelId);
@@ -70,6 +80,45 @@ export function trackMetaPageView({
   return eventId;
 }
 
+export function trackMetaBrowserEvent({
+  pixelId,
+  eventName,
+  eventId,
+}: {
+  pixelId: string;
+  eventName: MetaBrowserEventName;
+  eventId: string;
+}) {
+  const runtime = getMetaPixelRuntime();
+
+  if (
+    !window.fbq ||
+    !runtime.consentGranted ||
+    runtime.initializedPixelId !== pixelId ||
+    runtime.trackedEventIds.has(eventId)
+  ) {
+    return null;
+  }
+
+  if (eventName === "telegram_join_click") {
+    window.fbq("trackCustom", "TelegramJoinClick", {}, { eventID: eventId });
+  } else if (eventName === "lead") {
+    window.fbq("track", "Lead", {}, { eventID: eventId });
+  } else {
+    window.fbq(
+      "track",
+      "CompleteRegistration",
+      {},
+      { eventID: eventId },
+    );
+  }
+
+  runtime.trackedEventIds.add(eventId);
+  runtime.lastEventId = eventId;
+
+  return eventId;
+}
+
 function ensureMetaPixelQueue() {
   if (window.fbq) return window.fbq;
 
@@ -109,6 +158,7 @@ function getMetaPixelRuntime() {
       consentGranted: false,
       lastPageViewKey: null,
       lastEventId: null,
+      trackedEventIds: new Set<string>(),
     };
   }
 

@@ -870,17 +870,28 @@ function TestTab({
       value: consent.marketing ? "Consentito" : "Non consentito",
       passed: consent.marketing,
     },
-    {
-      label: "Meta Page View",
-      value:
-        settings.events.page_view.enabled &&
-        settings.events.page_view.providers.includes("meta")
-          ? "Evento attivo"
-          : "Evento disattivato",
-      passed:
-        settings.events.page_view.enabled &&
-        settings.events.page_view.providers.includes("meta"),
-    },
+    ...[
+      { id: "page_view" as const, label: "Meta Page View" },
+      {
+        id: "telegram_join_click" as const,
+        label: "Meta Clic Telegram",
+      },
+      { id: "lead" as const, label: "Meta Lead" },
+      {
+        id: "complete_registration" as const,
+        label: "Meta Registrazione completata",
+      },
+    ].map((event) => {
+      const isActive =
+        settings.events[event.id].enabled &&
+        settings.events[event.id].providers.includes("meta");
+
+      return {
+        label: event.label,
+        value: isActive ? "Evento attivo" : "Evento disattivato",
+        passed: isActive,
+      };
+    }),
     ...trackingProviderIds.map((providerId) => {
       const identifier = getProviderIdentifier(settings, providerId);
       return {

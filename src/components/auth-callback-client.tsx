@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
 
 export function AuthCallbackClient() {
   const router = useRouter();
@@ -64,6 +65,10 @@ export function AuthCallbackClient() {
       });
 
       if (!isPasswordRecovery) {
+        if (code) {
+          dispatchBrowserTrackingEvent("complete_registration");
+        }
+
         await fetch("/api/email/welcome", {
           method: "POST",
           headers: {

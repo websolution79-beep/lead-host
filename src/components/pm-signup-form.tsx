@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { managedPropertiesOptions } from "@/lib/domain/pm-onboarding";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
 
 export function PmSignupForm() {
   const router = useRouter();
@@ -87,6 +88,8 @@ export function PmSignupForm() {
       return;
     }
 
+    dispatchBrowserTrackingEvent("lead");
+
     if (registrationPayload.session) {
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: registrationPayload.session.accessToken,
@@ -121,6 +124,8 @@ export function PmSignupForm() {
           Authorization: `Bearer ${registrationPayload.session.accessToken}`,
         },
       });
+
+      dispatchBrowserTrackingEvent("complete_registration");
 
       router.push("/app/profilo");
       router.refresh();

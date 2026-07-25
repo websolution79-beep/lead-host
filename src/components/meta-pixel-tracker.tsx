@@ -4,12 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { TrackingSettings } from "@/lib/config/tracking-settings";
 import {
+  acknowledgeBrowserTrackingEvent,
+  BROWSER_TRACKING_EVENT,
+  getPendingBrowserTrackingEvents,
+  type BrowserTrackingEvent,
+} from "@/lib/tracking/browser-events";
+import {
   canActivateTrackingProvider,
   type TrackingScopeId,
 } from "@/lib/tracking/consent";
 import {
   grantMetaPixelConsent,
   revokeMetaPixelConsent,
+  trackMetaBrowserEvent,
   trackMetaPageView,
 } from "@/lib/tracking/meta-pixel";
 import { useTrackingConsent } from "@/lib/tracking/use-tracking-consent";
@@ -89,6 +96,69 @@ export function MetaPixelTracker() {
       pageKey: `${scope}:${pathname}`,
     });
   }, [configuration, consent, pathname, scope]);
+
+  useEffect(() => {
+    function processEvent(event: BrowserTrackingEvent) {
+      if (!configuration) return;
+
+      if (!configuration.storageReady || !consent.resolved) {
+        if (!configuration.storageReady) {
+          acknowledgeBrowserTrackingEvent(event.eventId);
+        }
+        return;
+      }
+
+      const settings: TrackingSettings = {
+        version: configuration.version,
+        providers: configuration.providers,
+        events: configuration.events,
+      };
+      const eventSettings = settings.events[event.eventName];
+      const eventScope = getTrackingScope(event.pagePath);
+      const canTrack =
+        event.consentAtDispatch.resolved &&
+        event.consentAtDispatch.marketing &&
+        eventSettings.enabled &&
+        eventSettings.providers.includes("meta") &&
+        canActivateTrackingProvider({
+          settings,
+          providerId: "meta",
+          scope: eventScope,
+          consent,
+        });
+
+      if (canTrack) {
+        const pixelId = settings.providers.meta.pixelId;
+        grantMetaPixelConsent(pixelId);
+        trackMetaBrowserEvent({
+          pixelId,
+          eventName: event.eventName,
+          eventId: event.eventId,
+        });
+      }
+
+      acknowledgeBrowserTrackingEvent(event.eventId);
+    }
+
+    function handleBrowserTrackingEvent(
+      event: CustomEvent<BrowserTrackingEvent>,
+    ) {
+      processEvent(event.detail);
+    }
+
+    window.addEventListener(
+      BROWSER_TRACKING_EVENT,
+      handleBrowserTrackingEvent,
+    );
+    getPendingBrowserTrackingEvents().forEach(processEvent);
+
+    return () => {
+      window.removeEventListener(
+        BROWSER_TRACKING_EVENT,
+        handleBrowserTrackingEvent,
+      );
+    };
+  }, [configuration, consent]);
 
   return null;
 }

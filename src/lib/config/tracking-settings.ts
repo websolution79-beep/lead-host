@@ -147,7 +147,7 @@ export const trackingEventCatalog: TrackingEventDefinition[] = [
     description: "Clic sul collegamento al canale Telegram.",
     trigger: "Clic CTA Telegram",
     source: "browser",
-    metaEventName: null,
+    metaEventName: "TelegramJoinClick",
   },
   {
     id: "lead",

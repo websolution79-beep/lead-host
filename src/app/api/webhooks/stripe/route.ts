@@ -4,6 +4,7 @@ import { getEnv } from "@/lib/env";
 import { sendWalletTopUpEmail } from "@/lib/email/notifications";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
+import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -86,9 +87,23 @@ export async function POST(request: NextRequest) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const result = await completeWalletTopUp(session, event);
-      const emailResult = "ignored" in result ? null : await notifyWalletTopUp(result);
+      const trackingResult =
+        "ignored" in result
+          ? null
+          : await trackWalletTopUpPurchase({
+              result,
+              session,
+              event,
+            });
+      const emailResult =
+        "ignored" in result ? null : await notifyWalletTopUp(result);
 
-      return NextResponse.json({ received: true, result, email: emailResult });
+      return NextResponse.json({
+        received: true,
+        result,
+        email: emailResult,
+        tracking: trackingResult,
+      });
     }
 
     if (
@@ -174,6 +189,51 @@ async function notifyWalletTopUp(result: TopUpCompletionResult) {
     amountCents: result.amount_cents,
     balanceCents: result.balance_cents,
   });
+}
+
+async function trackWalletTopUpPurchase({
+  result,
+  session,
+  event,
+}: {
+  result: TopUpCompletionResult;
+  session: Stripe.Checkout.Session;
+  event: Stripe.Event;
+}) {
+  try {
+    const supabase = createServiceSupabaseClient();
+
+    return await queuePurchaseTrackingEvent({
+      supabase,
+      input: {
+        walletTransactionId: result.wallet_transaction_id,
+        paymentId: result.payment_id,
+        stripeCheckoutSessionId: session.id,
+        stripePaymentIntentId:
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : null,
+        valueCents: result.amount_cents,
+        currency: session.currency ?? "eur",
+        occurredAt: new Date(event.created * 1000).toISOString(),
+        consent: {
+          resolved:
+            session.metadata?.tracking_consent_resolved === "true",
+          measurement:
+            session.metadata?.tracking_measurement_consent === "true",
+          marketing:
+            session.metadata?.tracking_marketing_consent === "true",
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Purchase tracking queue failed:", error);
+
+    return {
+      status: "failed" as const,
+      reason: "tracking_queue_failed",
+    };
+  }
 }
 
 async function failWalletTopUp(

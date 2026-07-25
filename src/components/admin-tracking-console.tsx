@@ -881,6 +881,7 @@ function TestTab({
         id: "complete_registration" as const,
         label: "Meta Registrazione completata",
       },
+      { id: "purchase" as const, label: "Meta Purchase da Stripe" },
     ].map((event) => {
       const isActive =
         settings.events[event.id].enabled &&

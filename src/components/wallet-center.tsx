@@ -196,6 +196,7 @@ export function WalletCenter() {
           amountCents: topUpAmountCents,
           termsAccepted,
           termsVersion: CURRENT_TERMS_VERSION,
+          trackingConsent: getTrackingConsentSnapshot(),
         }),
       });
       const payload = (await response.json()) as {
@@ -578,4 +579,14 @@ function parseTopUpAmountCents(value: string) {
 
 function formatAmountInput(amountCents: number) {
   return String(amountCents / 100);
+}
+
+function getTrackingConsentSnapshot() {
+  const consent = window.__leadHostTrackingConsent;
+
+  return {
+    resolved: consent?.resolved === true,
+    measurement: consent?.measurement === true,
+    marketing: consent?.marketing === true,
+  };
 }

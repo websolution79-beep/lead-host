@@ -16,6 +16,13 @@ const checkoutSchema = z.object({
   amountCents: z.number().int().positive().max(200000),
   termsAccepted: z.literal(true),
   termsVersion: z.string().trim().min(1),
+  trackingConsent: z
+    .object({
+      resolved: z.boolean(),
+      measurement: z.boolean(),
+      marketing: z.boolean(),
+    })
+    .optional(),
 });
 
 type WalletRow = {
@@ -45,6 +52,14 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsedPayload.data;
+    const trackingConsent =
+      payload.trackingConsent?.resolved === true
+        ? payload.trackingConsent
+        : {
+            resolved: false,
+            measurement: false,
+            marketing: false,
+          };
 
     if (payload.termsVersion !== CURRENT_TERMS_VERSION) {
       return NextResponse.json(
@@ -115,6 +130,7 @@ export async function POST(request: NextRequest) {
           property_manager_id: propertyManager.id,
           profile_email: profile.email,
           terms_version: CURRENT_TERMS_VERSION,
+          tracking_consent: trackingConsent,
         },
       })
       .select("id,wallet_id,profile_id,amount_cents,status")
@@ -163,6 +179,9 @@ export async function POST(request: NextRequest) {
           profile_id: profile.id,
           property_manager_id: propertyManager.id,
           terms_version: CURRENT_TERMS_VERSION,
+          tracking_consent_resolved: String(trackingConsent.resolved),
+          tracking_measurement_consent: String(trackingConsent.measurement),
+          tracking_marketing_consent: String(trackingConsent.marketing),
         },
         payment_intent_data: {
           metadata: {
@@ -171,6 +190,9 @@ export async function POST(request: NextRequest) {
             wallet_id: wallet.id,
             profile_id: profile.id,
             terms_version: CURRENT_TERMS_VERSION,
+            tracking_consent_resolved: String(trackingConsent.resolved),
+            tracking_measurement_consent: String(trackingConsent.measurement),
+            tracking_marketing_consent: String(trackingConsent.marketing),
           },
         },
         line_items: [
@@ -213,6 +235,7 @@ export async function POST(request: NextRequest) {
           profile_email: profile.email,
           stripe_checkout_session_id: checkoutSession.id,
           terms_version: CURRENT_TERMS_VERSION,
+          tracking_consent: trackingConsent,
         },
       })
       .eq("id", transaction.id);

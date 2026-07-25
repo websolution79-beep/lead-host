@@ -545,6 +545,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      tracking_event_logs: {
+        Row: {
+          id: string;
+          provider: "meta" | "ga4" | "hotjar";
+          event_name: string;
+          event_id: string | null;
+          source: "browser" | "server" | "hybrid" | "test";
+          status: "queued" | "sent" | "failed" | "skipped";
+          page_path: string | null;
+          value_cents: number | null;
+          currency: string | null;
+          metadata: Json;
+          error_message: string | null;
+          occurred_at: string;
+          sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider: "meta" | "ga4" | "hotjar";
+          event_name: string;
+          event_id?: string | null;
+          source: "browser" | "server" | "hybrid" | "test";
+          status?: "queued" | "sent" | "failed" | "skipped";
+          page_path?: string | null;
+          value_cents?: number | null;
+          currency?: string | null;
+          metadata?: Json;
+          error_message?: string | null;
+          occurred_at?: string;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider?: "meta" | "ga4" | "hotjar";
+          event_name?: string;
+          event_id?: string | null;
+          source?: "browser" | "server" | "hybrid" | "test";
+          status?: "queued" | "sent" | "failed" | "skipped";
+          page_path?: string | null;
+          value_cents?: number | null;
+          currency?: string | null;
+          metadata?: Json;
+          error_message?: string | null;
+          occurred_at?: string;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       settings: {
         Row: {
           key: string;

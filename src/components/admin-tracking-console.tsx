@@ -918,6 +918,28 @@ function TestTab({
         passed: isActive,
       };
     }),
+    ...[
+      { id: "page_view" as const, label: "Hotjar navigazione SPA" },
+      {
+        id: "telegram_join_click" as const,
+        label: "Hotjar Clic Telegram",
+      },
+      { id: "lead" as const, label: "Hotjar registrazione creata" },
+      {
+        id: "complete_registration" as const,
+        label: "Hotjar registrazione confermata",
+      },
+    ].map((event) => {
+      const isActive =
+        settings.events[event.id].enabled &&
+        settings.events[event.id].providers.includes("hotjar");
+
+      return {
+        label: event.label,
+        value: isActive ? "Evento attivo" : "Evento disattivato",
+        passed: isActive,
+      };
+    }),
     ...trackingProviderIds.map((providerId) => {
       const identifier = getProviderIdentifier(settings, providerId);
       return {

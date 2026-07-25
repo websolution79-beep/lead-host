@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { GlobalSiteFooter } from "@/components/global-site-footer";
 import { GoogleAnalyticsTracker } from "@/components/google-analytics-tracker";
+import { HotjarTracker } from "@/components/hotjar-tracker";
 import { IubendaConsentBridge } from "@/components/iubenda-consent-bridge";
 import { MetaPixelTracker } from "@/components/meta-pixel-tracker";
 import { TelegramClickTracker } from "@/components/telegram-click-tracker";
@@ -82,6 +83,7 @@ _iub.csLangConfiguration = {"it":{"cookiePolicyId":12644511}};`,
         <IubendaConsentBridge />
         <MetaPixelTracker />
         <GoogleAnalyticsTracker />
+        <HotjarTracker />
         <TelegramClickTracker />
         {children}
         <GlobalSiteFooter />

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { GlobalSiteFooter } from "@/components/global-site-footer";
+import { IubendaConsentBridge } from "@/components/iubenda-consent-bridge";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -38,43 +39,44 @@ export default function RootLayout({
           type="text/javascript"
           dangerouslySetInnerHTML={{
             __html: `var _iub = _iub || [];
-_iub.csConfiguration = {"ccpaApplies":true,"consentOnContinuedBrowsing":false,"enableCcpa":true,"enableTcf":true,"invalidateConsentWithoutLog":true,"siteId":1201474,"tcfPurposes":{"1":true,"2":"consent_only","3":"consent_only","4":"consent_only","5":"consent_only","6":"consent_only","7":"consent_only","8":"consent_only","9":"consent_only","10":"consent_only"},"whitelabel":false,"cookiePolicyId":12644511,"banner":{"acceptButtonCaptionColor":"#FFFFFF","acceptButtonColor":"#0073CE","acceptButtonDisplay":true,"backgroundColor":"#FFFFFF","brandBackgroundColor":"#FFFFFF","brandTextColor":"#000000","closeButtonDisplay":false,"customizeButtonCaptionColor":"#4D4D4D","customizeButtonColor":"#DADADA","customizeButtonDisplay":true,"explicitWithdrawal":true,"listPurposes":true,"logo":null,"position":"bottom","rejectButtonDisplay":true,"slideDown":false,"textColor":"#000000"}};
+_iub.csConfiguration = {"ccpaApplies":true,"consentOnContinuedBrowsing":false,"enableCcpa":true,"enableTcf":true,"invalidateConsentWithoutLog":true,"perPurposeConsent":true,"siteId":1201474,"tcfPurposes":{"1":true,"2":"consent_only","3":"consent_only","4":"consent_only","5":"consent_only","6":"consent_only","7":"consent_only","8":"consent_only","9":"consent_only","10":"consent_only"},"whitelabel":false,"cookiePolicyId":12644511,"callback":{"onReady":function(){window.dispatchEvent(new CustomEvent("leadhost:iubenda-ready"));},"onPreferenceExpressedOrNotNeeded":function(preference){window.dispatchEvent(new CustomEvent("leadhost:iubenda-preference",{"detail":preference||null}));},"onPreferenceFirstExpressed":function(preference){window.dispatchEvent(new CustomEvent("leadhost:iubenda-preference",{"detail":preference||null}));}},"banner":{"acceptButtonCaptionColor":"#FFFFFF","acceptButtonColor":"#0073CE","acceptButtonDisplay":true,"backgroundColor":"#FFFFFF","brandBackgroundColor":"#FFFFFF","brandTextColor":"#000000","closeButtonDisplay":false,"customizeButtonCaptionColor":"#4D4D4D","customizeButtonColor":"#DADADA","customizeButtonDisplay":true,"explicitWithdrawal":true,"listPurposes":true,"logo":null,"position":"bottom","rejectButtonDisplay":true,"slideDown":false,"textColor":"#000000"}};
 _iub.csLangConfiguration = {"it":{"cookiePolicyId":12644511}};`,
           }}
         />
         <Script
           id="iubenda-sync"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           type="text/javascript"
           src="https://cs.iubenda.com/sync/1201474.js"
         />
         <Script
           id="iubenda-tcf-stub"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           type="text/javascript"
           src="https://cdn.iubenda.com/cs/tcf/stub-v2.js"
         />
         <Script
           id="iubenda-safe-tcf"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           type="text/javascript"
           src="https://cdn.iubenda.com/cs/tcf/safe-tcf-v2.js"
         />
         <Script
           id="iubenda-ccpa-stub"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           type="text/javascript"
           src="https://cdn.iubenda.com/cs/ccpa/stub.js"
         />
         <Script
           id="iubenda-cookie-solution"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           type="text/javascript"
           src="https://cdn.iubenda.com/cs/iubenda_cs.js"
           charSet="UTF-8"
         />
       </head>
       <body>
+        <IubendaConsentBridge />
         {children}
         <GlobalSiteFooter />
       </body>

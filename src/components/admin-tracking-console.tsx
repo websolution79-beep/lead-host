@@ -30,6 +30,11 @@ import {
   type TrackingProviderId,
   type TrackingSettings,
 } from "@/lib/config/tracking-settings";
+import {
+  providerConsentRequirements,
+  type TrackingConsentState,
+} from "@/lib/tracking/consent";
+import { useTrackingConsent } from "@/lib/tracking/use-tracking-consent";
 
 type TrackingTab = "providers" | "events" | "logs" | "test";
 type LogStatus = "queued" | "sent" | "failed" | "skipped";
@@ -115,6 +120,7 @@ const tabs: Array<{
 
 export function AdminTrackingConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const consent = useTrackingConsent();
   const [activeTab, setActiveTab] = useState<TrackingTab>("providers");
   const [settings, setSettings] = useState<TrackingSettings | null>(null);
   const [eventCatalog, setEventCatalog] = useState<TrackingEventDefinition[]>([]);
@@ -401,6 +407,7 @@ export function AdminTrackingConsole() {
           settings={settings}
           storageReady={storageReady}
           environment={environment}
+          consent={consent}
           refresh={() => void loadConfiguration()}
         />
       ) : null}
@@ -438,6 +445,9 @@ function ProvidersTab({
                       enabled={provider.enabled}
                       configured={Boolean(identifier)}
                     />
+                    <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                      Consenso {providerConsentRequirements[providerId].label}
+                    </span>
                   </div>
                   <p className="mt-1 text-sm text-muted">{details.description}</p>
                 </div>
@@ -828,11 +838,13 @@ function TestTab({
   settings,
   storageReady,
   environment,
+  consent,
   refresh,
 }: {
   settings: TrackingSettings;
   storageReady: boolean;
   environment: TrackingResponse["environment"];
+  consent: TrackingConsentState;
   refresh: () => void;
 }) {
   const checks = [
@@ -840,6 +852,23 @@ function TestTab({
       label: "Archivio Supabase",
       value: storageReady ? "Disponibile" : "Non disponibile",
       passed: storageReady,
+    },
+    {
+      label: "Preferenza Iubenda",
+      value: consent.resolved
+        ? "Preferenza rilevata"
+        : "In attesa di una scelta",
+      passed: consent.resolved,
+    },
+    {
+      label: "Misurazione (finalità 4)",
+      value: consent.measurement ? "Consentita" : "Non consentita",
+      passed: consent.measurement,
+    },
+    {
+      label: "Marketing (finalità 5)",
+      value: consent.marketing ? "Consentito" : "Non consentito",
+      passed: consent.marketing,
     },
     ...trackingProviderIds.map((providerId) => {
       const identifier = getProviderIdentifier(settings, providerId);

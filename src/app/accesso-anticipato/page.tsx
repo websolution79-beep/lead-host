@@ -3,13 +3,18 @@ import Image from "next/image";
 import {
   ArrowRight,
   BadgeCheck,
+  Bath,
+  BedDouble,
   BellRing,
   Building2,
+  CalendarClock,
   Check,
   KeyRound,
   LayoutGrid,
+  MapPin,
   MegaphoneOff,
   Plus,
+  Ruler,
   Rocket,
   SearchCheck,
   Send,
@@ -413,22 +418,40 @@ function MarketplacePreview() {
       city: "Roma · Prati",
       type: "Appartamento",
       title: "Trilocale per affitti brevi",
+      address: "Via Cola di Rienzo 152, Roma",
+      bedrooms: "2 camere",
+      bathrooms: "2 bagni",
+      area: "92 mq",
+      timing: "Entro 30 giorni",
+      availability: "2 quote disponibili",
       description:
-        "Il proprietario cerca una gestione completa entro le prossime settimane.",
+        "Il proprietario cerca una gestione completa: annunci, accoglienza ospiti e pulizie.",
     },
     {
       image: "/images/lead-host-pm-hero.png",
       city: "Milano · Navigli",
       type: "Bilocale",
       title: "Immobile appena ristrutturato",
+      address: "Alzaia Naviglio Grande 44, Milano",
+      bedrooms: "1 camera",
+      bathrooms: "1 bagno",
+      area: "58 mq",
+      timing: "Il prima possibile",
+      availability: "Ultima quota",
       description:
-        "Richiesta di valutazione e avvio della gestione per locazioni turistiche.",
+        "Richiesta di valutazione, pubblicazione online e avvio della gestione turistica.",
     },
     {
       image: "/images/lead-host-early-access-hero.webp",
       city: "Firenze · Centro",
       type: "Appartamento",
       title: "Soluzione vicina al centro storico",
+      address: "Via dei Neri 18, Firenze",
+      bedrooms: "3 camere",
+      bathrooms: "2 bagni",
+      area: "108 mq",
+      timing: "Entro 60 giorni",
+      availability: "2 quote disponibili",
       description:
         "Il proprietario vuole affidare operatività, annunci e accoglienza ospiti.",
     },
@@ -494,13 +517,46 @@ function MarketplacePreview() {
               <p className="mt-1 text-sm font-semibold text-slate-500">
                 {lead.city}
               </p>
+              <p className="mt-3 flex items-start gap-2 text-sm leading-5 text-slate-700">
+                <MapPin
+                  className="mt-0.5 shrink-0 text-emerald-700"
+                  size={15}
+                />
+                <span>{lead.address}</span>
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs font-semibold text-slate-600">
+                <span className="flex items-center gap-2">
+                  <BedDouble className="shrink-0 text-slate-400" size={15} />
+                  {lead.bedrooms}
+                </span>
+                <span className="flex items-center gap-2">
+                  <Bath className="shrink-0 text-slate-400" size={15} />
+                  {lead.bathrooms}
+                </span>
+                <span className="flex items-center gap-2">
+                  <Ruler className="shrink-0 text-slate-400" size={15} />
+                  {lead.area}
+                </span>
+                <span className="flex items-center gap-2">
+                  <CalendarClock
+                    className="shrink-0 text-slate-400"
+                    size={15}
+                  />
+                  {lead.timing}
+                </span>
+              </div>
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
                 {lead.description}
               </p>
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
-                <span className="text-xs font-bold text-slate-500">
-                  Contatti protetti
-                </span>
+                <div>
+                  <p className="text-xs font-extrabold text-emerald-700">
+                    {lead.availability}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold text-slate-500">
+                    Dati proprietario protetti
+                  </p>
+                </div>
                 <span className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-500">
                   <ShieldCheck size={16} />
                 </span>

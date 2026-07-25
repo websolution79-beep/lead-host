@@ -1,0 +1,49 @@
+.heroContent {
+  animation: reveal 700ms ease-out both;
+}
+
+.proofPanel {
+  animation: float 5s ease-in-out infinite;
+}
+
+.ctaIcon {
+  transition: transform 180ms ease;
+}
+
+.cta:hover .ctaIcon {
+  transform: translateX(4px);
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroContent,
+  .proofPanel {
+    animation: none;
+  }
+
+  .ctaIcon {
+    transition: none;
+  }
+}

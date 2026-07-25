@@ -414,7 +414,7 @@ function TelegramCta({ label }: { label: string }) {
 function MarketplacePreview() {
   const leads = [
     {
-      image: "/images/lead-host-hero.png",
+      image: "/images/lead-example-roma-prati.webp",
       city: "Roma · Prati",
       type: "Appartamento",
       title: "Trilocale per affitti brevi",
@@ -428,7 +428,7 @@ function MarketplacePreview() {
         "Il proprietario cerca una gestione completa: annunci, accoglienza ospiti e pulizie.",
     },
     {
-      image: "/images/lead-host-pm-hero.png",
+      image: "/images/lead-example-milano-navigli.webp",
       city: "Milano · Navigli",
       type: "Bilocale",
       title: "Immobile appena ristrutturato",
@@ -442,7 +442,7 @@ function MarketplacePreview() {
         "Richiesta di valutazione, pubblicazione online e avvio della gestione turistica.",
     },
     {
-      image: "/images/lead-host-early-access-hero.webp",
+      image: "/images/lead-example-firenze-centro.webp",
       city: "Firenze · Centro",
       type: "Appartamento",
       title: "Soluzione vicina al centro storico",

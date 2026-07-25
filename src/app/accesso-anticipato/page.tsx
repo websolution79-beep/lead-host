@@ -72,17 +72,16 @@ const comparisonRows = [
     leadHost: "Nessun costo mensile obbligatorio",
   },
   {
-    traditional: "Ricevi contatti da qualificare",
-    leadHost: "Decidi tu quali lead acquistare",
+    traditional: "Paghi anche per contatti che potrebbero non interessarti",
+    leadHost: "Acquisti solo le opportunità che vuoi contattare",
   },
 ];
 
 const channelBenefits = [
-  "Il link per accedere a Lead Host il giorno del lancio",
-  "Le nuove opportunità pubblicate nel marketplace",
-  "Anteprime delle prossime funzionalità",
-  "Aggiornamenti essenziali sul progetto",
-  "Notifiche sui nuovi immobili disponibili",
+  "Dal 30 luglio: aggiornamenti sulle prime richieste raccolte",
+  "3 agosto, ore 11:00: link per la registrazione gratuita",
+  "Dopo il lancio: notifiche sulle nuove opportunità pubblicate",
+  "Aggiornamenti essenziali e anteprime su Lead Host",
 ];
 
 const faqs = [
@@ -155,20 +154,24 @@ export default function EarlyAccessLandingPage() {
               tu.
             </p>
 
+            <p className="mt-7 inline-flex w-fit items-center gap-2 text-sm font-extrabold text-emerald-200 sm:text-base">
+              <Rocket size={18} />
+              Apertura Lead Host: 3 agosto, ore 11:00
+            </p>
             <a
               href={telegramUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className={`${styles.cta} mt-8 inline-flex min-h-16 w-full max-w-xl items-center justify-center gap-3 rounded-lg bg-emerald-500 px-5 py-4 text-center text-base font-extrabold text-white shadow-[0_22px_60px_rgba(16,185,129,0.32)] transition hover:-translate-y-0.5 hover:bg-emerald-400 sm:w-fit sm:px-7 sm:text-lg`}
+              className={`${styles.cta} mt-4 inline-flex min-h-16 w-full max-w-xl items-center justify-center gap-3 rounded-lg bg-emerald-500 px-5 py-4 text-center text-base font-extrabold text-white shadow-[0_22px_60px_rgba(16,185,129,0.32)] transition hover:-translate-y-0.5 hover:bg-emerald-400 sm:w-fit sm:px-7 sm:text-lg`}
             >
               <Rocket size={22} />
               Voglio accedere a Lead Host il 3 agosto
               <ArrowRight className={styles.ctaIcon} size={21} />
             </a>
             <p className="mt-3 text-sm font-medium text-white/62">
-              Accesso gratuito · Riceverai il link nel canale privato Telegram
+              Chi è nel canale riceverà il link di accesso al momento
+              dell’apertura.
             </p>
-
           </div>
         </div>
       </section>
@@ -313,12 +316,16 @@ export default function EarlyAccessLandingPage() {
               Canale privato Telegram
             </p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-5xl">
-              Arriva preparato al lancio di Lead Host.
+              Entra ora nel canale privato Lead Host.
             </h2>
             <p className="mt-5 text-lg leading-8 text-white/66">
-              Un solo canale, soltanto gli aggiornamenti utili per i Property
-              Manager che vogliono accedere fin dal primo giorno.
+              Dal 30 luglio inizieremo a pubblicare aggiornamenti sulle prime
+              richieste raccolte. Il 3 agosto alle 11:00 riceverai direttamente
+              nel canale il link per registrarti gratuitamente. Dopo il lancio
+              continuerai a ricevere le notifiche delle nuove opportunità
+              pubblicate nel marketplace.
             </p>
+            <TelegramCta label="Entra ora nel canale privato" dark />
           </div>
 
           <div className="border-t border-white/16">
@@ -396,18 +403,41 @@ export default function EarlyAccessLandingPage() {
   );
 }
 
-function TelegramCta({ label }: { label: string }) {
+function TelegramCta({
+  label,
+  dark = false,
+}: {
+  label: string;
+  dark?: boolean;
+}) {
   return (
-    <a
-      href={telegramUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`${styles.cta} mx-auto mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-emerald-600 px-5 py-4 text-center text-base font-extrabold text-white shadow-[0_18px_45px_rgba(5,150,105,0.22)] transition hover:-translate-y-0.5 hover:bg-emerald-700 sm:w-fit sm:px-7`}
-    >
-      <Rocket size={21} />
-      {label}
-      <ArrowRight className={styles.ctaIcon} size={20} />
-    </a>
+    <div className={dark ? "text-left" : "text-center"}>
+      <a
+        href={telegramUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${styles.cta} mt-8 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-emerald-600 px-5 py-4 text-center text-base font-extrabold text-white shadow-[0_18px_45px_rgba(5,150,105,0.22)] transition hover:-translate-y-0.5 hover:bg-emerald-700 sm:w-fit sm:px-7`}
+      >
+        <Rocket size={21} />
+        {label}
+        <ArrowRight className={styles.ctaIcon} size={20} />
+      </a>
+      <p
+        className={`mt-3 inline-flex items-center gap-2 text-sm font-bold ${
+          dark ? "text-emerald-200" : "text-emerald-800"
+        }`}
+      >
+        <CalendarClock size={16} />
+        Apertura Lead Host: 3 agosto, ore 11:00
+      </p>
+      <p
+        className={`mt-1 text-sm ${
+          dark ? "text-white/60" : "text-slate-500"
+        }`}
+      >
+        Chi è nel canale riceverà il link al momento dell’apertura.
+      </p>
+    </div>
   );
 }
 

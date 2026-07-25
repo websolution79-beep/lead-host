@@ -4,7 +4,7 @@ const META_PIXEL_SCRIPT_URL =
 
 type MetaPixelFunction = ((...args: unknown[]) => void) & {
   callMethod?: (...args: unknown[]) => void;
-  queue: unknown[][];
+  queue: IArguments[];
   loaded: boolean;
   version: string;
   push: (...args: unknown[]) => void;
@@ -29,20 +29,20 @@ export type MetaBrowserEventName =
 export function grantMetaPixelConsent(pixelId: string) {
   const fbq = ensureMetaPixelQueue();
   const runtime = getMetaPixelRuntime();
+  const isRegrant =
+    runtime.initializedPixelId !== null && !runtime.consentGranted;
 
-  if (!runtime.consentGranted) {
-    fbq("consent", "revoke");
-    ensureMetaPixelScript();
-    fbq("consent", "grant");
-  } else {
-    ensureMetaPixelScript();
-  }
+  ensureMetaPixelScript();
 
   if (runtime.initializedPixelId !== pixelId) {
     fbq("init", pixelId);
     fbq("set", "autoConfig", false, pixelId);
     runtime.initializedPixelId = pixelId;
     runtime.lastPageViewKey = null;
+  }
+
+  if (isRegrant) {
+    fbq("consent", "grant");
   }
 
   runtime.consentGranted = true;
@@ -131,14 +131,16 @@ export function trackMetaBrowserEvent({
 function ensureMetaPixelQueue() {
   if (window.fbq) return window.fbq;
 
-  const fbq = function metaPixelQueue(...args: unknown[]) {
+  /* eslint-disable prefer-rest-params, prefer-spread */
+  const fbq = function metaPixelQueue() {
     if (fbq.callMethod) {
-      fbq.callMethod(...args);
+      fbq.callMethod.apply(fbq, Array.from(arguments));
       return;
     }
 
-    fbq.queue.push(args);
+    fbq.queue.push(arguments);
   } as MetaPixelFunction;
+  /* eslint-enable prefer-rest-params, prefer-spread */
 
   fbq.queue = [];
   fbq.loaded = true;

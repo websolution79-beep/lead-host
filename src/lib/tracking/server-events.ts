@@ -13,6 +13,7 @@ import {
   recordTrackingEventLog,
   updateTrackingEventLogStatus,
 } from "@/lib/tracking/event-log";
+import { sendGa4PurchaseEvent } from "@/lib/tracking/ga4-measurement-protocol";
 import {
   sendMetaConversionEvent,
   type MetaConversionEventInput,
@@ -38,6 +39,7 @@ type PurchaseTrackingInput = {
   currency: string;
   occurredAt: string;
   consent: ServerTrackingConsentSnapshot;
+  gaClientId?: string | null;
 };
 
 type HybridTrackingInput = {
@@ -170,6 +172,26 @@ export async function queuePurchaseTrackingEvent({
       continue;
     }
 
+    if (provider === "ga4") {
+      outcomes.push(
+        await processGa4PurchaseEvent({
+          supabase,
+          settings,
+          eventId,
+          pagePath: "/app/acquisti",
+          occurredAt: input.occurredAt,
+          consent: input.consent,
+          profileId: input.profileId,
+          clientId: input.gaClientId,
+          transactionId: input.walletTransactionId,
+          valueCents: input.valueCents,
+          currency: input.currency,
+          metadata,
+        }),
+      );
+      continue;
+    }
+
     if (
       !canUseProvider({
         providerId: provider,
@@ -204,6 +226,108 @@ export async function queuePurchaseTrackingEvent({
     reason: null,
     outcomes,
   };
+}
+
+async function processGa4PurchaseEvent({
+  supabase,
+  settings,
+  eventId,
+  pagePath,
+  occurredAt,
+  consent,
+  profileId,
+  clientId,
+  transactionId,
+  valueCents,
+  currency,
+  metadata,
+}: {
+  supabase: ServiceClient;
+  settings: Awaited<ReturnType<typeof fetchTrackingSettings>>["settings"];
+  eventId: string;
+  pagePath: string;
+  occurredAt: string;
+  consent: ServerTrackingConsentSnapshot;
+  profileId: string;
+  clientId?: string | null;
+  transactionId: string;
+  valueCents: number;
+  currency: string;
+  metadata: Record<string, Json>;
+}): Promise<QueueOutcome> {
+  if (
+    !canUseProvider({
+      providerId: "ga4",
+      settings,
+      scope: "pm",
+      consent,
+    })
+  ) {
+    return { provider: "ga4", status: "skipped" };
+  }
+
+  const log = await getOrCreateTrackingLog({
+    supabase,
+    provider: "ga4",
+    eventName: "purchase",
+    eventId,
+    source: "server",
+    pagePath,
+    valueCents,
+    currency,
+    metadata,
+    occurredAt,
+  });
+
+  if (!log) {
+    return {
+      provider: "ga4",
+      status: "failed",
+      error: "tracking_log_failed",
+    };
+  }
+
+  if (log.status === "sent") {
+    return { provider: "ga4", status: "duplicate", logId: log.id };
+  }
+
+  try {
+    await sendGa4PurchaseEvent({
+      measurementId: settings.providers.ga4.measurementId,
+      clientId,
+      profileId,
+      eventId,
+      transactionId,
+      valueCents,
+      currency,
+      occurredAt,
+    });
+
+    await updateTrackingEventLogStatus({
+      supabase,
+      logId: log.id,
+      status: "sent",
+    });
+
+    return { provider: "ga4", status: "sent", logId: log.id };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "ga4_purchase_failed";
+
+    await updateTrackingEventLogStatus({
+      supabase,
+      logId: log.id,
+      status: "failed",
+      errorMessage: message,
+    }).catch(() => null);
+
+    return {
+      provider: "ga4",
+      status: "failed",
+      logId: log.id,
+      error: message,
+    };
+  }
 }
 
 async function processMetaEvent({

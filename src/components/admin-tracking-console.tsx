@@ -895,6 +895,29 @@ function TestTab({
         passed: isActive,
       };
     }),
+    ...[
+      { id: "page_view" as const, label: "GA4 Page View" },
+      {
+        id: "telegram_join_click" as const,
+        label: "GA4 Clic Telegram",
+      },
+      { id: "lead" as const, label: "GA4 Generate Lead" },
+      {
+        id: "complete_registration" as const,
+        label: "GA4 Registrazione completata",
+      },
+      { id: "purchase" as const, label: "GA4 Purchase da Stripe" },
+    ].map((event) => {
+      const isActive =
+        settings.events[event.id].enabled &&
+        settings.events[event.id].providers.includes("ga4");
+
+      return {
+        label: event.label,
+        value: isActive ? "Evento attivo" : "Evento disattivato",
+        passed: isActive,
+      };
+    }),
     ...trackingProviderIds.map((providerId) => {
       const identifier = getProviderIdentifier(settings, providerId);
       return {

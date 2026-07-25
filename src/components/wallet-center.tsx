@@ -16,6 +16,7 @@ import { formatCurrencyCents } from "@/lib/auth/roles";
 import { useAppSession } from "@/components/app-session-provider";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { getBrowserTrackingConsentSnapshot } from "@/lib/tracking/browser-events";
+import { getGoogleAnalyticsClientId } from "@/lib/tracking/google-analytics";
 
 type WalletRow = {
   id: string;
@@ -187,6 +188,7 @@ export function WalletCenter() {
     setIsCreatingCheckout(true);
 
     try {
+      const trackingConsent = getBrowserTrackingConsentSnapshot();
       const response = await fetch("/api/purchases/create-checkout", {
         method: "POST",
         headers: {
@@ -197,7 +199,12 @@ export function WalletCenter() {
           amountCents: topUpAmountCents,
           termsAccepted,
           termsVersion: CURRENT_TERMS_VERSION,
-          trackingConsent: getBrowserTrackingConsentSnapshot(),
+          trackingConsent,
+          trackingIdentifiers: {
+            gaClientId: trackingConsent.measurement
+              ? getGoogleAnalyticsClientId()
+              : null,
+          },
         }),
       });
       const payload = (await response.json()) as {

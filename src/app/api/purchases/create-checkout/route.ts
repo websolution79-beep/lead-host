@@ -23,6 +23,17 @@ const checkoutSchema = z.object({
       marketing: z.boolean(),
     })
     .optional(),
+  trackingIdentifiers: z
+    .object({
+      gaClientId: z
+        .string()
+        .trim()
+        .max(128)
+        .regex(/^[A-Za-z0-9._-]+$/)
+        .nullable()
+        .optional(),
+    })
+    .optional(),
 });
 
 type WalletRow = {
@@ -60,6 +71,10 @@ export async function POST(request: NextRequest) {
             measurement: false,
             marketing: false,
           };
+    const gaClientId =
+      trackingConsent.measurement === true
+        ? payload.trackingIdentifiers?.gaClientId ?? null
+        : null;
 
     if (payload.termsVersion !== CURRENT_TERMS_VERSION) {
       return NextResponse.json(
@@ -131,6 +146,7 @@ export async function POST(request: NextRequest) {
           profile_email: profile.email,
           terms_version: CURRENT_TERMS_VERSION,
           tracking_consent: trackingConsent,
+          ...(gaClientId ? { ga_client_id: gaClientId } : {}),
         },
       })
       .select("id,wallet_id,profile_id,amount_cents,status")
@@ -182,6 +198,7 @@ export async function POST(request: NextRequest) {
           tracking_consent_resolved: String(trackingConsent.resolved),
           tracking_measurement_consent: String(trackingConsent.measurement),
           tracking_marketing_consent: String(trackingConsent.marketing),
+          ...(gaClientId ? { ga_client_id: gaClientId } : {}),
         },
         payment_intent_data: {
           metadata: {
@@ -193,6 +210,7 @@ export async function POST(request: NextRequest) {
             tracking_consent_resolved: String(trackingConsent.resolved),
             tracking_measurement_consent: String(trackingConsent.measurement),
             tracking_marketing_consent: String(trackingConsent.marketing),
+            ...(gaClientId ? { ga_client_id: gaClientId } : {}),
           },
         },
         line_items: [
@@ -236,6 +254,7 @@ export async function POST(request: NextRequest) {
           stripe_checkout_session_id: checkoutSession.id,
           terms_version: CURRENT_TERMS_VERSION,
           tracking_consent: trackingConsent,
+          ...(gaClientId ? { ga_client_id: gaClientId } : {}),
         },
       })
       .eq("id", transaction.id);

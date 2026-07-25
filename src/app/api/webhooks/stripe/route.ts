@@ -225,6 +225,10 @@ async function trackWalletTopUpPurchase({
           marketing:
             session.metadata?.tracking_marketing_consent === "true",
         },
+        gaClientId:
+          session.metadata?.tracking_measurement_consent === "true"
+            ? session.metadata?.ga_client_id ?? null
+            : null,
       },
     });
   } catch (error) {

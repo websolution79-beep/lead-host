@@ -14,11 +14,11 @@ import {
   type TrackingScopeId,
 } from "@/lib/tracking/consent";
 import {
-  grantMetaPixelConsent,
-  revokeMetaPixelConsent,
-  trackMetaBrowserEvent,
-  trackMetaPageView,
-} from "@/lib/tracking/meta-pixel";
+  grantGoogleAnalyticsConsent,
+  revokeGoogleAnalyticsConsent,
+  trackGoogleAnalyticsBrowserEvent,
+  trackGoogleAnalyticsPageView,
+} from "@/lib/tracking/google-analytics";
 import { useTrackingConsent } from "@/lib/tracking/use-tracking-consent";
 
 type PublicTrackingResponse = {
@@ -28,7 +28,7 @@ type PublicTrackingResponse = {
   events: TrackingSettings["events"];
 };
 
-export function MetaPixelTracker() {
+export function GoogleAnalyticsTracker() {
   const pathname = usePathname();
   const consent = useTrackingConsent();
   const [configuration, setConfiguration] =
@@ -45,55 +45,49 @@ export function MetaPixelTracker() {
         });
 
         if (!response.ok) return;
-        const payload = (await response.json()) as PublicTrackingResponse;
-        setConfiguration(payload);
+        setConfiguration(
+          (await response.json()) as PublicTrackingResponse,
+        );
       } catch (error) {
-        if (
-          !(error instanceof DOMException && error.name === "AbortError")
-        ) {
-          revokeMetaPixelConsent();
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          revokeGoogleAnalyticsConsent();
         }
       }
     }
 
     void loadConfiguration();
-
     return () => controller.abort();
   }, []);
 
   useEffect(() => {
     if (!configuration?.storageReady) {
-      revokeMetaPixelConsent();
+      revokeGoogleAnalyticsConsent();
       return;
     }
 
-    const settings: TrackingSettings = {
-      version: configuration.version,
-      providers: configuration.providers,
-      events: configuration.events,
-    };
-    const pageView = settings.events.page_view;
-    const pageViewEnabled =
-      pageView?.enabled === true && pageView.providers.includes("meta");
-    const metaAllowed =
-      pageViewEnabled &&
+    const settings = createSettings(configuration);
+    const eventSettings = settings.events.page_view;
+    const canTrack =
+      eventSettings.enabled &&
+      eventSettings.providers.includes("ga4") &&
       canActivateTrackingProvider({
         settings,
-        providerId: "meta",
+        providerId: "ga4",
         scope,
         consent,
       });
 
-    if (!metaAllowed) {
-      revokeMetaPixelConsent();
+    if (!canTrack) {
+      revokeGoogleAnalyticsConsent();
       return;
     }
 
-    const pixelId = settings.providers.meta.pixelId;
-    grantMetaPixelConsent(pixelId);
-    trackMetaPageView({
-      pixelId,
+    const measurementId = settings.providers.ga4.measurementId;
+    grantGoogleAnalyticsConsent(measurementId);
+    trackGoogleAnalyticsPageView({
+      measurementId,
       pageKey: `${scope}:${pathname}`,
+      pagePath: pathname,
     });
   }, [configuration, consent, pathname, scope]);
 
@@ -103,41 +97,37 @@ export function MetaPixelTracker() {
 
       if (!configuration.storageReady || !consent.resolved) {
         if (!configuration.storageReady) {
-          acknowledgeBrowserTrackingEvent(event.eventId, "meta");
+          acknowledgeBrowserTrackingEvent(event.eventId, "ga4");
         }
         return;
       }
 
-      const settings: TrackingSettings = {
-        version: configuration.version,
-        providers: configuration.providers,
-        events: configuration.events,
-      };
+      const settings = createSettings(configuration);
       const eventSettings = settings.events[event.eventName];
       const eventScope = getTrackingScope(event.pagePath);
       const canTrack =
         event.consentAtDispatch.resolved &&
-        event.consentAtDispatch.marketing &&
+        event.consentAtDispatch.measurement &&
         eventSettings.enabled &&
-        eventSettings.providers.includes("meta") &&
+        eventSettings.providers.includes("ga4") &&
         canActivateTrackingProvider({
           settings,
-          providerId: "meta",
+          providerId: "ga4",
           scope: eventScope,
           consent,
         });
 
       if (canTrack) {
-        const pixelId = settings.providers.meta.pixelId;
-        grantMetaPixelConsent(pixelId);
-        trackMetaBrowserEvent({
-          pixelId,
+        const measurementId = settings.providers.ga4.measurementId;
+        grantGoogleAnalyticsConsent(measurementId);
+        trackGoogleAnalyticsBrowserEvent({
+          measurementId,
           eventName: event.eventName,
           eventId: event.eventId,
         });
       }
 
-      acknowledgeBrowserTrackingEvent(event.eventId, "meta");
+      acknowledgeBrowserTrackingEvent(event.eventId, "ga4");
     }
 
     function handleBrowserTrackingEvent(
@@ -150,7 +140,7 @@ export function MetaPixelTracker() {
       BROWSER_TRACKING_EVENT,
       handleBrowserTrackingEvent,
     );
-    getPendingBrowserTrackingEvents("meta").forEach(processEvent);
+    getPendingBrowserTrackingEvents("ga4").forEach(processEvent);
 
     return () => {
       window.removeEventListener(
@@ -161,6 +151,16 @@ export function MetaPixelTracker() {
   }, [configuration, consent]);
 
   return null;
+}
+
+function createSettings(
+  configuration: PublicTrackingResponse,
+): TrackingSettings {
+  return {
+    version: configuration.version,
+    providers: configuration.providers,
+    events: configuration.events,
+  };
 }
 
 function getTrackingScope(pathname: string): TrackingScopeId {

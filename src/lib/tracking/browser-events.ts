@@ -1,4 +1,7 @@
-import type { TrackingEventId } from "@/lib/config/tracking-settings";
+import type {
+  TrackingEventId,
+  TrackingProviderId,
+} from "@/lib/config/tracking-settings";
 import {
   parseIubendaConsent,
   pendingTrackingConsent,
@@ -16,6 +19,7 @@ export type BrowserTrackingEvent = {
   eventId: string;
   occurredAt: string;
   pagePath: string;
+  handledBy: TrackingProviderId[];
   consentAtDispatch: {
     resolved: boolean;
     measurement: boolean;
@@ -39,6 +43,7 @@ export function dispatchBrowserTrackingEvent(
     eventId: normalizeEventId(options?.eventId) ?? createEventId(eventName),
     occurredAt: new Date().toISOString(),
     pagePath: window.location.pathname,
+    handledBy: [],
     consentAtDispatch: {
       resolved: consent?.resolved === true,
       measurement: consent?.measurement === true,
@@ -92,16 +97,26 @@ function getResolvedBrowserConsent() {
   }
 }
 
-export function getPendingBrowserTrackingEvents() {
+export function getPendingBrowserTrackingEvents(
+  providerId: TrackingProviderId,
+) {
   if (typeof window === "undefined") return [];
-  return [...getBrowserTrackingQueue()];
+  return getBrowserTrackingQueue().filter(
+    (event) => !event.handledBy.includes(providerId),
+  );
 }
 
-export function acknowledgeBrowserTrackingEvent(eventId: string) {
+export function acknowledgeBrowserTrackingEvent(
+  eventId: string,
+  providerId: TrackingProviderId,
+) {
   if (typeof window === "undefined") return;
 
-  window.__leadHostBrowserTrackingQueue = getBrowserTrackingQueue().filter(
-    (event) => event.eventId !== eventId,
+  window.__leadHostBrowserTrackingQueue = getBrowserTrackingQueue().map(
+    (event) =>
+      event.eventId === eventId && !event.handledBy.includes(providerId)
+        ? { ...event, handledBy: [...event.handledBy, providerId] }
+        : event,
   );
 }
 
@@ -109,6 +124,12 @@ function getBrowserTrackingQueue() {
   if (!window.__leadHostBrowserTrackingQueue) {
     window.__leadHostBrowserTrackingQueue = [];
   }
+
+  window.__leadHostBrowserTrackingQueue =
+    window.__leadHostBrowserTrackingQueue.map((event) => ({
+      ...event,
+      handledBy: Array.isArray(event.handledBy) ? event.handledBy : [],
+    }));
 
   return window.__leadHostBrowserTrackingQueue;
 }

@@ -16,6 +16,10 @@ export function TelegramClickTracker() {
         if (!isTelegramUrl(url)) return;
 
         dispatchBrowserTrackingEvent("telegram_join_click");
+
+        if (window.location.pathname === "/accesso-anticipato") {
+          dispatchBrowserTrackingEvent("lead");
+        }
       } catch {
         return;
       }

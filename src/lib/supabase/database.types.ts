@@ -239,6 +239,122 @@ export type Database = {
         >;
         Relationships: [];
       };
+      service_email_campaigns: {
+        Row: {
+          id: string;
+          subject: string;
+          preview: string;
+          title: string;
+          body: string;
+          extra: string;
+          cta_label: string;
+          cta_url: string;
+          recipient_scope: "active_property_managers";
+          status:
+            | "draft"
+            | "queued"
+            | "processing"
+            | "completed"
+            | "completed_with_errors"
+            | "failed"
+            | "cancelled";
+          total_recipients: number;
+          pending_count: number;
+          sent_count: number;
+          failed_count: number;
+          created_by: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          subject: string;
+          preview?: string;
+          title: string;
+          body: string;
+          extra?: string;
+          cta_label?: string;
+          cta_url?: string;
+          recipient_scope?: "active_property_managers";
+          status?:
+            | "draft"
+            | "queued"
+            | "processing"
+            | "completed"
+            | "completed_with_errors"
+            | "failed"
+            | "cancelled";
+          total_recipients?: number;
+          pending_count?: number;
+          sent_count?: number;
+          failed_count?: number;
+          created_by?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["service_email_campaigns"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      service_email_recipients: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          profile_id: string | null;
+          recipient_email: string;
+          first_name: string | null;
+          last_name: string | null;
+          status:
+            | "queued"
+            | "processing"
+            | "retry"
+            | "sent"
+            | "failed"
+            | "skipped";
+          attempts: number;
+          available_at: string;
+          locked_at: string | null;
+          locked_by: string | null;
+          provider_message_id: string | null;
+          last_error: string | null;
+          sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          profile_id?: string | null;
+          recipient_email: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          status?:
+            | "queued"
+            | "processing"
+            | "retry"
+            | "sent"
+            | "failed"
+            | "skipped";
+          attempts?: number;
+          available_at?: string;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          provider_message_id?: string | null;
+          last_error?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["service_email_recipients"]["Insert"]
+        >;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -1046,6 +1162,47 @@ export type Database = {
       queue_brevo_reconciliation: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      queue_service_email_campaign: {
+        Args: {
+          p_campaign_id: string;
+        };
+        Returns: number;
+      };
+      requeue_stale_service_email_recipients: {
+        Args: {
+          p_stale_after?: string;
+        };
+        Returns: number;
+      };
+      claim_service_email_recipients: {
+        Args: {
+          p_worker_id: string;
+          p_batch_size?: number;
+        };
+        Returns: Database["public"]["Tables"]["service_email_recipients"]["Row"][];
+      };
+      refresh_service_email_campaign: {
+        Args: {
+          p_campaign_id: string;
+        };
+        Returns: Database["public"]["Tables"]["service_email_campaigns"]["Row"];
+      };
+      complete_service_email_batch: {
+        Args: {
+          p_campaign_id: string;
+          p_results: Json;
+        };
+        Returns: Database["public"]["Tables"]["service_email_campaigns"]["Row"];
+      };
+      fail_service_email_batch: {
+        Args: {
+          p_campaign_id: string;
+          p_recipient_ids: string[];
+          p_error: string;
+          p_max_attempts?: number;
+        };
+        Returns: Database["public"]["Tables"]["service_email_campaigns"]["Row"];
       };
     };
     Enums: {

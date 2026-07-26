@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/brevo-sync",
       "schedule": "20 2 * * *"
+    },
+    {
+      "path": "/api/cron/service-emails",
+      "schedule": "25 7 * * *"
     }
   ]
 }

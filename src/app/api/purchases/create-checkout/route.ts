@@ -103,6 +103,18 @@ export async function POST(request: NextRequest) {
         { status: 422 },
       );
     }
+    if (!billing.profile) {
+      return NextResponse.json(
+        {
+          error:
+            "Non riesco a recuperare i dati di fatturazione. Aggiorna il profilo e riprova.",
+          code: "BILLING_PROFILE_NOT_FOUND",
+        },
+        { status: 422 },
+      );
+    }
+
+    const billingSnapshotCapturedAt = new Date().toISOString();
 
     const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
     if (!stripeSecretKey) {
@@ -151,6 +163,8 @@ export async function POST(request: NextRequest) {
         metadata: {
           property_manager_id: propertyManager.id,
           profile_email: profile.email,
+          billing_snapshot: billing.profile,
+          billing_snapshot_captured_at: billingSnapshotCapturedAt,
           terms_version: CURRENT_TERMS_VERSION,
           tracking_consent: trackingConsent,
           ...(gaClientId ? { ga_client_id: gaClientId } : {}),
@@ -259,6 +273,8 @@ export async function POST(request: NextRequest) {
           property_manager_id: propertyManager.id,
           profile_email: profile.email,
           stripe_checkout_session_id: checkoutSession.id,
+          billing_snapshot: billing.profile,
+          billing_snapshot_captured_at: billingSnapshotCapturedAt,
           terms_version: CURRENT_TERMS_VERSION,
           tracking_consent: trackingConsent,
           ...(gaClientId ? { ga_client_id: gaClientId } : {}),

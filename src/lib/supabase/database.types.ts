@@ -75,6 +75,164 @@ export type Database = {
         };
         Relationships: [];
       };
+      billing_issuer_settings: {
+        Row: {
+          id: number;
+          legal_name: string;
+          vat_country_code: string;
+          vat_number: string;
+          fiscal_code: string;
+          address_line: string;
+          postal_code: string;
+          city: string;
+          province: string;
+          country: string;
+          email: string;
+          tax_regime: string;
+          tax_regime_description: string;
+          vat_rate: number;
+          vat_nature: string;
+          vat_reference: string;
+          document_type: string;
+          transmission_format: string;
+          aruba_transmitter_tax_code: string;
+          currency: string;
+          line_description: string;
+          payment_method: string;
+          provisional_number_prefix: string;
+          stamp_duty_threshold_cents: number;
+          stamp_duty_amount_cents: number;
+          stamp_duty_absorbed: boolean;
+          auto_generate_invoices: boolean;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          legal_name: string;
+          vat_country_code?: string;
+          vat_number: string;
+          fiscal_code: string;
+          address_line: string;
+          postal_code: string;
+          city: string;
+          province: string;
+          country?: string;
+          email: string;
+          tax_regime?: string;
+          tax_regime_description: string;
+          vat_rate?: number;
+          vat_nature?: string;
+          vat_reference: string;
+          document_type?: string;
+          transmission_format?: string;
+          aruba_transmitter_tax_code?: string;
+          currency?: string;
+          line_description?: string;
+          payment_method?: string;
+          provisional_number_prefix?: string;
+          stamp_duty_threshold_cents?: number;
+          stamp_duty_amount_cents?: number;
+          stamp_duty_absorbed?: boolean;
+          auto_generate_invoices?: boolean;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["billing_issuer_settings"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      billing_invoices: {
+        Row: {
+          id: string;
+          wallet_transaction_id: string;
+          payment_id: string | null;
+          profile_id: string;
+          status: Database["public"]["Enums"]["billing_invoice_status"];
+          amount_cents: number;
+          currency: string;
+          provisional_number: string | null;
+          document_date: string | null;
+          transmission_progressive: string;
+          stripe_payment_intent_id: string | null;
+          stripe_checkout_session_id: string | null;
+          issuer_snapshot: Json;
+          customer_snapshot: Json;
+          xml_content: string | null;
+          xml_sha256: string | null;
+          stamp_duty_applied: boolean;
+          stamp_duty_amount_cents: number;
+          generation_attempts: number;
+          last_error: string | null;
+          generated_at: string | null;
+          downloaded_at: string | null;
+          imported_at: string | null;
+          sent_at: string | null;
+          final_invoice_number: string | null;
+          final_invoice_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          wallet_transaction_id: string;
+          payment_id?: string | null;
+          profile_id: string;
+          status?: Database["public"]["Enums"]["billing_invoice_status"];
+          amount_cents: number;
+          currency?: string;
+          provisional_number?: string | null;
+          document_date?: string | null;
+          transmission_progressive?: string;
+          stripe_payment_intent_id?: string | null;
+          stripe_checkout_session_id?: string | null;
+          issuer_snapshot?: Json;
+          customer_snapshot?: Json;
+          xml_content?: string | null;
+          xml_sha256?: string | null;
+          stamp_duty_applied?: boolean;
+          stamp_duty_amount_cents?: number;
+          generation_attempts?: number;
+          last_error?: string | null;
+          generated_at?: string | null;
+          downloaded_at?: string | null;
+          imported_at?: string | null;
+          sent_at?: string | null;
+          final_invoice_number?: string | null;
+          final_invoice_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["billing_invoices"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      billing_invoice_events: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          event_type: string;
+          actor_profile_id: string | null;
+          details: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_id: string;
+          event_type: string;
+          actor_profile_id?: string | null;
+          details?: Json;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["billing_invoice_events"]["Insert"]
+        >;
+        Relationships: [];
+      };
       pm_marketing_preferences: {
         Row: {
           profile_id: string;
@@ -1206,6 +1364,15 @@ export type Database = {
       };
     };
     Enums: {
+      billing_invoice_status:
+        | "pending"
+        | "generating"
+        | "ready"
+        | "downloaded"
+        | "imported"
+        | "sent"
+        | "error"
+        | "cancelled";
       pm_marketing_consent_status: "granted" | "not_granted" | "withdrawn";
       brevo_outbox_status:
         | "pending"

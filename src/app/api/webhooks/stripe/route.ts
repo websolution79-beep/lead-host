@@ -6,6 +6,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
+import { generateWalletTopUpInvoiceSafely } from "@/lib/billing/invoices";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -100,7 +101,14 @@ export async function POST(request: NextRequest) {
         "ignored" in result ? null : await notifyWalletTopUp(result);
 
       if (!("ignored" in result)) {
-        after(() => runBrevoWorkerSafely(10));
+        after(async () => {
+          await Promise.allSettled([
+            runBrevoWorkerSafely(10),
+            generateWalletTopUpInvoiceSafely(
+              result.wallet_transaction_id,
+            ),
+          ]);
+        });
       }
 
       return NextResponse.json({

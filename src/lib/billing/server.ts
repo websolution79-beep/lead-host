@@ -9,13 +9,16 @@ export async function getBillingReadiness(
   const { data, error } = await supabase
     .from("billing_profiles")
     .select(
-      "subject_type,first_name,last_name,fiscal_code,company_name,vat_number,address_line,postal_code,city,province,country,sdi_code,pec",
+      "subject_type,first_name,last_name,fiscal_code,company_name,vat_number,company_fiscal_code,address_line,postal_code,city,province,country,sdi_code,pec,invoice_email",
     )
     .eq("profile_id", profileId)
     .maybeSingle();
 
   if (error) throw error;
 
-  return getBillingProfileCompleteness(data);
+  return {
+    ...getBillingProfileCompleteness(data),
+    profile: data,
+  };
 }
 

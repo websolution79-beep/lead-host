@@ -10,6 +10,7 @@ import {
   Building2,
   CreditCard,
   Crosshair,
+  FileText,
   Inbox,
   LifeBuoy,
   Mail,
@@ -69,6 +70,7 @@ const adminLinks: AppNavLink[] = [
     category: "Operatività",
   },
   { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText, category: "Finanza" },
+  { label: "Fatturazione", href: "/admin/fatturazione", icon: FileText, category: "Finanza" },
   { label: "Riaccrediti", href: "/admin/rimborsi", icon: CreditCard, category: "Finanza" },
   {
     label: "Email",

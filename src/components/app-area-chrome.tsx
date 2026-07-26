@@ -20,20 +20,20 @@ const pmLinks = [
 ];
 
 const adminLinks = [
-  { label: "Dashboard", href: "/admin" },
-  { label: "Lead", href: "/admin/leads" },
-  { label: "Acquisizione", href: "/admin/acquisizione" },
-  { label: "Property Manager", href: "/admin/property-manager" },
-  { label: "Pagamenti", href: "/admin/pagamenti" },
-  { label: "Assistenza", href: "/admin/segnalazioni" },
-  { label: "Riaccrediti", href: "/admin/rimborsi" },
-  { label: "Analytics", href: "/admin/analytics" },
-  { label: "Email", href: "/admin/email-transazionali" },
-  { label: "Brevo", href: "/admin/brevo" },
-  { label: "Telegram", href: "/admin/telegram" },
-  { label: "Tracking", href: "/admin/tracking" },
-  { label: "Impostazioni", href: "/admin/impostazioni" },
-  { label: "Profilo", href: "/admin/profilo" },
+  { label: "Dashboard", href: "/admin", group: "Panoramica" },
+  { label: "Lead", href: "/admin/leads", group: "Operatività" },
+  { label: "Acquisizione", href: "/admin/acquisizione", group: "Operatività" },
+  { label: "Property Manager", href: "/admin/property-manager", group: "Operatività" },
+  { label: "Assistenza", href: "/admin/segnalazioni", group: "Operatività" },
+  { label: "Pagamenti", href: "/admin/pagamenti", group: "Finanza" },
+  { label: "Riaccrediti", href: "/admin/rimborsi", group: "Finanza" },
+  { label: "Email", href: "/admin/email-transazionali", group: "Comunicazioni" },
+  { label: "Brevo", href: "/admin/brevo", group: "Comunicazioni" },
+  { label: "Telegram", href: "/admin/telegram", group: "Comunicazioni" },
+  { label: "Analytics", href: "/admin/analytics", group: "Dati e controllo" },
+  { label: "Tracking", href: "/admin/tracking", group: "Dati e controllo" },
+  { label: "Impostazioni", href: "/admin/impostazioni", group: "Configurazione" },
+  { label: "Profilo", href: "/admin/profilo", group: "Configurazione" },
 ];
 
 export function AppAreaChrome({ children, section }: AppAreaChromeProps) {

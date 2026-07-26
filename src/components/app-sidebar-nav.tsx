@@ -1,7 +1,9 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Bell,
@@ -29,7 +31,14 @@ type AppSidebarNavProps = {
   section: "pm" | "admin";
 };
 
-const pmLinks = [
+type AppNavLink = {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  category?: string;
+};
+
+const pmLinks: AppNavLink[] = [
   { label: "Marketplace", href: "/app/marketplace", icon: Map },
   { label: "I miei lead", href: "/app/i-miei-lead", icon: Inbox },
   { label: "Wallet", href: "/app/acquisti", icon: CreditCard },
@@ -38,21 +47,46 @@ const pmLinks = [
   { label: "Assistenza", href: "/app/assistenza", icon: LifeBuoy },
 ];
 
-const adminLinks = [
-  { label: "Dashboard", href: "/admin", icon: BarChart3 },
-  { label: "Lead", href: "/admin/leads", icon: Inbox },
-  { label: "Acquisizione", href: "/admin/acquisizione", icon: Megaphone },
-  { label: "Property Manager", href: "/admin/property-manager", icon: Users },
-  { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText },
-  { label: "Assistenza", href: "/admin/segnalazioni", icon: ShieldAlert },
-  { label: "Riaccrediti", href: "/admin/rimborsi", icon: CreditCard },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { label: "Email", href: "/admin/email-transazionali", icon: Mail },
-  { label: "Brevo", href: "/admin/brevo", icon: MessagesSquare },
-  { label: "Telegram", href: "/admin/telegram", icon: Send },
-  { label: "Tracking", href: "/admin/tracking", icon: Crosshair },
-  { label: "Impostazioni", href: "/admin/impostazioni", icon: Settings },
-  { label: "Profilo", href: "/admin/profilo", icon: UserCircle },
+const adminLinks: AppNavLink[] = [
+  { label: "Dashboard", href: "/admin", icon: BarChart3, category: "Panoramica" },
+  { label: "Lead", href: "/admin/leads", icon: Inbox, category: "Operatività" },
+  {
+    label: "Acquisizione",
+    href: "/admin/acquisizione",
+    icon: Megaphone,
+    category: "Operatività",
+  },
+  {
+    label: "Property Manager",
+    href: "/admin/property-manager",
+    icon: Users,
+    category: "Operatività",
+  },
+  {
+    label: "Assistenza",
+    href: "/admin/segnalazioni",
+    icon: ShieldAlert,
+    category: "Operatività",
+  },
+  { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText, category: "Finanza" },
+  { label: "Riaccrediti", href: "/admin/rimborsi", icon: CreditCard, category: "Finanza" },
+  {
+    label: "Email",
+    href: "/admin/email-transazionali",
+    icon: Mail,
+    category: "Comunicazioni",
+  },
+  { label: "Brevo", href: "/admin/brevo", icon: MessagesSquare, category: "Comunicazioni" },
+  { label: "Telegram", href: "/admin/telegram", icon: Send, category: "Comunicazioni" },
+  { label: "Analytics", href: "/admin/analytics", icon: BarChart3, category: "Dati e controllo" },
+  { label: "Tracking", href: "/admin/tracking", icon: Crosshair, category: "Dati e controllo" },
+  {
+    label: "Impostazioni",
+    href: "/admin/impostazioni",
+    icon: Settings,
+    category: "Configurazione",
+  },
+  { label: "Profilo", href: "/admin/profilo", icon: UserCircle, category: "Configurazione" },
 ];
 
 export function AppSidebarNav({ section }: AppSidebarNavProps) {
@@ -78,50 +112,62 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
         <p className="mt-2 text-xs leading-5 text-slate-500">{contextDescription}</p>
       </div>
 
-      {links.map((link) => {
+      {links.map((link, index) => {
         const Icon = link.icon;
+        const category = link.category;
+        const previousLink = links[index - 1];
+        const previousCategory = previousLink?.category;
+        const showCategory = Boolean(category && category !== previousCategory);
         const isActive =
           link.href === "/app" || link.href === "/admin"
             ? pathname === link.href
             : pathname.startsWith(link.href);
 
         return (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
-              isActive
-                ? "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
-                : "text-slate-600 hover:bg-slate-100 hover:text-ink"
-            }`}
-          >
-            <span
-              className={`flex size-8 items-center justify-center rounded-md transition ${
+          <Fragment key={link.href}>
+            {showCategory ? (
+              <p className="mb-1 mt-4 px-3 text-[11px] font-bold uppercase text-slate-400">
+                {category}
+              </p>
+            ) : null}
+            <Link
+              href={link.href}
+              className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
                 isActive
-                  ? "bg-white/12 text-white"
-                  : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-green"
+                  ? "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-ink"
               }`}
             >
-              <Icon size={17} />
-            </span>
-            {link.label}
-            {section === "admin" && link.href === "/admin/leads" ? (
-              <AdminLeadNavBadge />
-            ) : null}
-            {link.href === supportBadgeHref ? <SupportNavBadge section={section} /> : null}
-          </Link>
+              <span
+                className={`flex size-8 items-center justify-center rounded-md transition ${
+                  isActive
+                    ? "bg-white/12 text-white"
+                    : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-green"
+                }`}
+              >
+                <Icon size={17} />
+              </span>
+              {link.label}
+              {section === "admin" && link.href === "/admin/leads" ? (
+                <AdminLeadNavBadge />
+              ) : null}
+              {link.href === supportBadgeHref ? <SupportNavBadge section={section} /> : null}
+            </Link>
+          </Fragment>
         );
       })}
 
       <RoleSwitcher section={section} />
 
-      <Link
-        href={supportHref}
-        className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:border-green/30 hover:text-green"
-      >
-        <SupportIcon size={16} />
-        {supportLabel}
-      </Link>
+      {section === "pm" ? (
+        <Link
+          href={supportHref}
+          className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:border-green/30 hover:text-green"
+        >
+          <SupportIcon size={16} />
+          {supportLabel}
+        </Link>
+      ) : null}
     </nav>
   );
 }

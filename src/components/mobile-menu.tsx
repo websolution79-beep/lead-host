@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { SupportNavBadge } from "@/components/support-nav-badge";
 type MobileMenuLink = {
   href: string;
   label: string;
+  group?: string;
 };
 
 type MobileMenuProps = {
@@ -65,24 +67,39 @@ export function MobileMenu({
                 : "border-slate-200 bg-white text-ink"
             }`}
           >
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
-                  isDark
-                    ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
-                    : "text-slate-600 hover:bg-fog hover:text-ink"
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                {link.label}
-                {link.href === pendingLeadsHref ? <AdminLeadNavBadge /> : null}
-                {link.href === supportHref && supportSection ? (
-                  <SupportNavBadge section={supportSection} />
-                ) : null}
-              </Link>
-            ))}
+            {links.map((link, index) => {
+              const previousGroup = links[index - 1]?.group;
+              const showGroup = Boolean(link.group && link.group !== previousGroup);
+
+              return (
+                <Fragment key={link.href}>
+                  {showGroup ? (
+                    <p
+                      className={`mb-1 px-4 pt-4 text-[11px] font-bold uppercase ${
+                        isDark ? "text-cream/45" : "text-slate-400"
+                      }`}
+                    >
+                      {link.group}
+                    </p>
+                  ) : null}
+                  <Link
+                    href={link.href}
+                    className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
+                      isDark
+                        ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
+                        : "text-slate-600 hover:bg-fog hover:text-ink"
+                    }`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {link.label}
+                    {link.href === pendingLeadsHref ? <AdminLeadNavBadge /> : null}
+                    {link.href === supportHref && supportSection ? (
+                      <SupportNavBadge section={supportSection} />
+                    ) : null}
+                  </Link>
+                </Fragment>
+              );
+            })}
             {roleSwitchSection ? (
               <RoleSwitcher section={roleSwitchSection} compact />
             ) : null}

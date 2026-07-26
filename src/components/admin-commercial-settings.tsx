@@ -623,6 +623,32 @@ function EuroField({
   valueCents: number;
   onChange: (value: number) => void;
 }) {
+  const [draftValue, setDraftValue] = useState<string | null>(null);
+
+  function handleChange(value: string) {
+    const normalizedDraft = normalizeEuroInput(value);
+
+    if (normalizedDraft === null) return;
+
+    setDraftValue(normalizedDraft);
+
+    const parsedCents = parseEuroCentsDraft(normalizedDraft);
+
+    if (parsedCents !== null) {
+      onChange(parsedCents);
+    }
+  }
+
+  function handleBlur() {
+    const parsedCents = parseEuroCentsDraft(draftValue ?? "");
+
+    setDraftValue(null);
+
+    if (parsedCents !== null) {
+      onChange(parsedCents);
+    }
+  }
+
   return (
     <label className="grid gap-2 text-sm font-semibold text-ink">
       {label}
@@ -631,12 +657,42 @@ function EuroField({
         <input
           className="min-h-11 w-full bg-transparent outline-none"
           inputMode="decimal"
-          value={valueCents / 100}
-          onChange={(event) => onChange(parseEuroCents(event.target.value))}
+          type="text"
+          value={draftValue ?? formatEuroInput(valueCents)}
+          onFocus={() => setDraftValue(formatEuroInput(valueCents))}
+          onBlur={handleBlur}
+          onChange={(event) => handleChange(event.target.value)}
         />
       </div>
+      <span className="text-xs font-medium leading-5 text-muted">
+        Puoi usare la virgola per i centesimi, ad esempio 19,90.
+      </span>
     </label>
   );
+}
+
+function normalizeEuroInput(value: string) {
+  const cleaned = value.replace(/\s/g, "").replace(/€/g, "");
+
+  if (!/^\d*(?:[.,]\d{0,2})?$/.test(cleaned)) return null;
+
+  return cleaned.replace(".", ",");
+}
+
+function parseEuroCentsDraft(value: string) {
+  if (!/^\d+(?:,\d{0,2})?$/.test(value)) return null;
+
+  const amount = Number.parseFloat(value.replace(",", "."));
+
+  return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : null;
+}
+
+function formatEuroInput(valueCents: number) {
+  return new Intl.NumberFormat("it-IT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(valueCents / 100);
 }
 
 function parseEuroCents(value: string) {

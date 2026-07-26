@@ -263,6 +263,14 @@ export function ProfileCenter() {
 
     const normalizedSdiCode = billingSdiCode.trim().toUpperCase();
     const normalizedPec = billingPec.trim().toLowerCase();
+    const normalizedProvince = billingProvince.trim().toUpperCase();
+
+    if (!/^[A-Z]{2}$/.test(normalizedProvince)) {
+      setError(
+        "Nel campo Provincia inserisci la sigla di due lettere, ad esempio RM.",
+      );
+      return;
+    }
 
     if (billingSubjectType === "individual") {
       if (
@@ -320,7 +328,7 @@ export function ProfileCenter() {
         address_line: billingAddressLine.trim(),
         postal_code: billingPostalCode.trim(),
         city: billingCity.trim(),
-        province: billingProvince.trim().toUpperCase(),
+        province: normalizedProvince,
         country: billingCountry.trim().toUpperCase() || "IT",
         sdi_code: billingSubjectType === "company" ? normalizedSdiCode || null : null,
         pec: billingSubjectType === "company" ? normalizedPec || null : null,
@@ -874,9 +882,10 @@ export function ProfileCenter() {
                 required
               />
               <TextField
-                label="Provincia"
+                label="Provincia (sigla)"
                 value={billingProvince}
                 onChange={setBillingProvince}
+                placeholder="RM"
                 required
               />
               <TextField

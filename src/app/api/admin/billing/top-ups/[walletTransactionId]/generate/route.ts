@@ -17,6 +17,10 @@ export async function POST(
 
     return NextResponse.json({ ok: true, invoice });
   } catch (error) {
+    if (error instanceof Error) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
     return adminApiErrorResponse(error);
   }
 }

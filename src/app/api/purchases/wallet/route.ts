@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import {
   propertyManagerApiErrorResponse,
@@ -8,6 +8,7 @@ import { sendLeadPurchaseEmail } from "@/lib/email/notifications";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
+import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
@@ -118,6 +119,7 @@ export async function POST(request: NextRequest) {
       amountCents: purchase.amount_cents,
       balanceCents: purchase.balance_cents,
     });
+    after(() => runBrevoWorkerSafely(10));
     revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
 
     return NextResponse.json({

@@ -1,6 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 const createRefundSchema = z.object({
   leadPurchaseId: z.string().uuid(),
@@ -223,6 +224,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: message }, { status: 422 });
       }
 
+      after(() => runBrevoWorkerSafely(10));
       return NextResponse.json({ ok: true, result: data });
     }
 

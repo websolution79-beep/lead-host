@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import {
   adminApiErrorResponse,
@@ -6,6 +6,7 @@ import {
 } from "@/lib/admin/auth";
 import { getManagedPropertiesLabel } from "@/lib/domain/pm-onboarding";
 import { buildPagination, readPagination } from "@/lib/api/pagination";
+import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 const updatePropertyManagerSchema = z.object({
   profileId: z.string().uuid(),
@@ -620,6 +621,7 @@ export async function PATCH(request: NextRequest) {
 
     if (pmUpdateError) throw pmUpdateError;
 
+    after(() => runBrevoWorkerSafely(10));
     return NextResponse.json({ ok: true });
   } catch (error) {
     return adminApiErrorResponse(error);

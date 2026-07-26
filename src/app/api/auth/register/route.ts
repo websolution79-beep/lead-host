@@ -7,6 +7,8 @@ import {
   createServerTrackingEventId,
   trackMetaHybridEvent,
 } from "@/lib/tracking/server-events";
+import { MARKETING_CONSENT_POLICY_VERSION } from "@/lib/brevo/config";
+import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 const registrationSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
@@ -21,6 +23,7 @@ const registrationSchema = z.object({
   ]),
   primaryCity: z.string().trim().min(2).max(120),
   password: z.string().min(8).max(128),
+  emailMarketingConsent: z.boolean().optional().default(false),
   trackingConsent: z
     .object({
       resolved: z.boolean(),
@@ -61,6 +64,8 @@ export async function POST(request: NextRequest) {
           phone: payload.phone,
           managed_properties_range: payload.managedPropertiesRange,
           primary_city: payload.primaryCity,
+          email_marketing_consent: payload.emailMarketingConsent,
+          email_marketing_policy_version: MARKETING_CONSENT_POLICY_VERSION,
         },
       },
     });
@@ -104,6 +109,10 @@ export async function POST(request: NextRequest) {
           },
         });
       });
+    }
+
+    if (data.user) {
+      after(() => runBrevoWorkerSafely(10));
     }
 
     return NextResponse.json({

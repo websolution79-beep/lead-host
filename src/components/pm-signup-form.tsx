@@ -20,6 +20,7 @@ export function PmSignupForm() {
   const [managedPropertiesRange, setManagedPropertiesRange] = useState("");
   const [primaryCity, setPrimaryCity] = useState("");
   const [password, setPassword] = useState("");
+  const [emailMarketingConsent, setEmailMarketingConsent] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,6 +68,7 @@ export function PmSignupForm() {
         managedPropertiesRange,
         primaryCity,
         password,
+        emailMarketingConsent,
         trackingConsent,
       }),
     });
@@ -270,6 +272,22 @@ export function PmSignupForm() {
         onChange={(event) => setPassword(event.target.value)}
         required
       />
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <input
+          className="mt-1 size-4 shrink-0 accent-green"
+          type="checkbox"
+          checked={emailMarketingConsent}
+          onChange={(event) => setEmailMarketingConsent(event.target.checked)}
+        />
+        <span className="text-sm leading-6 text-slate-700">
+          Acconsento a ricevere via email aggiornamenti, novità, offerte,
+          promozioni e contenuti gratuiti da Lead Host.
+          <span className="mt-1 block text-xs text-muted">
+            Facoltativo. Puoi modificare questa preferenza in qualsiasi momento
+            dal tuo profilo.
+          </span>
+        </span>
+      </label>
       {message ? (
         <p className="rounded-lg border border-green/20 bg-green/8 px-4 py-3 text-sm font-semibold text-green">
           {message}

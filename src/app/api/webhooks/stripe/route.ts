@@ -1,10 +1,11 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getEnv } from "@/lib/env";
 import { sendWalletTopUpEmail } from "@/lib/email/notifications";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
+import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -97,6 +98,10 @@ export async function POST(request: NextRequest) {
             });
       const emailResult =
         "ignored" in result ? null : await notifyWalletTopUp(result);
+
+      if (!("ignored" in result)) {
+        after(() => runBrevoWorkerSafely(10));
+      }
 
       return NextResponse.json({
         received: true,

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   KeyRound,
   ReceiptText,
+  ShieldCheck,
   UserCircle,
   UserRoundX,
   Wallet,
@@ -57,6 +58,7 @@ type BillingProfile = {
 };
 
 type NewLeadFrequency = "immediate" | "daily" | "every_3_days" | "off";
+type MarketingConsentStatus = "granted" | "not_granted" | "withdrawn";
 
 export function ProfileCenter() {
   const appSession = useAppSession();
@@ -84,6 +86,13 @@ export function ProfileCenter() {
   const [billingInvoiceEmail, setBillingInvoiceEmail] = useState("");
   const [newLeadFrequency, setNewLeadFrequency] =
     useState<NewLeadFrequency>("immediate");
+  const [marketingConsentEnabled, setMarketingConsentEnabled] = useState(false);
+  const [marketingConsentStatus, setMarketingConsentStatus] =
+    useState<MarketingConsentStatus>("not_granted");
+  const [marketingConsentUpdatedAt, setMarketingConsentUpdatedAt] =
+    useState<string | null>(null);
+  const [marketingPreferenceMessage, setMarketingPreferenceMessage] =
+    useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -92,6 +101,8 @@ export function ProfileCenter() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingBilling, setIsSavingBilling] = useState(false);
   const [isSavingEmailPreferences, setIsSavingEmailPreferences] = useState(false);
+  const [isSavingMarketingPreference, setIsSavingMarketingPreference] =
+    useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -156,11 +167,18 @@ export function ProfileCenter() {
       }
 
       if (accessToken) {
-        const preferencesResponse = await fetch("/api/notification-preferences", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+        const [preferencesResponse, marketingResponse] = await Promise.all([
+          fetch("/api/notification-preferences", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }),
+          fetch("/api/marketing-preferences", {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }),
+        ]);
 
         if (preferencesResponse.ok) {
           const result = (await preferencesResponse.json()) as {
@@ -169,6 +187,19 @@ export function ProfileCenter() {
             };
           };
           setNewLeadFrequency(result.preferences?.newLeadFrequency ?? "immediate");
+        }
+
+        if (marketingResponse.ok) {
+          const result = (await marketingResponse.json()) as {
+            preference?: {
+              status?: MarketingConsentStatus;
+              updated_at?: string | null;
+            };
+          };
+          const status = result.preference?.status ?? "not_granted";
+          setMarketingConsentStatus(status);
+          setMarketingConsentEnabled(status === "granted");
+          setMarketingConsentUpdatedAt(result.preference?.updated_at ?? null);
         }
       }
     }
@@ -218,6 +249,7 @@ export function ProfileCenter() {
       firstName: data.first_name,
       lastName: data.last_name,
     });
+    void kickBrevoSync();
     setStatusMessage("Profilo aggiornato.");
   }
 
@@ -341,6 +373,64 @@ export function ProfileCenter() {
     setStatusMessage("Preferenze email aggiornate.");
   }
 
+  async function handleMarketingPreferenceSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    setError("");
+    setMarketingPreferenceMessage("");
+    setIsSavingMarketingPreference(true);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (!accessToken) {
+      setIsSavingMarketingPreference(false);
+      setError("Sessione non trovata. Effettua di nuovo il login.");
+      return;
+    }
+
+    const response = await fetch("/api/marketing-preferences", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ enabled: marketingConsentEnabled }),
+    });
+    const result = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      preference?: {
+        status?: MarketingConsentStatus;
+        updated_at?: string;
+      };
+    };
+
+    setIsSavingMarketingPreference(false);
+
+    if (!response.ok) {
+      setError(
+        result.error ??
+          "Non sono riuscito ad aggiornare la preferenza marketing.",
+      );
+      return;
+    }
+
+    const status =
+      result.preference?.status ??
+      (marketingConsentEnabled ? "granted" : "withdrawn");
+    setMarketingConsentStatus(status);
+    setMarketingConsentEnabled(status === "granted");
+    setMarketingConsentUpdatedAt(
+      result.preference?.updated_at ?? new Date().toISOString(),
+    );
+    setMarketingPreferenceMessage(
+      status === "granted"
+        ? "Consenso alle comunicazioni commerciali attivato."
+        : "Consenso alle comunicazioni commerciali revocato.",
+    );
+  }
+
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
     if (!profile) return;
     const file = event.target.files?.[0];
@@ -415,6 +505,19 @@ export function ProfileCenter() {
     setNewPassword("");
     setConfirmPassword("");
     setStatusMessage("Password aggiornata.");
+  }
+
+  async function kickBrevoSync() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) return;
+
+    await fetch("/api/brevo/kick", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }).catch(() => undefined);
   }
 
   const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
@@ -571,6 +674,90 @@ export function ProfileCenter() {
               type="submit"
             >
               {isSavingEmailPreferences ? "Salvataggio..." : "Salva preferenze email"}
+            </button>
+          </form>
+        </section>
+
+        <section className="card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="section-kicker">Privacy e comunicazioni</p>
+              <h2 className="mt-2 text-2xl font-semibold text-ink">
+                Comunicazioni commerciali e aggiornamenti Lead Host
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                Puoi scegliere se ricevere novità, offerte, promozioni e
+                contenuti gratuiti. Le comunicazioni operative necessarie al
+                servizio e le email transazionali restano separate da questa
+                preferenza.
+              </p>
+            </div>
+            <span className="flex size-11 items-center justify-center rounded-xl bg-green/10 text-green">
+              <ShieldCheck size={22} />
+            </span>
+          </div>
+
+          <form
+            className="mt-6 grid gap-4"
+            onSubmit={handleMarketingPreferenceSubmit}
+          >
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                marketingConsentEnabled
+                  ? "border-green bg-green/8"
+                  : "border-slate-200 bg-white"
+              }`}
+            >
+              <input
+                className="mt-1 size-4 shrink-0 accent-green"
+                type="checkbox"
+                checked={marketingConsentEnabled}
+                onChange={(event) =>
+                  setMarketingConsentEnabled(event.target.checked)
+                }
+              />
+              <span>
+                <span className="block text-sm font-semibold text-ink">
+                  Acconsento a ricevere comunicazioni commerciali
+                </span>
+                <span className="mt-1 block text-sm leading-6 text-muted">
+                  Il consenso è facoltativo e può essere revocato in qualsiasi
+                  momento senza limitare l’utilizzo della piattaforma.
+                </span>
+              </span>
+            </label>
+
+            <p className="text-xs leading-5 text-muted">
+              Stato attuale:{" "}
+              <strong className="text-ink">
+                {marketingConsentStatus === "granted"
+                  ? "Consenso concesso"
+                  : marketingConsentStatus === "withdrawn"
+                    ? "Consenso revocato"
+                    : "Consenso non concesso"}
+              </strong>
+              {marketingConsentUpdatedAt
+                ? ` · Ultimo aggiornamento ${new Intl.DateTimeFormat("it-IT", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(marketingConsentUpdatedAt))}`
+                : ""}
+            </p>
+
+            {marketingPreferenceMessage ? (
+              <p className="rounded-lg border border-green/20 bg-green/8 px-4 py-3 text-sm font-semibold text-green">
+                {marketingPreferenceMessage}
+              </p>
+            ) : null}
+
+            <button
+              className="btn btn-primary"
+              disabled={isSavingMarketingPreference}
+              type="submit"
+            >
+              {isSavingMarketingPreference
+                ? "Salvataggio..."
+                : "Salva preferenza privacy"}
             </button>
           </form>
         </section>

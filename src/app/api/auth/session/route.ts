@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -7,6 +7,7 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth/session-cookies";
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
+import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 type SessionPayload = {
   accessToken?: string;
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(REFRESH_TOKEN_COOKIE, payload.refreshToken, getSessionCookieOptions());
   }
 
+  after(() => runBrevoWorkerSafely(10));
   return response;
 }
 

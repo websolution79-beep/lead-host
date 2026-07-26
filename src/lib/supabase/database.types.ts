@@ -75,6 +75,170 @@ export type Database = {
         };
         Relationships: [];
       };
+      pm_marketing_preferences: {
+        Row: {
+          profile_id: string;
+          status: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          source: string;
+          policy_version: string;
+          granted_at: string | null;
+          withdrawn_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          status?: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          source: string;
+          policy_version: string;
+          granted_at?: string | null;
+          withdrawn_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          status?: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          source?: string;
+          policy_version?: string;
+          granted_at?: string | null;
+          withdrawn_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pm_marketing_consent_events: {
+        Row: {
+          id: string;
+          profile_id: string;
+          status: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          source: string;
+          policy_version: string;
+          external_event_id: string | null;
+          evidence: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          status: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          source: string;
+          policy_version: string;
+          external_event_id?: string | null;
+          evidence?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          status?: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          source?: string;
+          policy_version?: string;
+          external_event_id?: string | null;
+          evidence?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      pm_brevo_snapshots: {
+        Row: {
+          profile_id: string;
+          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          registered_at: string;
+          last_access_at: string | null;
+          account_status: string;
+          marketing_consent_status:
+            Database["public"]["Enums"]["pm_marketing_consent_status"];
+          marketing_consent_updated_at: string;
+          wallet_balance_cents: number;
+          has_wallet_topup: boolean;
+          first_wallet_topup_at: string | null;
+          last_wallet_topup_at: string | null;
+          wallet_topups_count: number;
+          wallet_topups_total_cents: number;
+          lead_purchases_count: number;
+          first_lead_purchase_at: string | null;
+          last_lead_purchase_at: string | null;
+          lead_spend_gross_cents: number;
+          wallet_refunds_total_cents: number;
+          lead_spend_net_cents: number;
+          lifecycle_status: string;
+          updated_at: string;
+        };
+        Insert: {
+          profile_id: string;
+          email: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          registered_at: string;
+          last_access_at?: string | null;
+          account_status: string;
+          marketing_consent_status:
+            Database["public"]["Enums"]["pm_marketing_consent_status"];
+          marketing_consent_updated_at: string;
+          wallet_balance_cents?: number;
+          has_wallet_topup?: boolean;
+          first_wallet_topup_at?: string | null;
+          last_wallet_topup_at?: string | null;
+          wallet_topups_count?: number;
+          wallet_topups_total_cents?: number;
+          lead_purchases_count?: number;
+          first_lead_purchase_at?: string | null;
+          last_lead_purchase_at?: string | null;
+          lead_spend_gross_cents?: number;
+          wallet_refunds_total_cents?: number;
+          lead_spend_net_cents?: number;
+          lifecycle_status: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["pm_brevo_snapshots"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      brevo_outbox: {
+        Row: {
+          id: string;
+          profile_id: string;
+          event_type: string;
+          event_key: string;
+          payload: Json;
+          status: Database["public"]["Enums"]["brevo_outbox_status"];
+          attempts: number;
+          available_at: string;
+          locked_at: string | null;
+          locked_by: string | null;
+          last_error: string | null;
+          last_http_status: number | null;
+          processed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          event_type: string;
+          event_key: string;
+          payload?: Json;
+          status?: Database["public"]["Enums"]["brevo_outbox_status"];
+          attempts?: number;
+          available_at?: string;
+          locked_at?: string | null;
+          locked_by?: string | null;
+          last_error?: string | null;
+          last_http_status?: number | null;
+          processed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["brevo_outbox"]["Insert"]
+        >;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -840,8 +1004,60 @@ export type Database = {
         };
         Returns: Database["public"]["Tables"]["leads"]["Row"];
       };
+      enqueue_brevo_outbox_event: {
+        Args: {
+          p_profile_id: string;
+          p_event_type: string;
+          p_event_key: string;
+          p_payload?: Json;
+        };
+        Returns: string;
+      };
+      refresh_pm_brevo_snapshot: {
+        Args: {
+          p_profile_id: string;
+        };
+        Returns: Database["public"]["Tables"]["pm_brevo_snapshots"]["Row"];
+      };
+      record_pm_marketing_consent: {
+        Args: {
+          p_profile_id: string;
+          p_status: Database["public"]["Enums"]["pm_marketing_consent_status"];
+          p_source: string;
+          p_policy_version: string;
+          p_external_event_id?: string | null;
+          p_evidence?: Json;
+        };
+        Returns: Database["public"]["Tables"]["pm_marketing_preferences"]["Row"];
+      };
+      claim_brevo_outbox: {
+        Args: {
+          p_worker_id: string;
+          p_batch_size?: number;
+        };
+        Returns: Database["public"]["Tables"]["brevo_outbox"]["Row"][];
+      };
+      requeue_stale_brevo_outbox: {
+        Args: {
+          p_stale_after?: string;
+        };
+        Returns: number;
+      };
+      queue_brevo_reconciliation: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
-    Enums: Record<string, never>;
+    Enums: {
+      pm_marketing_consent_status: "granted" | "not_granted" | "withdrawn";
+      brevo_outbox_status:
+        | "pending"
+        | "processing"
+        | "retry"
+        | "completed"
+        | "dead_letter"
+        | "cancelled";
+    };
     CompositeTypes: Record<string, never>;
   };
 };

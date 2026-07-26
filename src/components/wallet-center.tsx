@@ -43,6 +43,7 @@ type WalletTransaction = {
 
 type CommercialSettingsResponse = {
   settings?: {
+    firstTopUpMinCents: number;
     minTopUpCents: number;
     quickTopUpCents: number[];
   };
@@ -51,6 +52,11 @@ type CommercialSettingsResponse = {
 type WalletReadiness = {
   billingComplete: boolean;
   missingLabels: string[];
+  hasCompletedTopUp: boolean;
+  isFirstTopUp: boolean;
+  firstTopUpMinCents: number;
+  subsequentTopUpMinCents: number;
+  effectiveMinTopUpCents: number;
 };
 
 const transactionLabels: Record<WalletTransaction["type"], string> = {
@@ -67,6 +73,8 @@ export function WalletCenter() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [topUpAmount, setTopUpAmount] = useState("30");
   const [minTopUpCents, setMinTopUpCents] = useState(3000);
+  const [firstTopUpMinCents, setFirstTopUpMinCents] = useState(3000);
+  const [subsequentTopUpMinCents, setSubsequentTopUpMinCents] = useState(1000);
   const [quickTopUps, setQuickTopUps] = useState([3000, 5000, 10000]);
   const [activeTab, setActiveTab] = useState<"movements" | "lead_purchases">(
     "movements",
@@ -89,10 +97,14 @@ export function WalletCenter() {
         const commercialSettings = payload.settings;
 
         if (commercialSettings) {
-          setMinTopUpCents(commercialSettings.minTopUpCents);
+          setFirstTopUpMinCents(commercialSettings.firstTopUpMinCents);
+          setSubsequentTopUpMinCents(commercialSettings.minTopUpCents);
+          setMinTopUpCents(commercialSettings.firstTopUpMinCents);
           setQuickTopUps(commercialSettings.quickTopUpCents);
           setTopUpAmount((current) =>
-            current === "30" ? formatAmountInput(commercialSettings.minTopUpCents) : current,
+            current === "30"
+              ? formatAmountInput(commercialSettings.firstTopUpMinCents)
+              : current,
           );
         }
       }
@@ -110,6 +122,15 @@ export function WalletCenter() {
           const readinessPayload =
             (await readinessResponse.json()) as WalletReadiness;
           setReadiness(readinessPayload);
+          setFirstTopUpMinCents(readinessPayload.firstTopUpMinCents);
+          setSubsequentTopUpMinCents(readinessPayload.subsequentTopUpMinCents);
+          setMinTopUpCents(readinessPayload.effectiveMinTopUpCents);
+          setTopUpAmount((current) =>
+            current === "30" ||
+            current === formatAmountInput(readinessPayload.firstTopUpMinCents)
+              ? formatAmountInput(readinessPayload.effectiveMinTopUpCents)
+              : current,
+          );
         }
       }
 
@@ -165,6 +186,10 @@ export function WalletCenter() {
   const canTopUp = topUpAmountCents >= minTopUpCents;
   const canStartCheckout =
     canTopUp && readiness?.billingComplete === true && termsAccepted;
+  const isFirstTopUp = readiness?.isFirstTopUp ?? true;
+  const availableQuickTopUps = quickTopUps.filter(
+    (amount) => amount >= minTopUpCents,
+  );
   const leadPurchaseTransactions = transactions.filter(
     (transaction) => transaction.type === "lead_purchase",
   );
@@ -216,15 +241,31 @@ export function WalletCenter() {
         error?: string;
         code?: string;
         missingLabels?: string[];
+        minTopUpCents?: number;
+        isFirstTopUp?: boolean;
       };
 
       if (!response.ok || !payload.checkoutUrl) {
-        setCheckoutError(payload.error ?? "Non sono riuscito ad aprire Stripe.");
+        setCheckoutError(
+          payload.code === "MIN_TOP_UP_REQUIRED" && payload.minTopUpCents
+            ? `Inserisci almeno ${formatCurrencyCents(payload.minTopUpCents, currency)}.`
+            : payload.error ?? "Non sono riuscito ad aprire Stripe.",
+        );
+        if (payload.code === "MIN_TOP_UP_REQUIRED" && payload.minTopUpCents) {
+          setMinTopUpCents(payload.minTopUpCents);
+        }
         if (payload.code === "BILLING_PROFILE_INCOMPLETE") {
-          setReadiness({
+          setReadiness((current) => ({
             billingComplete: false,
             missingLabels: payload.missingLabels ?? [],
-          });
+            hasCompletedTopUp: current?.hasCompletedTopUp ?? false,
+            isFirstTopUp: current?.isFirstTopUp ?? true,
+            firstTopUpMinCents: current?.firstTopUpMinCents ?? firstTopUpMinCents,
+            subsequentTopUpMinCents:
+              current?.subsequentTopUpMinCents ?? subsequentTopUpMinCents,
+            effectiveMinTopUpCents:
+              current?.effectiveMinTopUpCents ?? minTopUpCents,
+          }));
         }
         if (payload.code === "TERMS_VERSION_CHANGED") {
           setTermsAccepted(false);
@@ -267,30 +308,46 @@ export function WalletCenter() {
 
         <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-semibold text-ink">Scegli importo ricarica</p>
-          <p className="mt-1 text-xs leading-5 text-muted">
-            Importo minimo di ricarica: {formatCurrencyCents(minTopUpCents, currency)}.
-          </p>
+          {isFirstTopUp ? (
+            <div className="mt-1 text-xs leading-5 text-muted">
+              <p>
+                Importo minimo prima ricarica:{" "}
+                {formatCurrencyCents(firstTopUpMinCents, currency)}
+              </p>
+              <p>
+                Ricariche minime successive:{" "}
+                {formatCurrencyCents(subsequentTopUpMinCents, currency)}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs leading-5 text-muted">
+              Importo minimo di ricarica:{" "}
+              {formatCurrencyCents(minTopUpCents, currency)}
+            </p>
+          )}
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {quickTopUps.map((amount) => {
-              const isSelected = topUpAmountCents === amount;
+          {availableQuickTopUps.length ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {availableQuickTopUps.map((amount) => {
+                const isSelected = topUpAmountCents === amount;
 
-              return (
-                <button
-                  key={amount}
-                  className={`rounded-lg border px-4 py-3 text-sm font-semibold transition ${
-                    isSelected
-                      ? "border-green bg-green/10 text-green"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-green/40 hover:text-green"
-                  }`}
-                  type="button"
-                  onClick={() => setTopUpAmount(formatAmountInput(amount))}
-                >
-                  {formatCurrencyCents(amount, currency)}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={amount}
+                    className={`rounded-lg border px-4 py-3 text-sm font-semibold transition ${
+                      isSelected
+                        ? "border-green bg-green/10 text-green"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-green/40 hover:text-green"
+                    }`}
+                    type="button"
+                    onClick={() => setTopUpAmount(formatAmountInput(amount))}
+                  >
+                    {formatCurrencyCents(amount, currency)}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           <label className="mt-4 grid gap-2 text-sm font-semibold text-ink">
             Importo da caricare

@@ -11,6 +11,7 @@ import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { appUrl, getEnv } from "@/lib/env";
 import { recordTermsAcceptance } from "@/lib/legal/acceptances";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
+import { resolveWalletTopUpPolicy } from "@/lib/wallet/top-up-policy";
 
 const checkoutSchema = z.object({
   amountCents: z.number().int().positive().max(200000),
@@ -112,13 +113,19 @@ export async function POST(request: NextRequest) {
     }
 
     const { settings } = await fetchCommercialSettings(supabase);
+    const topUpPolicy = await resolveWalletTopUpPolicy({
+      supabase,
+      profileId: profile.id,
+      settings,
+    });
 
-    if (payload.amountCents < settings.minTopUpCents) {
+    if (payload.amountCents < topUpPolicy.effectiveMinTopUpCents) {
       return NextResponse.json(
         {
           error: "Importo inferiore alla ricarica minima.",
           code: "MIN_TOP_UP_REQUIRED",
-          minTopUpCents: settings.minTopUpCents,
+          minTopUpCents: topUpPolicy.effectiveMinTopUpCents,
+          isFirstTopUp: topUpPolicy.isFirstTopUp,
         },
         { status: 400 },
       );

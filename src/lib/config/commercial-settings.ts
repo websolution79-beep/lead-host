@@ -16,6 +16,7 @@ export type LeadPriceRule = {
 };
 
 export type CommercialSettings = {
+  firstTopUpMinCents: number;
   minTopUpCents: number;
   quickTopUpCents: number[];
   defaultSharedLeadPriceCents: number;
@@ -34,6 +35,7 @@ export type LeadPricingSuggestion = {
 };
 
 const SETTINGS_KEYS = {
+  firstTopUpMinCents: "wallet.first_top_up_min_cents",
   minTopUpCents: "wallet.min_top_up_cents",
   quickTopUpCents: "wallet.quick_top_up_cents",
   sharedPriceCents: "lead.shared_price_cents",
@@ -44,7 +46,8 @@ const SETTINGS_KEYS = {
 } as const;
 
 export const defaultCommercialSettings: CommercialSettings = {
-  minTopUpCents: 3000,
+  firstTopUpMinCents: 3000,
+  minTopUpCents: 1000,
   quickTopUpCents: [3000, 5000, 10000],
   defaultSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
   defaultExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
@@ -85,6 +88,10 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
 
   const values = new Map((data ?? []).map((row) => [row.key, row.value]));
   const settings: CommercialSettings = {
+    firstTopUpMinCents: parseCents(
+      values.get(SETTINGS_KEYS.firstTopUpMinCents),
+      defaultCommercialSettings.firstTopUpMinCents,
+    ),
     minTopUpCents: parseCents(
       values.get(SETTINGS_KEYS.minTopUpCents),
       defaultCommercialSettings.minTopUpCents,
@@ -128,6 +135,11 @@ export async function saveCommercialSettings({
   settings: CommercialSettings;
 }) {
   const rows = [
+    {
+      key: SETTINGS_KEYS.firstTopUpMinCents,
+      value: settings.firstTopUpMinCents,
+      updated_by: profileId,
+    },
     {
       key: SETTINGS_KEYS.minTopUpCents,
       value: settings.minTopUpCents,

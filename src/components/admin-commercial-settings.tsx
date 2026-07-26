@@ -30,7 +30,8 @@ type SettingsResponse = {
 type ActiveTab = "registrations" | "wallet" | "lead_prices" | "geo_rules";
 
 const emptySettings: CommercialSettings = {
-  minTopUpCents: 3000,
+  firstTopUpMinCents: 3000,
+  minTopUpCents: 1000,
   quickTopUpCents: [3000, 5000, 10000],
   defaultSharedLeadPriceCents: 2900,
   defaultExclusiveLeadPriceCents: 5000,
@@ -264,7 +265,12 @@ function WalletSettings({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+      <div className="mt-6 grid gap-5 lg:grid-cols-3">
+        <EuroField
+          label="Importo minimo prima ricarica"
+          valueCents={settings.firstTopUpMinCents}
+          onChange={(value) => onChange({ firstTopUpMinCents: value })}
+        />
         <EuroField
           label="Importo minimo ricarica"
           valueCents={settings.minTopUpCents}

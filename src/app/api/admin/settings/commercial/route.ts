@@ -17,6 +17,7 @@ const priceRuleSchema = z.object({
 });
 
 const commercialSettingsSchema = z.object({
+  firstTopUpMinCents: z.number().int().min(100).max(100000),
   minTopUpCents: z.number().int().min(100).max(100000),
   quickTopUpCents: z.array(z.number().int().min(100).max(100000)).min(1).max(6),
   defaultSharedLeadPriceCents: z.number().int().min(100).max(100000),

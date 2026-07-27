@@ -305,7 +305,7 @@ export function AdminLeadsConsole() {
       </div>
 
       <div className="card p-4">
-        <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+        <div className="grid gap-4">
           <div className="min-w-0">
             <p className="section-kicker flex items-center gap-2">
               <ListChecks size={15} />
@@ -315,7 +315,7 @@ export function AdminLeadsConsole() {
               Lead proprietari da verificare e pubblicare
             </h2>
           </div>
-          <div className="grid gap-3 lg:grid-cols-[auto_280px] lg:items-center">
+          <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] xl:items-center">
             <div className="admin-filter-tabs">
               {[
                 ["completion", "Da completare"],

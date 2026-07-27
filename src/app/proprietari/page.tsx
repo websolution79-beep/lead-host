@@ -93,6 +93,19 @@ export default function OwnerLandingPage() {
             <OwnerRequestForm />
           </div>
         </div>
+
+        <div className="flex flex-col gap-5 border-t border-slate-200 py-10 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="section-kicker">Sei un Property Manager?</p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink sm:text-3xl">
+              Scopri le richieste dei proprietari nel marketplace Lead Host.
+            </h2>
+          </div>
+          <Link className="btn btn-secondary shrink-0" href="/">
+            Scopri Lead Host per Property Manager
+            <ArrowRight size={18} />
+          </Link>
+        </div>
       </section>
     </main>
   );

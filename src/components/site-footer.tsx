@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { publicAudienceLinks } from "@/lib/seo/public-pages";
+
 const footerLinks = [
   {
     label: "Privacy Policy",
@@ -15,26 +18,62 @@ const footerLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 py-6 text-center sm:px-8 lg:flex-row lg:text-left">
-        <p className="text-sm font-medium text-slate-600">
-          ©2026 – Lead Host - 17750971008 | All Right Reserved
-        </p>
+    <footer id="site-footer" className="border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-7xl gap-8 px-5 py-9 text-center sm:px-8 md:grid-cols-[1.3fr_0.8fr_0.9fr] md:text-left">
+        <div>
+          <Link
+            href="/"
+            className="text-base font-extrabold uppercase tracking-[0.14em] text-green"
+          >
+            Lead Host
+          </Link>
+          <p className="mt-3 max-w-md text-sm leading-6 text-slate-600">
+            Marketplace per Property Manager che cercano immobili da gestire
+            per affitti brevi.
+          </p>
+          <p className="mt-4 text-sm font-medium text-slate-600">
+            ©2026 – Lead Host - 17750971008 | All Right Reserved
+          </p>
+        </div>
+
         <nav
-          className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2"
+          aria-label="Pagine pubbliche"
+        >
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-900">
+            Piattaforma
+          </p>
+          <div className="mt-3 flex flex-col items-center gap-2 md:items-start">
+            {publicAudienceLinks.map((link) => (
+              <Link
+                key={link.path}
+                className="text-sm font-semibold text-slate-600 underline-offset-4 transition hover:text-green hover:underline"
+                href={link.path}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </nav>
+
+        <nav
           aria-label="Link legali"
         >
-          {footerLinks.map((link) => (
-            <a
-              key={link.href}
-              className="text-sm font-semibold text-slate-600 underline-offset-4 transition hover:text-green hover:underline"
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {link.label}
-            </a>
-          ))}
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-slate-900">
+            Informazioni legali
+          </p>
+          <div className="mt-3 flex flex-col items-center gap-2 md:items-start">
+            {footerLinks.map((link) => (
+              <a
+                key={link.href}
+                className="text-sm font-semibold text-slate-600 underline-offset-4 transition hover:text-green hover:underline"
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
         </nav>
       </div>
     </footer>

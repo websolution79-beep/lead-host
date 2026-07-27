@@ -440,6 +440,28 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="border-y border-slate-200 bg-fog">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-10 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="section-kicker">Sei un proprietario?</p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink sm:text-3xl">
+              Cerchi un Property Manager per il tuo immobile?
+            </h2>
+            <p className="mt-3 max-w-2xl leading-7 text-muted">
+              Invia gratuitamente la richiesta e presentala a un massimo di due
+              Property Manager interessati alla gestione per affitti brevi.
+            </p>
+          </div>
+          <Link
+            className="btn btn-secondary shrink-0"
+            href="/proprietari"
+          >
+            Vai alla pagina proprietari
+            <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink/10 bg-white/94 p-3 shadow-[0_-18px_40px_rgba(15,23,42,0.12)] backdrop-blur sm:hidden">
         <Link className="btn btn-primary w-full" href="#iscrizione">
           Registrati gratis

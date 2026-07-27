@@ -1,28 +1,11 @@
 import type { MetadataRoute } from "next";
-
-const siteUrl = "https://www.leadhost.it";
+import { publicSitemapPages } from "@/lib/seo/public-pages";
+import { siteUrl } from "@/lib/seo/structured-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: siteUrl,
-      changeFrequency: "weekly",
-      priority: 1,
-    },
-    {
-      url: `${siteUrl}/accesso-anticipato`,
-      changeFrequency: "weekly",
-      priority: 0.8,
-    },
-    {
-      url: `${siteUrl}/proprietari`,
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${siteUrl}/termini`,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-  ];
+  return publicSitemapPages.map((page) => ({
+    url: new URL(page.path, siteUrl).toString(),
+    changeFrequency: page.changeFrequency,
+    priority: page.priority,
+  }));
 }

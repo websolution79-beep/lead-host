@@ -1,16 +1,26 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ArrowUp, BookOpen, CalendarDays, FileText } from "lucide-react";
+import { PublicBreadcrumbs } from "@/components/public-breadcrumbs";
 import { PublicNav } from "@/components/public-nav";
+import { StructuredData } from "@/components/structured-data";
 import {
   CURRENT_TERMS_EFFECTIVE_FROM,
   CURRENT_TERMS_LAST_UPDATED,
   CURRENT_TERMS_VERSION,
 } from "@/lib/legal/terms";
+import {
+  createBreadcrumbStructuredData,
+  type SeoBreadcrumbItem,
+} from "@/lib/seo/structured-data";
 
 const pageTitle = "Condizioni Generali del Servizio | Lead Host";
 const pageDescription =
   "Consulta le Condizioni Generali che regolano la registrazione e l'utilizzo della piattaforma Lead Host.";
+const breadcrumbs: SeoBreadcrumbItem[] = [
+  { name: "Home", path: "/" },
+  { name: "Condizioni Generali", path: "/termini" },
+];
 
 export const metadata: Metadata = {
   title: {
@@ -1674,8 +1684,12 @@ Email: info@leadhost.it`}
 export default function TermsPage() {
   return (
     <main id="inizio-condizioni" className="min-h-screen bg-paper">
+      <StructuredData data={createBreadcrumbStructuredData(breadcrumbs)} />
       <div className="mx-auto max-w-7xl px-5 py-5 sm:px-8">
         <PublicNav />
+        <div className="mt-8">
+          <PublicBreadcrumbs items={breadcrumbs} />
+        </div>
       </div>
 
       <header className="border-y border-slate-200 bg-white">

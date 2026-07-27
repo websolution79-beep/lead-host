@@ -22,12 +22,22 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { PublicBreadcrumbs } from "@/components/public-breadcrumbs";
+import { StructuredData } from "@/components/structured-data";
+import {
+  createBreadcrumbStructuredData,
+  type SeoBreadcrumbItem,
+} from "@/lib/seo/structured-data";
 import styles from "./landing.module.css";
 
 const telegramUrl = "https://t.me/+nZiF2verYaUzNzg0";
 const pageTitle = "Cerchi immobili da gestire? | Lead Host";
 const pageDescription =
   "Scopri un modo diverso per trovare immobili da gestire: visualizza le richieste dei proprietari prima di decidere quali lead acquistare.";
+const breadcrumbs: SeoBreadcrumbItem[] = [
+  { name: "Home", path: "/" },
+  { name: "Accesso anticipato", path: "/accesso-anticipato" },
+];
 
 export const metadata: Metadata = {
   title: {
@@ -125,6 +135,7 @@ const faqs = [
 export default function EarlyAccessLandingPage() {
   return (
     <main className="overflow-hidden bg-white text-ink">
+      <StructuredData data={createBreadcrumbStructuredData(breadcrumbs)} />
       <section className="relative min-h-[92svh] overflow-hidden bg-graphite text-white">
         <Image
           src="/images/lead-host-early-access-hero.webp"
@@ -152,6 +163,9 @@ export default function EarlyAccessLandingPage() {
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
               Apertura 3 agosto · ore 11:00
             </div>
+          </div>
+          <div className="mt-5">
+            <PublicBreadcrumbs items={breadcrumbs} variant="dark" />
           </div>
 
           <div

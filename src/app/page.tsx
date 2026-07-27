@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { PmSignupForm } from "@/components/pm-signup-form";
 import { PublicNav } from "@/components/public-nav";
+import { StructuredData } from "@/components/structured-data";
+import { leadHostHomeStructuredData } from "@/lib/seo/structured-data";
 
 const homeTitle = "Immobili da gestire per Property Manager | Lead Host";
 const homeDescription =
@@ -157,6 +159,7 @@ const faqs = [
 export default function Home() {
   return (
     <main className="bg-white pb-20 sm:pb-0">
+      <StructuredData data={leadHostHomeStructuredData} />
       <section className="relative min-h-[88svh] overflow-hidden bg-graphite text-white">
         <Image
           src="/images/lead-host-pm-hero.png"

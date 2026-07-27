@@ -1,15 +1,21 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppAreaChrome } from "@/components/app-area-chrome";
 import { AppSessionProvider } from "@/components/app-session-provider";
 import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
+import { privatePageRobots } from "@/lib/seo/robots";
 
 type AdminAreaLayoutProps = {
   children: ReactNode;
 };
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  robots: privatePageRobots,
+};
 
 export default async function AdminAreaLayout({ children }: AdminAreaLayoutProps) {
   const session = await getServerSessionProfile();

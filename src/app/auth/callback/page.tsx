@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PublicNav } from "@/components/public-nav";
 import { AuthCallbackClient } from "@/components/auth-callback-client";
+import { privatePageRobots } from "@/lib/seo/robots";
+
+export const metadata: Metadata = {
+  title: "Verifica account",
+  robots: privatePageRobots,
+};
 
 export default function AuthCallbackPage() {
   return (

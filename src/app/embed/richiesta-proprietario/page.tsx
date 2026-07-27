@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { OwnerRequestForm } from "@/components/owner-request-form";
+import { privatePageRobots } from "@/lib/seo/robots";
 
 export const metadata: Metadata = {
   title: "Richiesta proprietario",
-  robots: {
-    index: false,
-    follow: false,
-  },
+  robots: privatePageRobots,
 };
 
 export default function OwnerRequestEmbedPage() {

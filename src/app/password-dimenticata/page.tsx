@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicNav } from "@/components/public-nav";
 import { PasswordResetRequestForm } from "@/components/password-reset-request-form";
+import { privatePageRobots } from "@/lib/seo/robots";
+
+export const metadata: Metadata = {
+  title: "Recupera password",
+  robots: privatePageRobots,
+};
 
 export default function ForgotPasswordPage() {
   return (

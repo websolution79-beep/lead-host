@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { PublicNav } from "@/components/public-nav";
 import { PasswordUpdateForm } from "@/components/password-update-form";
+import { privatePageRobots } from "@/lib/seo/robots";
+
+export const metadata: Metadata = {
+  title: "Reimposta password",
+  robots: privatePageRobots,
+};
 
 export default function ResetPasswordPage() {
   return (

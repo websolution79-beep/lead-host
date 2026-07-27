@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { PublicNav } from "@/components/public-nav";
+import { nonIndexablePublicPageRobots } from "@/lib/seo/robots";
+
+export const metadata: Metadata = {
+  title: "Cookie Policy",
+  robots: nonIndexablePublicPageRobots,
+};
 
 export default function CookiePolicyPage() {
   return (

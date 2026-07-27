@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PublicNav } from "@/components/public-nav";
+import { privatePageRobots } from "@/lib/seo/robots";
+
+export const metadata: Metadata = {
+  title: "Registrazione completata",
+  robots: privatePageRobots,
+};
 
 type RegistrationCompletedPageProps = {
   searchParams: Promise<{

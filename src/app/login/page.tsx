@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { PublicNav } from "@/components/public-nav";
 import { LoginForm } from "@/components/login-form";
+import { privatePageRobots } from "@/lib/seo/robots";
+
+export const metadata: Metadata = {
+  title: "Accedi",
+  robots: privatePageRobots,
+};
 
 export default function LoginPage() {
   return (

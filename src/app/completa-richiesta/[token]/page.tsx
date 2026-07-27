@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Clock3, ShieldCheck } from "lucide-react";
 import { OwnerRequestForm } from "@/components/owner-request-form";
 import { PublicNav } from "@/components/public-nav";
@@ -5,7 +6,13 @@ import {
   hashOwnerRequestCompletionToken,
   isOwnerRequestCompletionExpired,
 } from "@/lib/owner-requests/completion-token";
+import { privatePageRobots } from "@/lib/seo/robots";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Completa la richiesta",
+  robots: privatePageRobots,
+};
 
 type CompletionPageProps = {
   params: Promise<{

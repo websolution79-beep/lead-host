@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -20,6 +21,42 @@ import {
 } from "lucide-react";
 import { PmSignupForm } from "@/components/pm-signup-form";
 import { PublicNav } from "@/components/public-nav";
+
+const homeTitle = "Immobili da gestire per Property Manager | Lead Host";
+const homeDescription =
+  "Trova richieste di proprietari interessati agli affitti brevi su Airbnb e Booking. Valuta immobile e zona prima di acquistare il contatto.";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: homeTitle,
+  },
+  description: homeDescription,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "it_IT",
+    url: "/",
+    siteName: "Lead Host",
+    title: homeTitle,
+    description: homeDescription,
+    images: [
+      {
+        url: "/images/lead-host-pm-hero.png",
+        width: 1717,
+        height: 916,
+        alt: "Appartamento per affitti brevi disponibile su Lead Host",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: homeTitle,
+    description: homeDescription,
+    images: ["/images/lead-host-pm-hero.png"],
+  },
+};
 
 const proofPoints = [
   { value: "Gratis", label: "iscrizione PM" },

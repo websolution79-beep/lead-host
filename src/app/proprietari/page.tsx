@@ -1,7 +1,44 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { PublicNav } from "@/components/public-nav";
 import { OwnerRequestForm } from "@/components/owner-request-form";
+
+const pageTitle = "Trova un Property Manager per affitti brevi | Lead Host";
+const pageDescription =
+  "Invia gratuitamente la richiesta per il tuo immobile e ricevi il contatto di massimo due Property Manager interessati alla gestione per affitti brevi.";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: pageTitle,
+  },
+  description: pageDescription,
+  alternates: {
+    canonical: "/proprietari",
+  },
+  openGraph: {
+    type: "website",
+    locale: "it_IT",
+    url: "/proprietari",
+    siteName: "Lead Host",
+    title: pageTitle,
+    description: pageDescription,
+    images: [
+      {
+        url: "/images/lead-host-pm-hero.png",
+        width: 1717,
+        height: 916,
+        alt: "Trova un Property Manager per il tuo immobile",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: pageTitle,
+    description: pageDescription,
+    images: ["/images/lead-host-pm-hero.png"],
+  },
+};
 
 const assurances = [
   "Richiesta gratuita e senza obblighi",

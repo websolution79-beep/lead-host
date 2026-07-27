@@ -22,12 +22,36 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.leadhost.it"),
+  applicationName: "Lead Host",
   title: {
-    default: "Lead Host",
+    default: "Lead Host | Marketplace per Property Manager",
     template: "%s | Lead Host",
   },
   description:
-    "Marketplace verticale per proprietari e Property Manager in Italia.",
+    "Lead Host è il marketplace italiano dove i Property Manager trovano richieste di proprietari interessati alla gestione per affitti brevi.",
+  openGraph: {
+    type: "website",
+    locale: "it_IT",
+    siteName: "Lead Host",
+    title: "Lead Host | Marketplace per Property Manager",
+    description:
+      "Trova richieste di proprietari interessati agli affitti brevi e valuta ogni opportunità prima di acquistare il contatto.",
+    images: [
+      {
+        url: "/images/lead-host-pm-hero.png",
+        width: 1717,
+        height: 916,
+        alt: "Lead Host, marketplace per Property Manager",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Lead Host | Marketplace per Property Manager",
+    description:
+      "Trova richieste di proprietari interessati agli affitti brevi e valuta ogni opportunità prima di acquistare il contatto.",
+    images: ["/images/lead-host-pm-hero.png"],
+  },
 };
 
 export default function RootLayout({

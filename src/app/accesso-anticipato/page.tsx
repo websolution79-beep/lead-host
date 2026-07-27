@@ -25,15 +25,37 @@ import {
 import styles from "./landing.module.css";
 
 const telegramUrl = "https://t.me/+nZiF2verYaUzNzg0";
+const pageTitle = "Cerchi immobili da gestire? | Lead Host";
+const pageDescription =
+  "Scopri un modo diverso per trovare immobili da gestire: visualizza le richieste dei proprietari prima di decidere quali lead acquistare.";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Cerchi immobili da gestire? | Lead Host",
+    absolute: pageTitle,
   },
-  description:
-    "Scopri un modo diverso per trovare immobili da gestire: visualizza le richieste dei proprietari prima di decidere quali lead acquistare.",
+  description: pageDescription,
   alternates: {
     canonical: "/accesso-anticipato",
+  },
+  openGraph: {
+    type: "website",
+    locale: "it_IT",
+    url: "/accesso-anticipato",
+    siteName: "Lead Host",
+    title: pageTitle,
+    description: pageDescription,
+    images: [
+      {
+        url: "/images/lead-host-early-access-hero.webp",
+        alt: "Accesso anticipato a Lead Host per Property Manager",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: pageTitle,
+    description: pageDescription,
+    images: ["/images/lead-host-early-access-hero.webp"],
   },
 };
 

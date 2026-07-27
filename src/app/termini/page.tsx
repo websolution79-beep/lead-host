@@ -8,9 +8,40 @@ import {
   CURRENT_TERMS_VERSION,
 } from "@/lib/legal/terms";
 
+const pageTitle = "Condizioni Generali del Servizio | Lead Host";
+const pageDescription =
+  "Consulta le Condizioni Generali che regolano la registrazione e l'utilizzo della piattaforma Lead Host.";
+
 export const metadata: Metadata = {
-  title: "Condizioni Generali del Servizio",
-  description: "Condizioni Generali del Servizio Lead Host.",
+  title: {
+    absolute: pageTitle,
+  },
+  description: pageDescription,
+  alternates: {
+    canonical: "/termini",
+  },
+  openGraph: {
+    type: "article",
+    locale: "it_IT",
+    url: "/termini",
+    siteName: "Lead Host",
+    title: pageTitle,
+    description: pageDescription,
+    images: [
+      {
+        url: "/images/lead-host-pm-hero.png",
+        width: 1717,
+        height: 916,
+        alt: "Condizioni Generali del Servizio Lead Host",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: pageTitle,
+    description: pageDescription,
+    images: ["/images/lead-host-pm-hero.png"],
+  },
 };
 
 const termsDocument = {

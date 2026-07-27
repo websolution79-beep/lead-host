@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://leadhost.it"),
+  metadataBase: new URL("https://www.leadhost.it"),
   title: {
     default: "Lead Host",
     template: "%s | Lead Host",

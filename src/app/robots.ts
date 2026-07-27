@@ -1,0 +1,23 @@
+import type { MetadataRoute } from "next";
+
+const siteUrl = "https://www.leadhost.it";
+
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: {
+      userAgent: "*",
+      allow: "/",
+      disallow: [
+        "/admin",
+        "/app",
+        "/api",
+        "/auth",
+        "/embed",
+        "/completa-richiesta",
+        "/reimposta-password",
+      ],
+    },
+    sitemap: `${siteUrl}/sitemap.xml`,
+    host: siteUrl,
+  };
+}

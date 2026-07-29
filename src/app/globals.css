@@ -39,6 +39,21 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+html:has([data-leadhost-embed-root]),
+body:has([data-leadhost-embed-root]) {
+  min-height: 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+body:has([data-leadhost-embed-root]) :is(
+  #iubenda-cs-banner,
+  #iubenda-iframe,
+  .iubenda-cs-container
+) {
+  display: none !important;
+}
+
 a {
   text-decoration: none;
 }

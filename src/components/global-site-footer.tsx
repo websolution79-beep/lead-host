@@ -9,7 +9,9 @@ export function GlobalSiteFooter() {
     pathname === "/app" ||
     pathname.startsWith("/app/") ||
     pathname === "/admin" ||
-    pathname.startsWith("/admin/");
+    pathname.startsWith("/admin/") ||
+    pathname === "/embed" ||
+    pathname.startsWith("/embed/");
 
   return isProtectedArea ? null : <SiteFooter />;
 }

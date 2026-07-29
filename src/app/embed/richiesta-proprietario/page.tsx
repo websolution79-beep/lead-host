@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { OwnerRequestEmbedShell } from "@/components/owner-request-embed-shell";
 import { OwnerRequestForm } from "@/components/owner-request-form";
 import { privatePageRobots } from "@/lib/seo/robots";
 
@@ -9,10 +10,8 @@ export const metadata: Metadata = {
 
 export default function OwnerRequestEmbedPage() {
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-3xl px-3 py-3 sm:px-4 sm:py-4">
-        <OwnerRequestForm variant="embed" />
-      </div>
-    </main>
+    <OwnerRequestEmbedShell>
+      <OwnerRequestForm variant="embed" />
+    </OwnerRequestEmbedShell>
   );
 }

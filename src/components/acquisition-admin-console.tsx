@@ -172,7 +172,26 @@ function OverviewTab({
 
 function OwnersTab({ landingUrl, embedUrl }: { landingUrl: string; embedUrl: string }) {
   const trackedEmbedUrl = `${embedUrl}?utm_source=landing-esterna&utm_medium=iframe&utm_campaign=nome-campagna`;
-  const iframeCode = `<iframe src="${trackedEmbedUrl}" width="100%" height="920" style="border:0;max-width:100%;" loading="lazy" title="Richiesta proprietario Lead Host"></iframe>`;
+  const embedOrigin = new URL(embedUrl).origin;
+  const iframeCode = `<iframe id="leadhost-owner-form" src="${trackedEmbedUrl}" width="100%" style="border:0;width:100%;height:1px;overflow:hidden;" scrolling="no" loading="lazy" title="Richiesta proprietario Lead Host"></iframe>
+<script>
+window.addEventListener("message", function (event) {
+  var iframe = document.getElementById("leadhost-owner-form");
+  var data = event.data;
+  if (
+    event.origin !== "${embedOrigin}" ||
+    !iframe ||
+    event.source !== iframe.contentWindow ||
+    !data ||
+    data.type !== "leadhost-embed-resize"
+  ) return;
+
+  var height = Number(data.height);
+  if (Number.isFinite(height) && height > 0) {
+    iframe.style.height = Math.ceil(height) + "px";
+  }
+});
+</script>`;
 
   return (
     <div className="grid gap-5">
@@ -230,6 +249,7 @@ function OwnersTab({ landingUrl, embedUrl }: { landingUrl: string; embedUrl: str
           </div>
           <p className="mt-3 text-sm leading-6 text-muted">
             Cambia i parametri UTM per distinguere dominio, campagna o landing esterna.
+            Lo script aggiorna automaticamente l&apos;altezza del form senza scrollbar.
           </p>
         </div>
       </div>

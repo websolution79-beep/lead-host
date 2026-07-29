@@ -7,13 +7,13 @@ import {
   Code2,
   FileText,
   Globe2,
-  KeyRound,
   Link2,
   Megaphone,
   Route,
   Settings2,
   ShieldCheck,
 } from "lucide-react";
+import { AdminOwnerLeadApiConsole } from "@/components/admin-owner-lead-api-console";
 
 type AcquisitionTab = "overview" | "owners" | "meta" | "manual";
 
@@ -122,7 +122,7 @@ export function AcquisitionAdminConsole({
             })}
           </div>
         </div>
-        <div className="p-5 sm:p-6">{activeContent}</div>
+        <div className="min-w-0 p-5 sm:p-6">{activeContent}</div>
       </section>
     </div>
   );
@@ -318,31 +318,7 @@ function MetaTab({
 }
 
 function ManualTab() {
-  return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-      <div>
-        <p className="section-kicker">Manuale/API</p>
-        <h2 className="mt-2 text-2xl font-semibold text-ink">
-          Inserimenti interni e integrazioni future
-        </h2>
-        <p className="mt-3 max-w-3xl leading-7 text-muted">
-          Questa tab resta pronta per lead creati manualmente dal team o ricevuti da
-          partner esterni via API. Anche questi confluiranno nella pagina Lead in
-          stato pending.
-        </p>
-      </div>
-      <div className="rounded-lg border border-slate-200 bg-paper p-4">
-        <p className="flex items-center gap-2 text-sm font-bold text-ink">
-          <KeyRound size={17} className="text-green" />
-          Sicurezza prevista
-        </p>
-        <p className="mt-2 text-sm leading-6 text-muted">
-          Ogni endpoint API dovra usare chiavi server-side, idempotenza, audit log e
-          validazione schema prima di creare richieste proprietario.
-        </p>
-      </div>
-    </div>
-  );
+  return <AdminOwnerLeadApiConsole />;
 }
 
 function AcquisitionSummary({

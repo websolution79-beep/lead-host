@@ -12,9 +12,16 @@ import { appUrl, getEnv } from "@/lib/env";
 import { recordTermsAcceptance } from "@/lib/legal/acceptances";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { resolveWalletTopUpPolicy } from "@/lib/wallet/top-up-policy";
+import {
+  cancelWalletTopUpCouponReservation,
+  reserveWalletTopUpCoupon,
+  WalletCouponError,
+  type WalletCouponReservation,
+} from "@/lib/wallet/coupons";
 
 const checkoutSchema = z.object({
   amountCents: z.number().int().positive().max(200000),
+  couponCode: z.string().trim().min(3).max(40).optional(),
   termsAccepted: z.literal(true),
   termsVersion: z.string().trim().min(1),
   trackingConsent: z
@@ -201,12 +208,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let couponReservation: WalletCouponReservation | null = null;
+    const checkoutExpiresAtSeconds =
+      Math.floor(Date.now() / 1000) + 32 * 60;
+
+    if (payload.couponCode) {
+      try {
+        couponReservation = await reserveWalletTopUpCoupon({
+          supabase,
+          profileId: profile.id,
+          walletTransactionId: transaction.id,
+          code: payload.couponCode,
+          paidAmountCents: payload.amountCents,
+          expiresAt: new Date(checkoutExpiresAtSeconds * 1000).toISOString(),
+        });
+      } catch (error) {
+        await supabase
+          .from("wallet_transactions")
+          .update({ status: "failed" })
+          .eq("id", transaction.id);
+        throw error;
+      }
+    }
+
+    const couponMetadata: Record<string, string> = couponReservation
+      ? {
+          coupon_redemption_id: couponReservation.redemptionId,
+          coupon_code: couponReservation.code,
+          coupon_bonus_cents: String(couponReservation.bonusAmountCents),
+        }
+      : {};
     const stripe = new Stripe(stripeSecretKey);
-    const checkoutSession = await stripe.checkout.sessions.create(
-      {
+    let checkoutSession: Stripe.Checkout.Session;
+
+    try {
+      checkoutSession = await stripe.checkout.sessions.create(
+        {
         mode: "payment",
         success_url: `${appUrl}/app/acquisti?wallet=success`,
         cancel_url: `${appUrl}/app/acquisti?wallet=cancelled`,
+        ...(couponReservation
+          ? { expires_at: checkoutExpiresAtSeconds }
+          : {}),
         customer_email: profile.email,
         client_reference_id: transaction.id,
         metadata: {
@@ -219,6 +262,7 @@ export async function POST(request: NextRequest) {
           tracking_consent_resolved: String(trackingConsent.resolved),
           tracking_measurement_consent: String(trackingConsent.measurement),
           tracking_marketing_consent: String(trackingConsent.marketing),
+          ...couponMetadata,
           ...(gaClientId ? { ga_client_id: gaClientId } : {}),
         },
         payment_intent_data: {
@@ -231,6 +275,7 @@ export async function POST(request: NextRequest) {
             tracking_consent_resolved: String(trackingConsent.resolved),
             tracking_measurement_consent: String(trackingConsent.measurement),
             tracking_marketing_consent: String(trackingConsent.marketing),
+            ...couponMetadata,
             ...(gaClientId ? { ga_client_id: gaClientId } : {}),
           },
         },
@@ -247,17 +292,42 @@ export async function POST(request: NextRequest) {
             },
           },
         ],
-      },
-      {
-        idempotencyKey: `wallet-top-up-${transaction.id}`,
-      },
-    );
+        },
+        {
+          idempotencyKey: `wallet-top-up-${transaction.id}`,
+        },
+      );
+    } catch (error) {
+      await Promise.allSettled([
+        supabase
+          .from("wallet_transactions")
+          .update({ status: "failed" })
+          .eq("id", transaction.id),
+        couponReservation
+          ? cancelWalletTopUpCouponReservation({
+              supabase,
+              walletTransactionId: transaction.id,
+              reason: "stripe_checkout_creation_failed",
+            })
+          : Promise.resolve(),
+      ]);
+      throw error;
+    }
 
     if (!checkoutSession.url) {
-      await supabase
-        .from("wallet_transactions")
-        .update({ status: "failed" })
-        .eq("id", transaction.id);
+      await Promise.allSettled([
+        supabase
+          .from("wallet_transactions")
+          .update({ status: "failed" })
+          .eq("id", transaction.id),
+        couponReservation
+          ? cancelWalletTopUpCouponReservation({
+              supabase,
+              walletTransactionId: transaction.id,
+              reason: "stripe_checkout_url_missing",
+            })
+          : Promise.resolve(),
+      ]);
 
       return NextResponse.json(
         { error: "Checkout Stripe non disponibile.", code: "CHECKOUT_URL_MISSING" },
@@ -277,18 +347,41 @@ export async function POST(request: NextRequest) {
           billing_snapshot_captured_at: billingSnapshotCapturedAt,
           terms_version: CURRENT_TERMS_VERSION,
           tracking_consent: trackingConsent,
+          ...(couponReservation
+            ? {
+                coupon_redemption_id: couponReservation.redemptionId,
+                coupon_code: couponReservation.code,
+                coupon_bonus_cents: couponReservation.bonusAmountCents,
+              }
+            : {}),
           ...(gaClientId ? { ga_client_id: gaClientId } : {}),
         },
       })
       .eq("id", transaction.id);
+
+    if (couponReservation) {
+      await supabase
+        .from("wallet_coupon_redemptions")
+        .update({ provider_checkout_session_id: checkoutSession.id })
+        .eq("id", couponReservation.redemptionId)
+        .eq("status", "pending");
+    }
 
     return NextResponse.json({
       ok: true,
       checkoutUrl: checkoutSession.url,
       checkoutSessionId: checkoutSession.id,
       walletTransactionId: transaction.id,
+      coupon: couponReservation,
     });
   } catch (error) {
+    if (error instanceof WalletCouponError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
+
     return propertyManagerApiErrorResponse(error);
   }
 }

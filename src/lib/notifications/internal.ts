@@ -166,19 +166,29 @@ export async function createWalletTopUpInternalNotification({
   walletTransactionId,
   amount,
   balance,
+  bonus,
+  couponCode,
+  walletCredit,
 }: {
   profileId: string;
   walletTransactionId: string;
   amount: string;
   balance: string;
+  bonus?: string;
+  couponCode?: string | null;
+  walletCredit?: string;
 }) {
   return createInternalNotification({
     profileId,
     eventType: "wallet.top_up",
     title: "Ricarica wallet completata",
-    body: `Hai ricaricato ${amount}. Il saldo disponibile e ${balance}.`,
+    body:
+      bonus && couponCode && walletCredit
+        ? `Hai ricaricato ${amount} e ricevuto ${bonus} con il coupon ${couponCode}. Credito totale ${walletCredit}. Saldo disponibile ${balance}.`
+        : `Hai ricaricato ${amount}. Il saldo disponibile è ${balance}.`,
     metadata: {
       wallet_transaction_id: walletTransactionId,
+      coupon_code: couponCode ?? null,
       href: "/app/acquisti",
     },
   });

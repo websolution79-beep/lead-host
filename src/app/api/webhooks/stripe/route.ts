@@ -7,6 +7,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { generateWalletTopUpInvoiceSafely } from "@/lib/billing/invoices";
+import { cancelWalletTopUpCouponReservation } from "@/lib/wallet/coupons";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -15,6 +16,9 @@ type TopUpCompletionResult = {
   amount_cents: number;
   balance_cents: number;
   payment_id: string | null;
+  bonus_amount_cents: number;
+  coupon_code: string | null;
+  bonus_wallet_transaction_id: string | null;
 };
 
 type TopUpRpcClient = {
@@ -201,6 +205,8 @@ async function notifyWalletTopUp(result: TopUpCompletionResult) {
     walletTransactionId: result.wallet_transaction_id,
     amountCents: result.amount_cents,
     balanceCents: result.balance_cents,
+    bonusAmountCents: result.bonus_amount_cents,
+    couponCode: result.coupon_code,
   });
 }
 
@@ -269,7 +275,8 @@ async function failWalletTopUp(
     return;
   }
 
-  const supabase = createServiceSupabaseClient() as unknown as FailTopUpRpcClient;
+  const serviceSupabase = createServiceSupabaseClient();
+  const supabase = serviceSupabase as unknown as FailTopUpRpcClient;
   const { error } = await supabase.rpc("fail_wallet_top_up", {
     p_wallet_transaction_id: walletTransactionId,
     p_provider_checkout_session_id: session.id,
@@ -280,4 +287,12 @@ async function failWalletTopUp(
   if (error) {
     throw new Error(error.message ?? "Ricarica wallet non aggiornata.");
   }
+
+  await cancelWalletTopUpCouponReservation({
+    supabase: serviceSupabase,
+    walletTransactionId,
+    reason: `stripe_checkout_${status}`,
+  }).catch((couponError) => {
+    console.warn("Coupon reservation cancellation failed:", couponError);
+  });
 }

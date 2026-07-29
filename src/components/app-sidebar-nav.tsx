@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BadgePercent,
   Bell,
   Building2,
   CreditCard,
@@ -70,6 +71,7 @@ const adminLinks: AppNavLink[] = [
     category: "Operatività",
   },
   { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText, category: "Finanza" },
+  { label: "Coupon", href: "/admin/coupon", icon: BadgePercent, category: "Finanza" },
   { label: "Fatturazione", href: "/admin/fatturazione", icon: FileText, category: "Finanza" },
   { label: "Riaccrediti", href: "/admin/rimborsi", icon: CreditCard, category: "Finanza" },
   {

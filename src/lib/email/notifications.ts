@@ -348,11 +348,15 @@ export async function sendWalletTopUpEmail({
   walletTransactionId,
   amountCents,
   balanceCents,
+  bonusAmountCents = 0,
+  couponCode = null,
 }: {
   profile: ProfileRow;
   walletTransactionId: string;
   amountCents: number;
   balanceCents: number;
+  bonusAmountCents?: number;
+  couponCode?: string | null;
 }) {
   const alreadySent = await hasSentWalletTopUpEmail(profile.id, walletTransactionId);
 
@@ -361,22 +365,39 @@ export async function sendWalletTopUpEmail({
   }
   const amount = formatCurrencyCents(amountCents);
   const balance = formatCurrencyCents(balanceCents);
+  const bonus = formatCurrencyCents(bonusAmountCents);
+  const walletCredit = formatCurrencyCents(amountCents + bonusAmountCents);
+  const bonusMessage =
+    bonusAmountCents > 0 && couponCode
+      ? ` Bonus coupon ${couponCode}: ${bonus}. Credito totale ricevuto: ${walletCredit}.`
+      : "";
 
   await createWalletTopUpInternalNotification({
     profileId: profile.id,
     walletTransactionId,
     amount,
     balance,
+    bonus,
+    couponCode,
+    walletCredit,
   });
 
   return sendTransactionalEmail({
     to: profile.email,
     profileId: profile.id,
     eventType: "wallet.top_up",
-    metadata: { wallet_transaction_id: walletTransactionId },
+    metadata: {
+      wallet_transaction_id: walletTransactionId,
+      bonus_amount_cents: bonusAmountCents,
+      coupon_code: couponCode,
+    },
     templateVariables: {
       amount,
       wallet_balance: balance,
+      bonus_amount: bonus,
+      wallet_credit: walletCredit,
+      coupon_code: couponCode ?? "",
+      bonus_message: bonusMessage,
     },
     subject: "",
     html: "",

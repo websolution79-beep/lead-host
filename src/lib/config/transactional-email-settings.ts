@@ -123,10 +123,17 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     title: "Ricarica wallet completata.",
     body:
       "Abbiamo aggiunto {{amount}} al tuo wallet Lead Host. Puoi usare subito il credito per acquistare lead nel marketplace.",
-    extra: "Saldo wallet aggiornato: {{wallet_balance}}.",
+    extra: "Saldo wallet aggiornato: {{wallet_balance}}.{{bonus_message}}",
     ctaLabel: "Apri wallet",
     ctaUrl: "/app/acquisti",
-    variables: ["amount", "wallet_balance"],
+    variables: [
+      "amount",
+      "wallet_balance",
+      "bonus_amount",
+      "wallet_credit",
+      "coupon_code",
+      "bonus_message",
+    ],
   },
   {
     id: "lead.new_available",

@@ -9,6 +9,8 @@ import {
   CreditCard,
   ExternalLink,
   ShoppingBag,
+  Sparkles,
+  Tag,
   Wallet,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -37,7 +39,11 @@ type WalletTransaction = {
   description: string | null;
   provider: string | null;
   lead_purchase_id: string | null;
-  metadata: { lead_id?: string } | null;
+  metadata: {
+    lead_id?: string;
+    coupon_code?: string;
+    reason?: string;
+  } | null;
   created_at: string;
 };
 
@@ -57,6 +63,18 @@ type WalletReadiness = {
   firstTopUpMinCents: number;
   subsequentTopUpMinCents: number;
   effectiveMinTopUpCents: number;
+  couponsEnabled: boolean;
+};
+
+type CouponPreview = {
+  couponId: string;
+  code: string;
+  couponName: string;
+  paidAmountCents: number;
+  bonusAmountCents: number;
+  walletCreditCents: number;
+  firstTopUpOnly: boolean;
+  validUntil: string | null;
 };
 
 const transactionLabels: Record<WalletTransaction["type"], string> = {
@@ -85,6 +103,10 @@ export function WalletCenter() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<WalletReadiness | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState("");
 
   useEffect(() => {
     async function loadWallet() {
@@ -185,7 +207,10 @@ export function WalletCenter() {
   const topUpAmountCents = parseTopUpAmountCents(topUpAmount);
   const canTopUp = topUpAmountCents >= minTopUpCents;
   const canStartCheckout =
-    canTopUp && readiness?.billingComplete === true && termsAccepted;
+    canTopUp
+    && readiness?.billingComplete === true
+    && termsAccepted
+    && (!couponCode.trim() || couponPreview !== null);
   const isFirstTopUp = readiness?.isFirstTopUp ?? true;
   const availableQuickTopUps = quickTopUps.filter(
     (amount) => amount >= minTopUpCents,
@@ -225,6 +250,7 @@ export function WalletCenter() {
         },
         body: JSON.stringify({
           amountCents: topUpAmountCents,
+          couponCode: couponPreview?.code,
           termsAccepted,
           termsVersion: CURRENT_TERMS_VERSION,
           trackingConsent,
@@ -265,6 +291,7 @@ export function WalletCenter() {
               current?.subsequentTopUpMinCents ?? subsequentTopUpMinCents,
             effectiveMinTopUpCents:
               current?.effectiveMinTopUpCents ?? minTopUpCents,
+            couponsEnabled: current?.couponsEnabled ?? false,
           }));
         }
         if (payload.code === "TERMS_VERSION_CHANGED") {
@@ -284,6 +311,68 @@ export function WalletCenter() {
     } finally {
       setIsCreatingCheckout(false);
     }
+  }
+
+  async function checkCoupon() {
+    setCouponError("");
+    setCouponPreview(null);
+
+    if (!couponCode.trim()) {
+      setCouponError("Inserisci un codice coupon.");
+      return;
+    }
+    if (!canTopUp) {
+      setCouponError(
+        `Scegli prima un importo di almeno ${formatCurrencyCents(minTopUpCents, currency)}.`,
+      );
+      return;
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+
+    if (!token) {
+      setCouponError("Sessione non disponibile. Accedi di nuovo.");
+      return;
+    }
+
+    setIsCheckingCoupon(true);
+
+    try {
+      const response = await fetch("/api/purchases/coupons/preview", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          code: couponCode,
+          amountCents: topUpAmountCents,
+        }),
+      });
+      const payload = (await response.json()) as {
+        coupon?: CouponPreview;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.coupon) {
+        setCouponError(payload.error ?? "Coupon non disponibile.");
+        return;
+      }
+
+      setCouponCode(payload.coupon.code);
+      setCouponPreview(payload.coupon);
+    } catch {
+      setCouponError("Non riesco a verificare il coupon. Riprova.");
+    } finally {
+      setIsCheckingCoupon(false);
+    }
+  }
+
+  function updateTopUpAmount(value: string) {
+    setTopUpAmount(value);
+    setCouponPreview(null);
+    setCouponError("");
   }
 
   return (
@@ -340,7 +429,7 @@ export function WalletCenter() {
                         : "border-slate-200 bg-white text-slate-700 hover:border-green/40 hover:text-green"
                     }`}
                     type="button"
-                    onClick={() => setTopUpAmount(formatAmountInput(amount))}
+                    onClick={() => updateTopUpAmount(formatAmountInput(amount))}
                   >
                     {formatCurrencyCents(amount, currency)}
                   </button>
@@ -359,7 +448,7 @@ export function WalletCenter() {
                 min={minTopUpCents / 100}
                 placeholder={formatAmountInput(minTopUpCents)}
                 value={topUpAmount}
-                onChange={(event) => setTopUpAmount(event.target.value)}
+                onChange={(event) => updateTopUpAmount(event.target.value)}
               />
             </div>
           </label>
@@ -368,6 +457,77 @@ export function WalletCenter() {
             <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">
               Inserisci almeno {formatCurrencyCents(minTopUpCents, currency)}.
             </p>
+          ) : null}
+
+          {readiness?.couponsEnabled ? (
+            <div className="mt-4 rounded-xl border border-green/20 bg-green/5 p-4">
+              <div className="flex items-center gap-2">
+                <Tag size={18} className="text-green" />
+                <p className="text-sm font-semibold text-ink">
+                  Hai un codice coupon?
+                </p>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input
+                  className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 font-mono text-sm uppercase text-ink outline-none focus:border-green"
+                  maxLength={40}
+                  placeholder="Inserisci il codice"
+                  value={couponCode}
+                  onChange={(event) => {
+                    setCouponCode(
+                      event.target.value.toUpperCase().replace(/\s+/g, ""),
+                    );
+                    setCouponPreview(null);
+                    setCouponError("");
+                  }}
+                />
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  disabled={isCheckingCoupon || !couponCode.trim()}
+                  onClick={checkCoupon}
+                >
+                  {isCheckingCoupon ? "Verifico..." : "Applica"}
+                </button>
+              </div>
+              {couponPreview ? (
+                <div className="mt-3 flex items-start gap-3 rounded-lg border border-green/20 bg-white p-3 text-sm">
+                  <Sparkles className="mt-0.5 shrink-0 text-amber-500" size={18} />
+                  <div>
+                    <p className="font-semibold text-green">
+                      Coupon {couponPreview.code} applicato
+                    </p>
+                    <p className="mt-1 leading-6 text-slate-700">
+                      Paghi{" "}
+                      <strong>
+                        {formatCurrencyCents(
+                          couponPreview.paidAmountCents,
+                          currency,
+                        )}
+                      </strong>
+                      , ricevi{" "}
+                      <strong>
+                        {formatCurrencyCents(
+                          couponPreview.walletCreditCents,
+                          currency,
+                        )}
+                      </strong>{" "}
+                      nel wallet, incluso un bonus di{" "}
+                      {formatCurrencyCents(
+                        couponPreview.bonusAmountCents,
+                        currency,
+                      )}
+                      .
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+              {couponError ? (
+                <p className="mt-2 text-xs font-semibold text-red-700">
+                  {couponError}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {!isLoading && readiness?.billingComplete !== true ? (
@@ -436,7 +596,9 @@ export function WalletCenter() {
             <CreditCard size={17} />
             {isCreatingCheckout
               ? "Apro Stripe..."
-              : `Ricarica ${formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)}`}
+              : couponPreview
+                ? `Paga ${formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)} e ricevi ${formatCurrencyCents(couponPreview.walletCreditCents, currency)}`
+                : `Ricarica ${formatCurrencyCents(Math.max(topUpAmountCents, 0), currency)}`}
           </button>
           <p className="mt-3 text-xs leading-5 text-muted">
             Pagamento sicuro con Stripe. Il credito verrà aggiunto al wallet dopo

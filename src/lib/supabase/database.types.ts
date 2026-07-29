@@ -1067,6 +1067,156 @@ export type Database = {
         };
         Relationships: [];
       };
+      wallet_coupons: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          description: string | null;
+          partner_name: string | null;
+          active: boolean;
+          first_top_up_only: boolean;
+          valid_from: string | null;
+          valid_until: string | null;
+          max_total_redemptions: number | null;
+          max_redemptions_per_profile: number;
+          bonus_budget_cents: number | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          code: string;
+          name: string;
+          description?: string | null;
+          partner_name?: string | null;
+          active?: boolean;
+          first_top_up_only?: boolean;
+          valid_from?: string | null;
+          valid_until?: string | null;
+          max_total_redemptions?: number | null;
+          max_redemptions_per_profile?: number;
+          bonus_budget_cents?: number | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          code?: string;
+          name?: string;
+          description?: string | null;
+          partner_name?: string | null;
+          active?: boolean;
+          first_top_up_only?: boolean;
+          valid_from?: string | null;
+          valid_until?: string | null;
+          max_total_redemptions?: number | null;
+          max_redemptions_per_profile?: number;
+          bonus_budget_cents?: number | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      wallet_coupon_bonus_tiers: {
+        Row: {
+          id: string;
+          coupon_id: string;
+          min_paid_cents: number;
+          max_paid_cents: number | null;
+          bonus_cents: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          coupon_id: string;
+          min_paid_cents: number;
+          max_paid_cents?: number | null;
+          bonus_cents: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          coupon_id?: string;
+          min_paid_cents?: number;
+          max_paid_cents?: number | null;
+          bonus_cents?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      wallet_coupon_redemptions: {
+        Row: {
+          id: string;
+          coupon_id: string;
+          profile_id: string;
+          wallet_transaction_id: string;
+          bonus_wallet_transaction_id: string | null;
+          paid_amount_cents: number;
+          bonus_amount_cents: number;
+          code_snapshot: string;
+          first_top_up_only: boolean;
+          rules_snapshot: Json;
+          status: "pending" | "redeemed" | "cancelled" | "expired";
+          reserved_at: string;
+          expires_at: string;
+          redeemed_at: string | null;
+          cancelled_at: string | null;
+          cancellation_reason: string | null;
+          provider_checkout_session_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          coupon_id: string;
+          profile_id: string;
+          wallet_transaction_id: string;
+          bonus_wallet_transaction_id?: string | null;
+          paid_amount_cents: number;
+          bonus_amount_cents: number;
+          code_snapshot: string;
+          first_top_up_only?: boolean;
+          rules_snapshot?: Json;
+          status?: "pending" | "redeemed" | "cancelled" | "expired";
+          reserved_at?: string;
+          expires_at: string;
+          redeemed_at?: string | null;
+          cancelled_at?: string | null;
+          cancellation_reason?: string | null;
+          provider_checkout_session_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          coupon_id?: string;
+          profile_id?: string;
+          wallet_transaction_id?: string;
+          bonus_wallet_transaction_id?: string | null;
+          paid_amount_cents?: number;
+          bonus_amount_cents?: number;
+          code_snapshot?: string;
+          first_top_up_only?: boolean;
+          rules_snapshot?: Json;
+          status?: "pending" | "redeemed" | "cancelled" | "expired";
+          reserved_at?: string;
+          expires_at?: string;
+          redeemed_at?: string | null;
+          cancelled_at?: string | null;
+          cancellation_reason?: string | null;
+          provider_checkout_session_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       wallet_transactions: {
         Row: {
           id: string;

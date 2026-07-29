@@ -26,6 +26,7 @@ const adminLinks = [
   { label: "Property Manager", href: "/admin/property-manager", group: "Operatività" },
   { label: "Assistenza", href: "/admin/segnalazioni", group: "Operatività" },
   { label: "Pagamenti", href: "/admin/pagamenti", group: "Finanza" },
+  { label: "Coupon", href: "/admin/coupon", group: "Finanza" },
   { label: "Fatturazione", href: "/admin/fatturazione", group: "Finanza" },
   { label: "Riaccrediti", href: "/admin/rimborsi", group: "Finanza" },
   { label: "Email", href: "/admin/email-transazionali", group: "Comunicazioni" },

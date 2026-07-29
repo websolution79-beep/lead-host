@@ -50,7 +50,7 @@ export function AppAreaChrome({ children, section }: AppAreaChromeProps) {
         <AppSidebarNav section={section} />
         <AccountSummary />
       </aside>
-      <section className="app-content flex min-h-screen flex-col">
+      <section className="app-content flex min-h-screen min-w-0 flex-col">
         <div className="premium-header app-mobile-bar relative z-[90] items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
           <BrandLogo href={homeHref} />
           <MobileMenu

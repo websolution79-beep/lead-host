@@ -1273,6 +1273,16 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      get_admin_business_analytics: {
+        Args: {
+          p_from_date: string;
+          p_to_date: string;
+          p_previous_from_date: string;
+          p_previous_to_date: string;
+          p_bucket?: "day" | "month";
+        };
+        Returns: Json;
+      };
       claim_paid_lead_purchase: {
         Args: {
           p_purchase_attempt_id: string;

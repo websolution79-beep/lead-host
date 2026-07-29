@@ -30,6 +30,11 @@ export type AdminLeadRecord = {
   requestStatus: string;
   acquisitionChannel: string;
   qualificationNotes: string | null;
+  consents: {
+    privacy: boolean;
+    dataSharing: boolean;
+    marketing: boolean;
+  };
   duplicateCheck: {
     status: "clear" | "possible_duplicate" | "duplicate" | "unchecked" | string;
     checkedAt: string | null;
@@ -88,7 +93,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check",
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at",
     )
     .order("created_at", { ascending: false })
     .limit(150);
@@ -164,6 +169,11 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       requestStatus: request.status,
       acquisitionChannel: request.acquisition_channel,
       qualificationNotes: request.qualification_notes,
+      consents: {
+        privacy: Boolean(request.privacy_consent_at),
+        dataSharing: Boolean(request.data_sharing_consent_at),
+        marketing: Boolean(request.marketing_consent_at),
+      },
       duplicateCheck: parseDuplicateCheck(request.duplicate_check),
       contact: contact
         ? {

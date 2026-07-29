@@ -123,8 +123,8 @@ export async function POST(request: NextRequest) {
       await sendAdminOwnerRequestNotification({
         ownerRequestId: result.ownerRequestId,
         reference: result.reference,
-        city: data.city,
-        propertyType: data.propertyType,
+        city: data.city ?? "Non indicata",
+        propertyType: data.propertyType ?? "Immobile",
       });
     } catch (notificationError) {
       console.error(
@@ -295,11 +295,11 @@ async function createOwnerRequest({
       description: data.description || null,
     },
     contact: {
-      first_name: data.firstName,
-      last_name: data.lastName,
-      email: data.email.toLowerCase(),
-      phone: data.phone,
-      precise_address: data.address,
+      first_name: data.firstName ?? null,
+      last_name: data.lastName ?? null,
+      email: data.email?.toLowerCase() ?? null,
+      phone: data.phone ?? null,
+      precise_address: data.address ?? null,
     },
   };
   const ownerRequestInsert = await insertPendingOwnerRequest({
@@ -322,24 +322,24 @@ async function createOwnerRequest({
     await Promise.all([
       supabase.from("owner_contacts").insert({
         owner_request_id: ownerRequestId,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email.toLowerCase(),
-        phone: data.phone,
-        precise_address: data.address,
+        first_name: data.firstName ?? null,
+        last_name: data.lastName ?? null,
+        email: data.email?.toLowerCase() ?? null,
+        phone: data.phone ?? null,
+        precise_address: data.address ?? null,
       }),
       supabase.from("properties").insert({
         owner_request_id: ownerRequestId,
-        region: data.region,
-        province: data.province,
-        city: data.city,
-        property_type: data.propertyType,
-        bedrooms: data.bedrooms,
-        bathrooms: data.bathrooms,
-        approximate_area_sqm: data.areaSqm,
-        current_status: data.currentStatus,
+        region: data.region ?? null,
+        province: data.province ?? null,
+        city: data.city ?? null,
+        property_type: data.propertyType ?? null,
+        bedrooms: data.bedrooms ?? null,
+        bathrooms: data.bathrooms ?? null,
+        approximate_area_sqm: data.areaSqm ?? null,
+        current_status: data.currentStatus.length ? data.currentStatus : null,
         requested_services: data.requestedServices,
-        timing: data.timing,
+        timing: data.timing ?? null,
         description: data.description || null,
       }),
       supabase.from("marketing_attribution").insert({

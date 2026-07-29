@@ -44,17 +44,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
     }
 
-    const { data: property, error: propertyError } = await supabase
+    const { data: existingProperty, error: propertyError } = await supabase
       .from("properties")
       .select("id,region,province,city,property_type")
       .eq("owner_request_id", ownerRequestId)
-      .single();
+      .maybeSingle();
 
-    if (propertyError || !property) {
-      return NextResponse.json(
-        { error: "Dati immobile mancanti: impossibile pubblicare." },
-        { status: 409 },
-      );
+    if (propertyError) {
+      throw propertyError;
+    }
+
+    let property = existingProperty;
+
+    if (!property) {
+      const { data: insertedProperty, error: propertyInsertError } = await supabase
+        .from("properties")
+        .insert({ owner_request_id: ownerRequestId })
+        .select("id,region,province,city,property_type")
+        .single();
+
+      if (propertyInsertError || !insertedProperty) {
+        throw propertyInsertError ?? new Error("Scheda immobile non creata.");
+      }
+
+      property = insertedProperty;
     }
 
     const leadTitle = payload.data.title || buildLeadTitle(property);

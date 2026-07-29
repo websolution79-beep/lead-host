@@ -316,6 +316,10 @@ export function AdminOwnerLeadApiConsole() {
             <Badge text="application/json" />
             <Badge text="Stato finale: pending" />
           </div>
+          <p className="mt-3 text-xs leading-5 text-muted">
+            Solo externalId è obbligatorio nel JSON. Make e Zapier possono
+            inviare esclusivamente i campi disponibili.
+          </p>
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-4">

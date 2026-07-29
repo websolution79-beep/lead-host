@@ -43,16 +43,39 @@ test("rejects invalid geography", () => {
   );
 });
 
-test("rejects missing consent", () => {
+test("accepts a minimal payload with only the external id", () => {
+  const result = ownerLeadApiSchema.parse({
+    externalId: "meta_lead_minimal",
+    provider: "make",
+  });
+
+  assert.deepEqual(result.currentStatus, []);
+  assert.deepEqual(result.requestedServices, []);
+  assert.equal(result.privacyConsent, undefined);
+  assert.equal(result.city, undefined);
+});
+
+test("accepts partial geography for admin completion", () => {
   const result = ownerLeadApiSchema.safeParse({
-    ...ownerLeadApiExample,
-    privacyConsent: false,
+    externalId: "meta_lead_city_only",
+    city: "Roma",
+  });
+
+  assert.equal(result.success, true);
+});
+
+test("still requires an external id for idempotency", () => {
+  const result = ownerLeadApiSchema.safeParse({
+    firstName: "Mario",
   });
 
   assert.equal(result.success, false);
-  assert.ok(
-    result.error?.issues.some(
-      (issue) => issue.path.join(".") === "privacyConsent",
-    ),
-  );
+});
+
+test("normalizes numeric external ids from automation tools", () => {
+  const result = ownerLeadApiSchema.parse({
+    externalId: 123456789,
+  });
+
+  assert.equal(result.externalId, "123456789");
 });

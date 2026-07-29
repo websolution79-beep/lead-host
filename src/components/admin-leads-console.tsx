@@ -9,6 +9,7 @@ import {
   Clock3,
   Eye,
   ListChecks,
+  Pencil,
   Search,
   ShieldCheck,
   ShoppingBag,
@@ -17,8 +18,13 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { ADMIN_PENDING_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
+import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { formatCents } from "@/lib/config/commercial";
+import {
+  getMissingLeadFields,
+  type MissingLeadField,
+} from "@/lib/owner-requests/completeness";
 
 type AdminLeadsResponse = {
   records: AdminLeadRecord[];
@@ -61,6 +67,8 @@ export function AdminLeadsConsole() {
     rejected: 0,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [publishWarningId, setPublishWarningId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterState>("pending");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -103,6 +111,12 @@ export function AdminLeadsConsole() {
 
   const selectedRecord = selectedId
     ? records.find((record) => record.ownerRequestId === selectedId) ?? null
+    : null;
+  const editingRecord = editingId
+    ? records.find((record) => record.ownerRequestId === editingId) ?? null
+    : null;
+  const publishWarningRecord = publishWarningId
+    ? records.find((record) => record.ownerRequestId === publishWarningId) ?? null
     : null;
 
   const getAccessToken = useCallback(async () => {
@@ -199,6 +213,17 @@ export function AdminLeadsConsole() {
     }
 
     setActionLoading(null);
+  }
+
+  function requestApproval(record: AdminLeadRecord) {
+    const missingFields = getMissingLeadFields(record);
+
+    if (missingFields.length) {
+      setPublishWarningId(record.ownerRequestId);
+      return;
+    }
+
+    void approve(record);
   }
 
   function selectRecord(record: AdminLeadRecord) {
@@ -478,8 +503,9 @@ export function AdminLeadsConsole() {
             record={selectedRecord}
             rejectReason={rejectReason}
             onRejectReasonChange={setRejectReason}
-            onApprove={approve}
+            onApprove={requestApproval}
             onReject={reject}
+            onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
             onClose={() => setSelectedId(null)}
             approvalDraft={getApprovalDraft(selectedRecord)}
             onApprovalDraftChange={(update) => updateApprovalDraft(selectedRecord, update)}
@@ -487,6 +513,29 @@ export function AdminLeadsConsole() {
           />
         ) : null}
       </div>
+
+      {editingRecord ? (
+        <AdminLeadEditorModal
+          record={editingRecord}
+          onClose={() => setEditingId(null)}
+          onSaved={loadRecords}
+        />
+      ) : null}
+
+      {publishWarningRecord ? (
+        <PublishWarningModal
+          record={publishWarningRecord}
+          onClose={() => setPublishWarningId(null)}
+          onEdit={() => {
+            setPublishWarningId(null);
+            setEditingId(publishWarningRecord.ownerRequestId);
+          }}
+          onPublish={() => {
+            setPublishWarningId(null);
+            void approve(publishWarningRecord);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -497,6 +546,7 @@ function LeadDetailPanel({
   onRejectReasonChange,
   onApprove,
   onReject,
+  onEdit,
   onClose,
   approvalDraft,
   onApprovalDraftChange,
@@ -507,6 +557,7 @@ function LeadDetailPanel({
   onRejectReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
   onReject: (record: AdminLeadRecord) => void;
+  onEdit: () => void;
   onClose: () => void;
   approvalDraft: ApprovalPriceDraft;
   onApprovalDraftChange: (update: Partial<ApprovalPriceDraft>) => void;
@@ -514,6 +565,8 @@ function LeadDetailPanel({
 }) {
   const canApprove = isPending(record) || record.requestStatus === "approved";
   const isBusy = actionLoading === record.ownerRequestId;
+  const canEdit = canEditRequest(record);
+  const missingFields = getMissingLeadFields(record);
 
   return (
     <aside className="card h-fit p-5">
@@ -526,6 +579,17 @@ function LeadDetailPanel({
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge record={record} />
+          {canEdit ? (
+            <button
+              className="icon-button min-h-9 px-2"
+              type="button"
+              aria-label="Modifica informazioni"
+              title="Modifica informazioni"
+              onClick={onEdit}
+            >
+              <Pencil size={16} />
+            </button>
+          ) : null}
           <button
             className="icon-button min-h-9 px-2"
             type="button"
@@ -535,6 +599,48 @@ function LeadDetailPanel({
             <XCircle size={16} />
           </button>
         </div>
+      </div>
+
+      <div
+        className={`mt-4 rounded-lg border p-3 ${
+          missingFields.length
+            ? "border-amber-200 bg-amber-50"
+            : "border-emerald-200 bg-emerald-50"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p
+            className={`text-sm font-bold ${
+              missingFields.length ? "text-amber-900" : "text-emerald-800"
+            }`}
+          >
+            {missingFields.length
+              ? `${missingFields.length} informazioni mancanti`
+              : "Informazioni complete"}
+          </p>
+          {canEdit ? (
+            <button
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800"
+              type="button"
+              onClick={onEdit}
+            >
+              <Pencil size={14} />
+              Modifica informazioni
+            </button>
+          ) : null}
+        </div>
+        {missingFields.length ? (
+          <p className="mt-2 text-xs leading-5 text-amber-800">
+            {missingFields
+              .slice(0, 5)
+              .map((field) => field.label)
+              .join(", ")}
+            {missingFields.length > 5
+              ? ` e altre ${missingFields.length - 5}`
+              : ""}
+            .
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-5 grid gap-3 text-sm">
@@ -566,6 +672,16 @@ function LeadDetailPanel({
           value={`${record.property?.bedrooms ?? 0} / ${record.property?.bathrooms ?? 0}`}
         />
         <InfoRow label="Tempistica" value={record.property?.timing ?? "Non indicata"} />
+        <InfoRow
+          label="Consensi"
+          value={[
+            record.consents.privacy ? "Privacy" : null,
+            record.consents.dataSharing ? "Condivisione dati" : null,
+            record.consents.marketing ? "Marketing" : null,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+        />
       </div>
 
       <section className="mt-5 border-t border-slate-200 pt-5">
@@ -712,6 +828,111 @@ function LeadDetailPanel({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function PublishWarningModal({
+  record,
+  onClose,
+  onEdit,
+  onPublish,
+}: {
+  record: AdminLeadRecord;
+  onClose: () => void;
+  onEdit: () => void;
+  onPublish: () => void;
+}) {
+  const missingFields = getMissingLeadFields(record);
+  const groupedFields = groupMissingFields(missingFields);
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[95] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="publish-warning-title"
+    >
+      <div className="max-h-[100dvh] w-full overflow-y-auto bg-white shadow-2xl sm:max-w-xl sm:rounded-lg">
+        <div className="border-b border-slate-200 px-5 py-5 sm:px-6">
+          <div className="flex items-start gap-3">
+            <span className="rounded-lg bg-amber-100 p-2 text-amber-700">
+              <AlertCircle size={20} />
+            </span>
+            <div className="min-w-0">
+              <p className="section-kicker">Verifica pubblicazione</p>
+              <h2
+                className="mt-1 text-xl font-semibold text-ink"
+                id="publish-warning-title"
+              >
+                Il lead presenta informazioni mancanti
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Puoi completarle adesso oppure pubblicare comunque il lead nel
+                marketplace.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 px-5 py-5 sm:px-6">
+          {groupedFields.map((group) => (
+            <section
+              className="rounded-lg border border-slate-200 bg-paper p-4"
+              key={group.label}
+            >
+              <p className="text-xs font-bold uppercase text-slate-500">
+                {group.label}
+              </p>
+              <ul className="mt-2 grid gap-1 text-sm text-ink">
+                {group.fields.map((field) => (
+                  <li className="flex items-start gap-2" key={field.key}>
+                    <span className="mt-2 size-1.5 shrink-0 rounded-full bg-amber-500" />
+                    {field.label}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+
+          {!record.contact?.email || !record.contact?.phone ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold leading-6 text-red-700">
+              Attenzione: dopo l&apos;acquisto il Property Manager potrebbe non
+              trovare tutti i dati necessari per contattare il proprietario.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button className="btn btn-secondary" type="button" onClick={onClose}>
+            Annulla
+          </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            onClick={onEdit}
+          >
+            <Pencil size={17} />
+            Modifica informazioni
+          </button>
+          <button className="btn btn-primary" type="button" onClick={onPublish}>
+            <CheckCircle2 size={17} />
+            Pubblica comunque
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -894,6 +1115,32 @@ function parseEuroCents(value: string) {
 
 function isPending(record: AdminLeadRecord) {
   return ["pending", "to_verify"].includes(record.requestStatus);
+}
+
+function canEditRequest(record: AdminLeadRecord) {
+  return [
+    "new_from_meta",
+    "waiting_for_completion",
+    "completed",
+    "pending",
+    "to_verify",
+    "approved",
+  ].includes(record.requestStatus);
+}
+
+function groupMissingFields(fields: MissingLeadField[]) {
+  const labels: Record<MissingLeadField["group"], string> = {
+    proprietario: "Dati proprietario",
+    immobile: "Dati immobile",
+    consensi: "Consensi",
+  };
+
+  return (Object.keys(labels) as MissingLeadField["group"][])
+    .map((group) => ({
+      label: labels[group],
+      fields: fields.filter((field) => field.group === group),
+    }))
+    .filter((group) => group.fields.length);
 }
 
 function hasDuplicateWarning(record: AdminLeadRecord) {

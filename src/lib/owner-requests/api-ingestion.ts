@@ -1,44 +1,9 @@
 import { z } from "zod";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
 
-const propertyTypes = [
-  "Appartamento",
-  "Villa",
-  "Casa indipendente",
-  "B&B",
-  "Struttura ricettiva",
-  "Altro",
-] as const;
-
-const timingOptions = [
-  "Il prima possibile",
-  "Entro 30 giorni",
-  "Entro 3 mesi",
-  "Piu avanti",
-  "Sto solo valutando",
-] as const;
-
-const currentStatusOptions = new Set([
-  "Gia su Airbnb/Booking",
-  "Gia usato per affitti brevi",
-  "Mai usato per affitti brevi",
-  "Gestito personalmente",
-  "Affidato a un altro gestore",
-]);
-
-const requestedServiceOptions = new Set([
-  "Gestione completa",
-  "Gestione online",
-  "Gestione annunci",
-  "Revenue management",
-  "Comunicazione ospiti",
-  "Check-in / Check-out",
-  "Pulizie",
-  "Non lo so, vorrei essere consigliato",
-]);
-
-const stringListSchema = z.preprocess(
+const optionalStringListSchema = z.preprocess(
   (value) => {
+    if (value === undefined || value === null || value === "") return undefined;
     if (Array.isArray(value)) return value;
     if (typeof value !== "string") return value;
 
@@ -47,19 +12,15 @@ const stringListSchema = z.preprocess(
       .map((item) => item.trim())
       .filter(Boolean);
   },
-  z.array(z.string().trim().min(1)),
-);
-
-const requiredConsentSchema = z.preprocess(
-  (value) =>
-    value === true || value === "true" || value === "1" || value === 1
-      ? true
-      : value,
-  z.literal(true),
-);
+  z.array(z.string().trim().min(1).max(160)).max(20).optional(),
+).transform((value) => value ?? []);
 
 const optionalBooleanSchema = z.preprocess(
   (value) => {
+    if (value === undefined || value === null || value === "") {
+      return undefined;
+    }
+
     if (value === true || value === "true" || value === "1" || value === 1) {
       return true;
     }
@@ -75,33 +36,62 @@ const optionalBooleanSchema = z.preprocess(
 
     return value;
   },
-  z.boolean(),
+  z.boolean().optional(),
 );
+
+function optionalStringSchema(max: number, min = 1) {
+  return z.preprocess(
+    (value) =>
+      value === undefined || value === null || value === ""
+        ? undefined
+        : value,
+    z.string().trim().min(min).max(max).optional(),
+  );
+}
+
+function optionalIntegerSchema(min: number, max: number) {
+  return z.preprocess(
+    (value) =>
+      value === undefined || value === null || value === ""
+        ? undefined
+        : value,
+    z.coerce.number().int().min(min).max(max).optional(),
+  );
+}
 
 export const ownerLeadApiSchema = z
   .object({
-    externalId: z.string().trim().min(1).max(200),
+    externalId: z.preprocess(
+      (value) => (typeof value === "number" ? String(value) : value),
+      z.string().trim().min(1).max(200),
+    ),
     provider: z.enum(["make", "zapier", "custom"]).default("custom"),
     submittedAt: z.string().datetime({ offset: true }).optional(),
-    region: z.string().trim().min(1).max(100),
-    province: z.string().trim().min(1).max(100),
-    city: z.string().trim().min(1).max(160),
-    address: z.string().trim().min(3).max(180),
-    propertyType: z.enum(propertyTypes),
-    bedrooms: z.coerce.number().int().min(0).max(50),
-    bathrooms: z.coerce.number().int().min(0).max(50),
-    areaSqm: z.coerce.number().int().min(10).max(5000),
-    currentStatus: stringListSchema,
-    requestedServices: stringListSchema,
-    timing: z.enum(timingOptions),
-    description: z.string().trim().max(700).optional().default(""),
-    firstName: z.string().trim().min(2).max(80),
-    lastName: z.string().trim().min(2).max(80),
-    email: z.string().trim().email().max(160),
-    phone: z.string().trim().min(6).max(30),
-    privacyConsent: requiredConsentSchema,
-    dataSharingConsent: requiredConsentSchema,
-    marketingConsent: optionalBooleanSchema.optional().default(false),
+    region: optionalStringSchema(100),
+    province: optionalStringSchema(100),
+    city: optionalStringSchema(160),
+    address: optionalStringSchema(180),
+    propertyType: optionalStringSchema(100),
+    bedrooms: optionalIntegerSchema(0, 50),
+    bathrooms: optionalIntegerSchema(0, 50),
+    areaSqm: optionalIntegerSchema(1, 5000),
+    currentStatus: optionalStringListSchema,
+    requestedServices: optionalStringListSchema,
+    timing: optionalStringSchema(120),
+    description: optionalStringSchema(700),
+    firstName: optionalStringSchema(80),
+    lastName: optionalStringSchema(80),
+    email: z.preprocess(
+      (value) =>
+        value === undefined || value === null || value === ""
+          ? undefined
+          : value,
+      z.string().trim().email().max(160).optional(),
+    ),
+    phone: optionalStringSchema(30),
+    privacyConsent: optionalBooleanSchema,
+    dataSharingConsent: optionalBooleanSchema,
+    marketingConsent: optionalBooleanSchema,
     attribution: z
       .object({
         landingPage: z.string().trim().max(500).optional(),
@@ -128,7 +118,12 @@ export const ownerLeadApiSchema = z
       .optional(),
   })
   .superRefine((data, context) => {
-    if (!isValidGeoSelection(data.region, data.province, data.city)) {
+    if (
+      data.region &&
+      data.province &&
+      data.city &&
+      !isValidGeoSelection(data.region, data.province, data.city)
+    ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["city"],
@@ -136,31 +131,6 @@ export const ownerLeadApiSchema = z
       });
     }
 
-    if (
-      data.currentStatus.length < 1 ||
-      data.currentStatus.length > 5 ||
-      data.currentStatus.some((item) => !currentStatusOptions.has(item))
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["currentStatus"],
-        message: "Stato attuale non valido.",
-      });
-    }
-
-    if (
-      data.requestedServices.length < 1 ||
-      data.requestedServices.length > 8 ||
-      data.requestedServices.some(
-        (item) => !requestedServiceOptions.has(item),
-      )
-    ) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["requestedServices"],
-        message: "Servizi richiesti non validi.",
-      });
-    }
   });
 
 export type OwnerLeadApiInput = z.infer<typeof ownerLeadApiSchema>;

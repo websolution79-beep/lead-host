@@ -12,6 +12,7 @@ import {
   Save,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
@@ -107,6 +108,8 @@ export function AdminCouponsConsole() {
   const [draft, setDraft] = useState<CouponDraft>(emptyDraft);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [couponToDelete, setCouponToDelete] = useState<CouponRow | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -223,6 +226,40 @@ export function AdminCouponsConsole() {
       await loadCoupons();
     }
     setSaving(false);
+  }
+
+  async function deleteCoupon() {
+    const token = await getToken();
+    if (!token || !couponToDelete) return;
+
+    setDeleting(true);
+    setError("");
+    setSuccess("");
+
+    const response = await fetch("/api/admin/coupons", {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: couponToDelete.id }),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setError(payload.error ?? "Eliminazione coupon non riuscita.");
+      setCouponToDelete(null);
+      setDeleting(false);
+      return;
+    }
+
+    if (draft.id === couponToDelete.id) {
+      setDraft(emptyDraft());
+    }
+    setSuccess(`Coupon ${couponToDelete.code} eliminato definitivamente.`);
+    setCouponToDelete(null);
+    await loadCoupons();
+    setDeleting(false);
   }
 
   function editCoupon(coupon: CouponRow) {
@@ -589,14 +626,24 @@ export function AdminCouponsConsole() {
                         : `Massimo ${coupon.max_redemptions_per_profile} utilizzi per PM`}
                     </p>
                   </div>
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    onClick={() => editCoupon(coupon)}
-                  >
-                    <Pencil size={16} />
-                    Modifica
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="btn btn-secondary"
+                      type="button"
+                      onClick={() => editCoupon(coupon)}
+                    >
+                      <Pencil size={16} />
+                      Modifica
+                    </button>
+                    <button
+                      className="btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                      type="button"
+                      onClick={() => setCouponToDelete(coupon)}
+                    >
+                      <Trash2 size={16} />
+                      Elimina
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -643,6 +690,72 @@ export function AdminCouponsConsole() {
           </div>
         )}
       </section>
+
+      {couponToDelete ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-4 backdrop-blur-sm sm:items-center"
+          role="presentation"
+        >
+          <section
+            aria-labelledby="delete-coupon-title"
+            aria-modal="true"
+            className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-2xl"
+            role="dialog"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="section-kicker text-red-700">Conferma richiesta</p>
+                <h2
+                  className="mt-2 text-xl font-semibold text-ink"
+                  id="delete-coupon-title"
+                >
+                  Eliminare il coupon?
+                </h2>
+              </div>
+              <button
+                aria-label="Chiudi conferma eliminazione"
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                type="button"
+                disabled={deleting}
+                onClick={() => setCouponToDelete(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="mt-4 text-sm leading-6 text-slate-700">
+              Stai per eliminare definitivamente{" "}
+              <strong>{couponToDelete.name}</strong>, codice{" "}
+              <strong className="font-mono">{couponToDelete.code}</strong>, e
+              tutte le relative fasce bonus.
+            </p>
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+              L’operazione è consentita solo se il coupon non è mai stato
+              utilizzato. I coupon con uno storico devono essere disattivati.
+            </p>
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                className="btn btn-secondary w-full"
+                type="button"
+                disabled={deleting}
+                onClick={() => setCouponToDelete(null)}
+              >
+                Annulla
+              </button>
+              <button
+                className="btn w-full bg-red-600 text-white hover:bg-red-700"
+                type="button"
+                disabled={deleting}
+                onClick={deleteCoupon}
+              >
+                <Trash2 size={17} />
+                {deleting ? "Eliminazione..." : "Elimina definitivamente"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

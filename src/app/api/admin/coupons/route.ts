@@ -33,6 +33,9 @@ const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("toggle_feature"), enabled: z.boolean() }),
   z.object({ action: z.literal("save_coupon"), coupon: couponSchema }),
 ]);
+const deleteSchema = z.object({
+  id: z.string().uuid(),
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -226,6 +229,61 @@ export async function PATCH(request: NextRequest) {
     if (activateError) throw activateError;
 
     return NextResponse.json({ ok: true, couponId });
+  } catch (error) {
+    return adminApiErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { supabase } = await requireSuperAdmin(request);
+    const payload = deleteSchema.parse(await request.json());
+    const { data: coupon, error: couponError } = await supabase
+      .from("wallet_coupons")
+      .select("id,code,name")
+      .eq("id", payload.id)
+      .maybeSingle();
+
+    if (couponError) throw couponError;
+    if (!coupon) {
+      return NextResponse.json(
+        { error: "Coupon non trovato.", code: "COUPON_NOT_FOUND" },
+        { status: 404 },
+      );
+    }
+
+    const { count, error: redemptionsError } = await supabase
+      .from("wallet_coupon_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("coupon_id", coupon.id);
+
+    if (redemptionsError) throw redemptionsError;
+    if ((count ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "Questo coupon ha già uno storico di utilizzi e non può essere eliminato. Disattivalo per conservarne la tracciabilità.",
+          code: "COUPON_HAS_REDEMPTIONS",
+        },
+        { status: 409 },
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from("wallet_coupons")
+      .delete()
+      .eq("id", coupon.id);
+
+    if (deleteError) throw deleteError;
+
+    return NextResponse.json({
+      ok: true,
+      deletedCoupon: {
+        id: coupon.id,
+        code: coupon.code,
+        name: coupon.name,
+      },
+    });
   } catch (error) {
     return adminApiErrorResponse(error);
   }

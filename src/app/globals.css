@@ -49,7 +49,8 @@ body:has([data-leadhost-embed-root]) {
 body:has([data-leadhost-embed-root]) :is(
   #iubenda-cs-banner,
   #iubenda-iframe,
-  .iubenda-cs-container
+  .iubenda-cs-container,
+  .iubenda-tp-btn
 ) {
   display: none !important;
 }

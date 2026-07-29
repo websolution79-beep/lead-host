@@ -110,6 +110,7 @@ export function AdminCouponsConsole() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [couponToDelete, setCouponToDelete] = useState<CouponRow | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -235,6 +236,7 @@ export function AdminCouponsConsole() {
     setDeleting(true);
     setError("");
     setSuccess("");
+    setDeleteError("");
 
     const response = await fetch("/api/admin/coupons", {
       method: "DELETE",
@@ -247,8 +249,7 @@ export function AdminCouponsConsole() {
     const payload = (await response.json()) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Eliminazione coupon non riuscita.");
-      setCouponToDelete(null);
+      setDeleteError(payload.error ?? "Eliminazione coupon non riuscita.");
       setDeleting(false);
       return;
     }
@@ -257,6 +258,7 @@ export function AdminCouponsConsole() {
       setDraft(emptyDraft());
     }
     setSuccess(`Coupon ${couponToDelete.code} eliminato definitivamente.`);
+    setDeleteError("");
     setCouponToDelete(null);
     await loadCoupons();
     setDeleting(false);
@@ -638,7 +640,10 @@ export function AdminCouponsConsole() {
                     <button
                       className="btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
                       type="button"
-                      onClick={() => setCouponToDelete(coupon)}
+                      onClick={() => {
+                        setDeleteError("");
+                        setCouponToDelete(coupon);
+                      }}
                     >
                       <Trash2 size={16} />
                       Elimina
@@ -717,7 +722,10 @@ export function AdminCouponsConsole() {
                 className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
                 type="button"
                 disabled={deleting}
-                onClick={() => setCouponToDelete(null)}
+                onClick={() => {
+                  setDeleteError("");
+                  setCouponToDelete(null);
+                }}
               >
                 <X size={18} />
               </button>
@@ -730,16 +738,26 @@ export function AdminCouponsConsole() {
               tutte le relative fasce bonus.
             </p>
             <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
-              L’operazione è consentita solo se il coupon non è mai stato
-              utilizzato. I coupon con uno storico devono essere disattivati.
+              Gli eventuali checkout Stripe aperti e non pagati verranno
+              annullati. Un coupon che ha già erogato bonus non può essere
+              eliminato e deve essere disattivato.
             </p>
+
+            {deleteError ? (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold leading-6 text-red-700">
+                {deleteError}
+              </p>
+            ) : null}
 
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <button
                 className="btn btn-secondary w-full"
                 type="button"
                 disabled={deleting}
-                onClick={() => setCouponToDelete(null)}
+                onClick={() => {
+                  setDeleteError("");
+                  setCouponToDelete(null);
+                }}
               >
                 Annulla
               </button>

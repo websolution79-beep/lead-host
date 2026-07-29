@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import Stripe from "stripe";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { getEnv } from "@/lib/env";
 import {
   fetchWalletCouponsEnabled,
   normalizeCouponCode,
@@ -252,21 +254,104 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { count, error: redemptionsError } = await supabase
+    const { data: redemptions, error: redemptionsError } = await supabase
       .from("wallet_coupon_redemptions")
-      .select("id", { count: "exact", head: true })
+      .select(
+        "id,status,wallet_transaction_id,provider_checkout_session_id",
+      )
       .eq("coupon_id", coupon.id);
 
     if (redemptionsError) throw redemptionsError;
-    if ((count ?? 0) > 0) {
+    if (
+      (redemptions ?? []).some(
+        (redemption) => redemption.status === "redeemed",
+      )
+    ) {
       return NextResponse.json(
         {
           error:
-            "Questo coupon ha già uno storico di utilizzi e non può essere eliminato. Disattivalo per conservarne la tracciabilità.",
-          code: "COUPON_HAS_REDEMPTIONS",
+            "Questo coupon ha già erogato uno o più bonus e non può essere eliminato. Disattivalo per conservarne la tracciabilità.",
+          code: "COUPON_HAS_REDEEMED_BONUSES",
         },
         { status: 409 },
       );
+    }
+
+    const pendingRedemptions = (redemptions ?? []).filter(
+      (redemption) => redemption.status === "pending",
+    );
+
+    if (
+      pendingRedemptions.some(
+        (redemption) => redemption.provider_checkout_session_id,
+      )
+    ) {
+      const stripeSecretKey = getEnv("STRIPE_SECRET_KEY");
+
+      if (!stripeSecretKey) {
+        return NextResponse.json(
+          {
+            error:
+              "Il coupon ha un checkout aperto ma Stripe non è configurato. Riprova dopo aver verificato la configurazione.",
+            code: "STRIPE_NOT_CONFIGURED",
+          },
+          { status: 503 },
+        );
+      }
+
+      const stripe = new Stripe(stripeSecretKey);
+
+      for (const redemption of pendingRedemptions) {
+        const checkoutSessionId = redemption.provider_checkout_session_id;
+        if (!checkoutSessionId) continue;
+
+        const session = await stripe.checkout.sessions.retrieve(
+          checkoutSessionId,
+        );
+
+        if (session.payment_status === "paid" || session.status === "complete") {
+          return NextResponse.json(
+            {
+              error:
+                "Un pagamento collegato a questo coupon risulta completato o in fase di registrazione. Attendi l’aggiornamento del Wallet e riprova.",
+              code: "COUPON_PAYMENT_COMPLETING",
+            },
+            { status: 409 },
+          );
+        }
+
+        if (session.status === "open") {
+          await stripe.checkout.sessions.expire(
+            checkoutSessionId,
+            {},
+            {
+              idempotencyKey: `delete-wallet-coupon-${coupon.id}-${redemption.id}`,
+            },
+          );
+        }
+      }
+    }
+
+    const walletTransactionIds = (redemptions ?? []).map(
+      (redemption) => redemption.wallet_transaction_id,
+    );
+
+    if (walletTransactionIds.length > 0) {
+      const { error: cancelTransactionsError } = await supabase
+        .from("wallet_transactions")
+        .update({ status: "cancelled" })
+        .in("id", walletTransactionIds)
+        .eq("status", "pending");
+
+      if (cancelTransactionsError) throw cancelTransactionsError;
+
+      const { error: deleteRedemptionsError } = await supabase
+        .from("wallet_coupon_redemptions")
+        .delete()
+        .eq("coupon_id", coupon.id)
+        .neq("status", "redeemed");
+
+      if (deleteRedemptionsError) throw deleteRedemptionsError;
     }
 
     const { error: deleteError } = await supabase

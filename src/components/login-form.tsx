@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { getDefaultRoute, type AppRole } from "@/lib/auth/roles";
 
+const LOGIN_TIMEOUT_MS = 15_000;
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,50 +23,66 @@ export function LoginForm() {
     setError("");
     setIsSubmitting(true);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError || !data.user) {
-      setError("Email o password non corretti.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (data.session) {
-      const sessionResponse = await fetch("/api/auth/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accessToken: data.session.access_token,
-          refreshToken: data.session.refresh_token,
-          expiresAt: data.session.expires_at,
+    try {
+      const loginResult = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error("LOGIN_TIMEOUT")),
+            LOGIN_TIMEOUT_MS,
+          );
         }),
-      });
+      ]);
+      const { data, error: signInError } = loginResult;
 
-      if (!sessionResponse.ok) {
-        setError("Accesso riuscito, ma non sono riuscito a inizializzare la sessione.");
+      if (signInError || !data.user) {
+        setError("Email o password non corretti.");
         setIsSubmitting(false);
         return;
       }
 
-      const sessionPayload = (await sessionResponse.json()) as {
-        roles?: AppRole[];
-        defaultRoute?: string;
-      };
-      const roles = sessionPayload.roles ?? [];
-      const redirectTo = searchParams.get("redirect");
+      if (data.session) {
+        const sessionResponse = await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token,
+            expiresAt: data.session.expires_at,
+          }),
+        });
 
-      router.replace(
-        redirectTo || sessionPayload.defaultRoute || getDefaultRoute(roles),
+        if (!sessionResponse.ok) {
+          setError("Accesso riuscito, ma non sono riuscito a inizializzare la sessione.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const sessionPayload = (await sessionResponse.json()) as {
+          roles?: AppRole[];
+          defaultRoute?: string;
+        };
+        const roles = sessionPayload.roles ?? [];
+        const redirectTo = searchParams.get("redirect");
+
+        // The destination render already fetches the fresh server session.
+        // A second refresh here can race with the navigation and leave login pending.
+        router.replace(
+          redirectTo || sessionPayload.defaultRoute || getDefaultRoute(roles),
+        );
+        return;
+      }
+
+      setError("Sessione non disponibile.");
+    } catch (error) {
+      setError(
+        error instanceof Error && error.message === "LOGIN_TIMEOUT"
+          ? "Il servizio sta rispondendo lentamente. Riprova tra poco."
+          : "Non riesco a completare l'accesso. Riprova tra poco.",
       );
-      router.refresh();
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setError("Sessione non disponibile.");
-    setIsSubmitting(false);
   }
 
   return (

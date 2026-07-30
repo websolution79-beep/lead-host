@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, type ReactNode, useContext, useState } from "react";
+import type { AdminPermissionMap } from "@/lib/admin/permissions";
 import type { AppRole } from "@/lib/auth/roles";
 
 export type AppSession = {
@@ -11,6 +12,8 @@ export type AppSession = {
   lastName: string | null;
   avatarUrl: string | null;
   roles: AppRole[];
+  isSuperAdmin?: boolean;
+  adminPermissions?: AdminPermissionMap;
 };
 
 type AppSessionContextValue = AppSession & {

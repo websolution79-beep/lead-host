@@ -552,23 +552,155 @@ export type Database = {
         };
         Relationships: [];
       };
+      team_permissions: {
+        Row: {
+          key: string;
+          section: string;
+          label: string;
+          description: string;
+          supports_write: boolean;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          key: string;
+          section: string;
+          label: string;
+          description: string;
+          supports_write?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          key?: string;
+          section?: string;
+          label?: string;
+          description?: string;
+          supports_write?: boolean;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      team_roles: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      team_role_permissions: {
+        Row: {
+          role_id: string;
+          permission_key: string;
+          access_level: "read" | "write";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          role_id: string;
+          permission_key: string;
+          access_level: "read" | "write";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          role_id?: string;
+          permission_key?: string;
+          access_level?: "read" | "write";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      team_members: {
+        Row: {
+          id: string;
+          profile_id: string;
+          role_id: string;
+          status: "invited" | "active" | "suspended";
+          creation_mode: "invite" | "manual";
+          must_change_password: boolean;
+          invited_by: string | null;
+          invited_at: string | null;
+          joined_at: string | null;
+          suspended_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          role_id: string;
+          status?: "invited" | "active" | "suspended";
+          creation_mode: "invite" | "manual";
+          must_change_password?: boolean;
+          invited_by?: string | null;
+          invited_at?: string | null;
+          joined_at?: string | null;
+          suspended_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          role_id?: string;
+          status?: "invited" | "active" | "suspended";
+          creation_mode?: "invite" | "manual";
+          must_change_password?: boolean;
+          invited_by?: string | null;
+          invited_at?: string | null;
+          joined_at?: string | null;
+          suspended_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       user_roles: {
         Row: {
           id: string;
           profile_id: string;
-          role: "property_manager" | "super_admin";
+          role: "property_manager" | "super_admin" | "team_member";
           created_at: string;
         };
         Insert: {
           id?: string;
           profile_id: string;
-          role: "property_manager" | "super_admin";
+          role: "property_manager" | "super_admin" | "team_member";
           created_at?: string;
         };
         Update: {
           id?: string;
           profile_id?: string;
-          role?: "property_manager" | "super_admin";
+          role?: "property_manager" | "super_admin" | "team_member";
           created_at?: string;
         };
         Relationships: [];

@@ -1,4 +1,4 @@
-export type AppRole = "property_manager" | "super_admin";
+export type AppRole = "property_manager" | "super_admin" | "team_member";
 
 export function hasRole(roles: AppRole[], role: AppRole) {
   return roles.includes(role);

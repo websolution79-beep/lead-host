@@ -45,17 +45,28 @@ export function PasswordUpdateForm() {
 
     setIsSubmitting(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
-    setIsSubmitting(false);
-
     if (updateError) {
+      setIsSubmitting(false);
       setError(
         "Non è stato possibile aggiornare la password. Richiedi un nuovo link e riprova.",
       );
       return;
     }
 
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (sessionData.session) {
+      await fetch("/api/auth/team-password", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+      });
+    }
+
     await fetch("/api/auth/session", { method: "DELETE" });
     await supabase.auth.signOut();
+    setIsSubmitting(false);
     setIsComplete(true);
   }
 

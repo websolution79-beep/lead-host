@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppAreaChrome } from "@/components/app-area-chrome";
 import { AppSessionProvider } from "@/components/app-session-provider";
+import { getFirstAllowedAdminRoute } from "@/lib/admin/permissions";
 import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { privatePageRobots } from "@/lib/seo/robots";
@@ -24,9 +25,28 @@ export default async function AdminAreaLayout({ children }: AdminAreaLayoutProps
     redirect("/login?redirect=/admin");
   }
 
-  if (!hasRole(session.roles, "super_admin")) {
+  const isTeamMember = hasRole(session.roles, "team_member");
+
+  if (!session.isSuperAdmin && !isTeamMember) {
     redirect("/app/marketplace");
   }
+
+  if (isTeamMember && !session.teamAccess) {
+    redirect("/login?error=team_access");
+  }
+
+  if (session.teamAccess?.status === "suspended") {
+    redirect("/login?error=team_suspended");
+  }
+
+  if (session.teamAccess?.mustChangePassword) {
+    redirect("/reimposta-password?forced=1");
+  }
+
+  const adminPermissions = session.teamAccess?.permissions ?? {};
+  const adminHomeHref = session.isSuperAdmin
+    ? "/admin"
+    : getFirstAllowedAdminRoute(adminPermissions);
 
   return (
     <AppSessionProvider
@@ -38,9 +58,18 @@ export default async function AdminAreaLayout({ children }: AdminAreaLayoutProps
         lastName: session.profile.last_name,
         avatarUrl: session.profile.avatar_url,
         roles: session.roles,
+        isSuperAdmin: session.isSuperAdmin,
+        adminPermissions,
       }}
     >
-      <AppAreaChrome section="admin">{children}</AppAreaChrome>
+      <AppAreaChrome
+        section="admin"
+        adminHomeHref={adminHomeHref}
+        adminPermissions={adminPermissions}
+        isSuperAdmin={session.isSuperAdmin}
+      >
+        {children}
+      </AppAreaChrome>
     </AppSessionProvider>
   );
 }

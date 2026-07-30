@@ -24,10 +24,16 @@ import {
   ShieldAlert,
   UserCircle,
   Users,
+  UsersRound,
 } from "lucide-react";
 import { RoleSwitcher } from "@/components/role-switcher";
 import { AdminLeadNavBadge } from "@/components/admin-lead-nav-badge";
 import { SupportNavBadge } from "@/components/support-nav-badge";
+import { useAppSession } from "@/components/app-session-provider";
+import {
+  hasAdminPermission,
+  type AdminPermissionKey,
+} from "@/lib/admin/permissions";
 
 type AppSidebarNavProps = {
   section: "pm" | "admin";
@@ -38,6 +44,8 @@ type AppNavLink = {
   href: string;
   icon: LucideIcon;
   category?: string;
+  permission?: AdminPermissionKey;
+  superAdminOnly?: boolean;
 };
 
 const pmLinks: AppNavLink[] = [
@@ -50,56 +58,150 @@ const pmLinks: AppNavLink[] = [
 ];
 
 const adminLinks: AppNavLink[] = [
-  { label: "Dashboard", href: "/admin", icon: BarChart3, category: "Panoramica" },
-  { label: "Lead", href: "/admin/leads", icon: Inbox, category: "Operatività" },
+  {
+    label: "Dashboard",
+    href: "/admin",
+    icon: BarChart3,
+    category: "Panoramica",
+    permission: "dashboard",
+  },
+  {
+    label: "Lead",
+    href: "/admin/leads",
+    icon: Inbox,
+    category: "Operatività",
+    permission: "leads",
+  },
   {
     label: "Acquisizione",
     href: "/admin/acquisizione",
     icon: Megaphone,
     category: "Operatività",
+    permission: "acquisition",
   },
   {
     label: "Property Manager",
     href: "/admin/property-manager",
     icon: Users,
     category: "Operatività",
+    permission: "property_managers",
   },
   {
     label: "Assistenza",
     href: "/admin/segnalazioni",
     icon: ShieldAlert,
     category: "Operatività",
+    permission: "support",
   },
-  { label: "Pagamenti", href: "/admin/pagamenti", icon: ReceiptText, category: "Finanza" },
-  { label: "Coupon", href: "/admin/coupon", icon: BadgePercent, category: "Finanza" },
-  { label: "Fatturazione", href: "/admin/fatturazione", icon: FileText, category: "Finanza" },
-  { label: "Riaccrediti", href: "/admin/rimborsi", icon: CreditCard, category: "Finanza" },
+  {
+    label: "Pagamenti",
+    href: "/admin/pagamenti",
+    icon: ReceiptText,
+    category: "Finanza",
+    permission: "payments",
+  },
+  {
+    label: "Coupon",
+    href: "/admin/coupon",
+    icon: BadgePercent,
+    category: "Finanza",
+    permission: "coupons",
+  },
+  {
+    label: "Fatturazione",
+    href: "/admin/fatturazione",
+    icon: FileText,
+    category: "Finanza",
+    permission: "billing",
+  },
+  {
+    label: "Riaccrediti",
+    href: "/admin/rimborsi",
+    icon: CreditCard,
+    category: "Finanza",
+    permission: "refunds",
+  },
   {
     label: "Email",
     href: "/admin/email-transazionali",
     icon: Mail,
     category: "Comunicazioni",
+    permission: "emails",
   },
-  { label: "Brevo", href: "/admin/brevo", icon: MessagesSquare, category: "Comunicazioni" },
-  { label: "Telegram", href: "/admin/telegram", icon: Send, category: "Comunicazioni" },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3, category: "Dati e controllo" },
-  { label: "Tracking", href: "/admin/tracking", icon: Crosshair, category: "Dati e controllo" },
+  {
+    label: "Brevo",
+    href: "/admin/brevo",
+    icon: MessagesSquare,
+    category: "Comunicazioni",
+    permission: "brevo",
+  },
+  {
+    label: "Telegram",
+    href: "/admin/telegram",
+    icon: Send,
+    category: "Comunicazioni",
+    permission: "telegram",
+  },
+  {
+    label: "Analytics",
+    href: "/admin/analytics",
+    icon: BarChart3,
+    category: "Dati e controllo",
+    permission: "analytics",
+  },
+  {
+    label: "Tracking",
+    href: "/admin/tracking",
+    icon: Crosshair,
+    category: "Dati e controllo",
+    permission: "tracking",
+  },
   {
     label: "Impostazioni",
     href: "/admin/impostazioni",
     icon: Settings,
     category: "Configurazione",
+    permission: "settings",
   },
-  { label: "Profilo", href: "/admin/profilo", icon: UserCircle, category: "Configurazione" },
+  {
+    label: "Team",
+    href: "/admin/team",
+    icon: UsersRound,
+    category: "Configurazione",
+    superAdminOnly: true,
+  },
+  {
+    label: "Profilo",
+    href: "/admin/profilo",
+    icon: UserCircle,
+    category: "Configurazione",
+  },
 ];
 
 export function AppSidebarNav({ section }: AppSidebarNavProps) {
   const pathname = usePathname();
-  const links = section === "admin" ? adminLinks : pmLinks;
-  const contextLabel = section === "admin" ? "Area Super Admin" : "Area Property Manager";
+  const session = useAppSession();
+  const links =
+    section === "admin"
+      ? adminLinks.filter(
+          (link) =>
+            (session.isSuperAdmin || !link.superAdminOnly) &&
+            (session.isSuperAdmin ||
+              !link.permission ||
+              hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
+        )
+      : pmLinks;
+  const contextLabel =
+    section === "admin"
+      ? session.isSuperAdmin
+        ? "Area Super Admin"
+        : "Area Team"
+      : "Area Property Manager";
   const contextDescription =
     section === "admin"
-      ? "Gestione piattaforma, lead, PM, pagamenti e analytics."
+      ? session.isSuperAdmin
+        ? "Gestione piattaforma, lead, PM, pagamenti e analytics."
+        : "Accesso limitato alle sezioni assegnate al tuo ruolo."
       : "Marketplace, lead acquistati, wallet e profilo PM.";
   const supportHref = section === "admin" ? "/admin/impostazioni" : "/app/assistenza";
   const supportBadgeHref = section === "admin" ? "/admin/segnalazioni" : "/app/assistenza";

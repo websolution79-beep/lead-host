@@ -4,10 +4,18 @@ import { AppSidebarNav } from "@/components/app-sidebar-nav";
 import { BrandLogo } from "@/components/brand-logo";
 import { MobileMenu } from "@/components/mobile-menu";
 import { SiteFooter } from "@/components/site-footer";
+import {
+  hasAdminPermission,
+  type AdminPermissionKey,
+  type AdminPermissionMap,
+} from "@/lib/admin/permissions";
 
 type AppAreaChromeProps = {
   children: ReactNode;
   section: "pm" | "admin";
+  adminHomeHref?: string;
+  adminPermissions?: AdminPermissionMap;
+  isSuperAdmin?: boolean;
 };
 
 const pmLinks = [
@@ -19,28 +27,95 @@ const pmLinks = [
   { label: "Assistenza", href: "/app/assistenza" },
 ];
 
-const adminLinks = [
-  { label: "Dashboard", href: "/admin", group: "Panoramica" },
-  { label: "Lead", href: "/admin/leads", group: "Operatività" },
-  { label: "Acquisizione", href: "/admin/acquisizione", group: "Operatività" },
-  { label: "Property Manager", href: "/admin/property-manager", group: "Operatività" },
-  { label: "Assistenza", href: "/admin/segnalazioni", group: "Operatività" },
-  { label: "Pagamenti", href: "/admin/pagamenti", group: "Finanza" },
-  { label: "Coupon", href: "/admin/coupon", group: "Finanza" },
-  { label: "Fatturazione", href: "/admin/fatturazione", group: "Finanza" },
-  { label: "Riaccrediti", href: "/admin/rimborsi", group: "Finanza" },
-  { label: "Email", href: "/admin/email-transazionali", group: "Comunicazioni" },
-  { label: "Brevo", href: "/admin/brevo", group: "Comunicazioni" },
-  { label: "Telegram", href: "/admin/telegram", group: "Comunicazioni" },
-  { label: "Analytics", href: "/admin/analytics", group: "Dati e controllo" },
-  { label: "Tracking", href: "/admin/tracking", group: "Dati e controllo" },
-  { label: "Impostazioni", href: "/admin/impostazioni", group: "Configurazione" },
+const adminLinks: Array<{
+  label: string;
+  href: string;
+  group: string;
+  permission?: AdminPermissionKey;
+  superAdminOnly?: boolean;
+}> = [
+  { label: "Dashboard", href: "/admin", group: "Panoramica", permission: "dashboard" },
+  { label: "Lead", href: "/admin/leads", group: "Operatività", permission: "leads" },
+  {
+    label: "Acquisizione",
+    href: "/admin/acquisizione",
+    group: "Operatività",
+    permission: "acquisition",
+  },
+  {
+    label: "Property Manager",
+    href: "/admin/property-manager",
+    group: "Operatività",
+    permission: "property_managers",
+  },
+  {
+    label: "Assistenza",
+    href: "/admin/segnalazioni",
+    group: "Operatività",
+    permission: "support",
+  },
+  { label: "Pagamenti", href: "/admin/pagamenti", group: "Finanza", permission: "payments" },
+  { label: "Coupon", href: "/admin/coupon", group: "Finanza", permission: "coupons" },
+  {
+    label: "Fatturazione",
+    href: "/admin/fatturazione",
+    group: "Finanza",
+    permission: "billing",
+  },
+  { label: "Riaccrediti", href: "/admin/rimborsi", group: "Finanza", permission: "refunds" },
+  {
+    label: "Email",
+    href: "/admin/email-transazionali",
+    group: "Comunicazioni",
+    permission: "emails",
+  },
+  { label: "Brevo", href: "/admin/brevo", group: "Comunicazioni", permission: "brevo" },
+  {
+    label: "Telegram",
+    href: "/admin/telegram",
+    group: "Comunicazioni",
+    permission: "telegram",
+  },
+  {
+    label: "Analytics",
+    href: "/admin/analytics",
+    group: "Dati e controllo",
+    permission: "analytics",
+  },
+  {
+    label: "Tracking",
+    href: "/admin/tracking",
+    group: "Dati e controllo",
+    permission: "tracking",
+  },
+  {
+    label: "Impostazioni",
+    href: "/admin/impostazioni",
+    group: "Configurazione",
+    permission: "settings",
+  },
+  { label: "Team", href: "/admin/team", group: "Configurazione", superAdminOnly: true },
   { label: "Profilo", href: "/admin/profilo", group: "Configurazione" },
 ];
 
-export function AppAreaChrome({ children, section }: AppAreaChromeProps) {
-  const links = section === "admin" ? adminLinks : pmLinks;
-  const homeHref = section === "admin" ? "/admin" : "/app/marketplace";
+export function AppAreaChrome({
+  children,
+  section,
+  adminHomeHref = "/admin",
+  adminPermissions = {},
+  isSuperAdmin = false,
+}: AppAreaChromeProps) {
+  const links =
+    section === "admin"
+      ? adminLinks.filter(
+          (link) =>
+            (isSuperAdmin || !link.superAdminOnly) &&
+            (isSuperAdmin ||
+              !link.permission ||
+              hasAdminPermission(adminPermissions, link.permission)),
+        )
+      : pmLinks;
+  const homeHref = section === "admin" ? adminHomeHref : "/app/marketplace";
 
   return (
     <main className="premium-shell min-h-screen">

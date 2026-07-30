@@ -49,11 +49,16 @@ export function LoginForm() {
         return;
       }
 
-      const sessionPayload = (await sessionResponse.json()) as { roles?: AppRole[] };
+      const sessionPayload = (await sessionResponse.json()) as {
+        roles?: AppRole[];
+        defaultRoute?: string;
+      };
       const roles = sessionPayload.roles ?? [];
       const redirectTo = searchParams.get("redirect");
 
-      router.replace(redirectTo || getDefaultRoute(roles));
+      router.replace(
+        redirectTo || sessionPayload.defaultRoute || getDefaultRoute(roles),
+      );
       router.refresh();
       return;
     }

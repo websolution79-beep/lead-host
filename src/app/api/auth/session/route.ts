@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/session-cookies";
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 import { getTeamAccessForProfile } from "@/lib/admin/team-access";
+import { getFirstAllowedAdminRoute } from "@/lib/admin/permissions";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 type SessionPayload = {
@@ -47,10 +48,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const defaultRoute = isSuperAdmin
+    ? "/admin"
+    : teamAccess
+      ? teamAccess.mustChangePassword
+        ? "/reimposta-password?forced=1"
+        : getFirstAllowedAdminRoute(teamAccess.permissions)
+      : "/app/marketplace";
+
   const response = NextResponse.json({
     ok: true,
     roles: context.roles,
     mustChangePassword: teamAccess?.mustChangePassword ?? false,
+    defaultRoute,
   });
   response.cookies.set(
     ACCESS_TOKEN_COOKIE,

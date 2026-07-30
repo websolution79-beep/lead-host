@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { AppAreaChrome } from "@/components/app-area-chrome";
 import { AppSessionProvider } from "@/components/app-session-provider";
+import { getFirstAllowedAdminRoute } from "@/lib/admin/permissions";
+import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { privatePageRobots } from "@/lib/seo/robots";
 
@@ -21,6 +23,22 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
 
   if (!session) {
     redirect("/login?redirect=/app/marketplace");
+  }
+
+  if (!hasRole(session.roles, "property_manager")) {
+    if (session.teamAccess?.mustChangePassword) {
+      redirect("/reimposta-password?forced=1");
+    }
+
+    if (session.isSuperAdmin) {
+      redirect("/admin");
+    }
+
+    if (session.teamAccess?.status === "active") {
+      redirect(getFirstAllowedAdminRoute(session.teamAccess.permissions));
+    }
+
+    redirect("/login?error=role");
   }
 
   return (

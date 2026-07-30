@@ -38,10 +38,10 @@ async function loadPublishedMarketplaceLeads() {
   const { data: leads, error } = await supabase
     .from("leads")
     .select(
-      "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,created_at,updated_at",
+      "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,created_at,updated_at",
     )
     .not("published_at", "is", null)
-    .or(`visible_until.is.null,visible_until.gte.${now}`)
+    .or(buildMarketplaceVisibilityFilter(now))
     .order("published_at", { ascending: false });
 
   if (error) {
@@ -59,9 +59,10 @@ export async function getPublishedMarketplaceLeadById(id: string) {
   const { data: lead, error } = await supabase
     .from("leads")
     .select(
-      "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,created_at,updated_at",
+      "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,created_at,updated_at",
     )
     .eq("id", id)
+    .or(buildMarketplaceVisibilityFilter(now))
     .maybeSingle();
 
   if (
@@ -76,6 +77,14 @@ export async function getPublishedMarketplaceLeadById(id: string) {
   const [mappedLead] = await mapLeadRowsToMarketplace(supabase, [lead]);
 
   return mappedLead ?? null;
+}
+
+function buildMarketplaceVisibilityFilter(now: string) {
+  return [
+    `and(internal_status.in.(available,one_slot_sold),expires_at.gt.${now})`,
+    `and(internal_status.eq.withdrawn_after_7_days,visible_until.gte.${now})`,
+    `and(internal_status.in.(sold_two_pm,sold_exclusive),sold_visible_until.gte.${now})`,
+  ].join(",");
 }
 
 async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[]) {

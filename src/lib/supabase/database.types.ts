@@ -1421,6 +1421,8 @@ export type Database = {
           published_at: string | null;
           expires_at: string | null;
           visible_until: string | null;
+          sold_at: string | null;
+          sold_visible_until: string | null;
           exclusive_purchase_id: string | null;
           created_at: string;
           updated_at: string;
@@ -1445,6 +1447,8 @@ export type Database = {
           published_at?: string | null;
           expires_at?: string | null;
           visible_until?: string | null;
+          sold_at?: string | null;
+          sold_visible_until?: string | null;
           exclusive_purchase_id?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1469,6 +1473,8 @@ export type Database = {
           published_at?: string | null;
           expires_at?: string | null;
           visible_until?: string | null;
+          sold_at?: string | null;
+          sold_visible_until?: string | null;
           exclusive_purchase_id?: string | null;
           created_at?: string;
           updated_at?: string;

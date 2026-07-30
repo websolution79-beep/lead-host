@@ -4,6 +4,7 @@ export const commercialRules = {
   maxSharedBuyers: 2,
   leadAvailabilityDays: 7,
   unavailableVisibilityDays: 7,
+  soldVisibilityDays: 7,
   currency: "eur",
 } as const;
 

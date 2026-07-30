@@ -33,10 +33,12 @@ const emptySettings: CommercialSettings = {
   firstTopUpMinCents: 3000,
   minTopUpCents: 1000,
   quickTopUpCents: [3000, 5000, 10000],
+  leadAvailabilityDays: 7,
   defaultSharedLeadPriceCents: 2900,
   defaultExclusiveLeadPriceCents: 5000,
   maxSharedBuyers: 2,
   unavailableVisibilityDays: 7,
+  soldVisibilityDays: 7,
   priceRules: [],
 };
 
@@ -313,7 +315,28 @@ function LeadPriceSettings({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-4">
+      <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <label className="grid gap-2 text-sm font-semibold text-ink">
+          Durata disponibilita lead
+          <input
+            className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
+            inputMode="numeric"
+            min={1}
+            max={90}
+            value={settings.leadAvailabilityDays}
+            onChange={(event) =>
+              onChange({
+                leadAvailabilityDays: Math.max(
+                  1,
+                  Number.parseInt(event.target.value, 10) || 1,
+                ),
+              })
+            }
+          />
+          <span className="text-xs font-medium leading-5 text-muted">
+            Giorni dalla pubblicazione prima che il lead scada.
+          </span>
+        </label>
         <EuroField
           label="Lead condiviso default"
           valueCents={settings.defaultSharedLeadPriceCents}
@@ -360,12 +383,34 @@ function LeadPriceSettings({
             Giorni extra in cui mostrare un lead non piu disponibile.
           </span>
         </label>
+        <label className="grid gap-2 text-sm font-semibold text-ink">
+          Visibilita venduti
+          <input
+            className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
+            inputMode="numeric"
+            min={0}
+            max={90}
+            value={settings.soldVisibilityDays}
+            onChange={(event) =>
+              onChange({
+                soldVisibilityDays: Math.max(
+                  0,
+                  Number.parseInt(event.target.value, 10) || 0,
+                ),
+              })
+            }
+          />
+          <span className="text-xs font-medium leading-5 text-muted">
+            Giorni extra in cui mostrare un lead completamente venduto.
+          </span>
+        </label>
       </div>
 
       <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-muted">
         In approvazione lead questi prezzi vengono precompilati, ma l&apos;admin puo
         modificarli sul singolo lead prima della pubblicazione. Ogni lead resta
-        acquistabile per 7 giorni dalla pubblicazione.
+        acquistabile per {settings.leadAvailabilityDays} giorni dalla pubblicazione,
+        salvo esaurimento anticipato delle quote o acquisto esclusivo.
       </div>
     </section>
   );

@@ -83,6 +83,8 @@ export type AdminLeadRecord = {
     publishedAt: string | null;
     expiresAt: string | null;
     visibleUntil: string | null;
+    soldAt: string | null;
+    soldVisibleUntil: string | null;
   } | null;
   pricing: LeadPricingSuggestion;
   purchases: AdminLeadPurchase[];
@@ -122,7 +124,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     supabase
       .from("leads")
       .select(
-        "id,owner_request_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until",
+        "id,owner_request_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until",
       )
       .in("owner_request_id", ownerRequestIds),
   ]);
@@ -222,6 +224,8 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
             publishedAt: lead.published_at,
             expiresAt: lead.expires_at,
             visibleUntil: lead.visible_until,
+            soldAt: lead.sold_at,
+            soldVisibleUntil: lead.sold_visible_until,
           }
         : null,
       pricing,

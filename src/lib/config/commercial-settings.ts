@@ -19,10 +19,12 @@ export type CommercialSettings = {
   firstTopUpMinCents: number;
   minTopUpCents: number;
   quickTopUpCents: number[];
+  leadAvailabilityDays: number;
   defaultSharedLeadPriceCents: number;
   defaultExclusiveLeadPriceCents: number;
   maxSharedBuyers: number;
   unavailableVisibilityDays: number;
+  soldVisibilityDays: number;
   priceRules: LeadPriceRule[];
 };
 
@@ -38,10 +40,12 @@ const SETTINGS_KEYS = {
   firstTopUpMinCents: "wallet.first_top_up_min_cents",
   minTopUpCents: "wallet.min_top_up_cents",
   quickTopUpCents: "wallet.quick_top_up_cents",
+  leadAvailabilityDays: "lead.availability_days",
   sharedPriceCents: "lead.shared_price_cents",
   exclusivePriceCents: "lead.exclusive_price_cents",
   maxSharedBuyers: "lead.max_shared_buyers",
   unavailableVisibilityDays: "lead.unavailable_visibility_days",
+  soldVisibilityDays: "lead.sold_visibility_days",
   priceRules: "lead.price_rules",
 } as const;
 
@@ -49,10 +53,12 @@ export const defaultCommercialSettings: CommercialSettings = {
   firstTopUpMinCents: 3000,
   minTopUpCents: 1000,
   quickTopUpCents: [3000, 5000, 10000],
+  leadAvailabilityDays: 7,
   defaultSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
   defaultExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
   maxSharedBuyers: commercialRules.maxSharedBuyers,
   unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
+  soldVisibilityDays: commercialRules.soldVisibilityDays,
   priceRules: [],
 };
 
@@ -100,6 +106,10 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
       values.get(SETTINGS_KEYS.quickTopUpCents),
       defaultCommercialSettings.quickTopUpCents,
     ),
+    leadAvailabilityDays: parsePositiveInteger(
+      values.get(SETTINGS_KEYS.leadAvailabilityDays),
+      defaultCommercialSettings.leadAvailabilityDays,
+    ),
     defaultSharedLeadPriceCents: parseCents(
       values.get(SETTINGS_KEYS.sharedPriceCents),
       defaultCommercialSettings.defaultSharedLeadPriceCents,
@@ -115,6 +125,10 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
     unavailableVisibilityDays: parseNonNegativeInteger(
       values.get(SETTINGS_KEYS.unavailableVisibilityDays),
       defaultCommercialSettings.unavailableVisibilityDays,
+    ),
+    soldVisibilityDays: parseNonNegativeInteger(
+      values.get(SETTINGS_KEYS.soldVisibilityDays),
+      defaultCommercialSettings.soldVisibilityDays,
     ),
     priceRules: parsePriceRules(values.get(SETTINGS_KEYS.priceRules)),
   };
@@ -151,6 +165,11 @@ export async function saveCommercialSettings({
       updated_by: profileId,
     },
     {
+      key: SETTINGS_KEYS.leadAvailabilityDays,
+      value: settings.leadAvailabilityDays,
+      updated_by: profileId,
+    },
+    {
       key: SETTINGS_KEYS.sharedPriceCents,
       value: settings.defaultSharedLeadPriceCents,
       updated_by: profileId,
@@ -168,6 +187,11 @@ export async function saveCommercialSettings({
     {
       key: SETTINGS_KEYS.unavailableVisibilityDays,
       value: settings.unavailableVisibilityDays,
+      updated_by: profileId,
+    },
+    {
+      key: SETTINGS_KEYS.soldVisibilityDays,
+      value: settings.soldVisibilityDays,
       updated_by: profileId,
     },
     {

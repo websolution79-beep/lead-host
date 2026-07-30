@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { writeAdminAuditLog } from "@/lib/admin/audit";
 import {
   adminApiErrorResponse,
   requireSuperAdmin,
@@ -582,12 +583,13 @@ function isMissingRelationError(error: { code?: string; message?: string }) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase } = await requireSuperAdmin(request);
+    const { supabase, profile: actor, isSuperAdmin } =
+      await requireSuperAdmin(request);
     const payload = updatePropertyManagerSchema.parse(await request.json());
 
     const { data: profile, error: profileFetchError } = await supabase
       .from("profiles")
-      .select("id,email,first_name,last_name")
+      .select("id,email,first_name,last_name,status")
       .eq("id", payload.profileId)
       .single();
 
@@ -620,6 +622,24 @@ export async function PATCH(request: NextRequest) {
       );
 
     if (pmUpdateError) throw pmUpdateError;
+
+    await writeAdminAuditLog({
+      supabase,
+      request,
+      actorProfileId: actor.id,
+      isSuperAdmin,
+      entityType: "property_manager",
+      entityId: payload.profileId,
+      action:
+        payload.action === "suspend"
+          ? "property_manager.suspended"
+          : "property_manager.reactivated",
+      before: { status: profile.status },
+      after: {
+        status: profileStatus,
+        verification_status: verificationStatus,
+      },
+    });
 
     after(() => runBrevoWorkerSafely(10));
     return NextResponse.json({ ok: true });

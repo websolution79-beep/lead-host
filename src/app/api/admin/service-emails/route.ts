@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
   processServiceEmailQueue,
@@ -100,7 +101,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } =
+      await requireSuperAdmin(request);
     const payload = actionSchema.parse(await request.json());
 
     if (payload.action === "test") {
@@ -183,18 +185,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await (
-      supabase.from("audit_logs") as unknown as {
-        insert: (
-          row: Record<string, unknown>,
-        ) => Promise<{ error: { message?: string } | null }>;
-      }
-    ).insert({
-      actor_profile_id: profile.id,
-      actor_role: "super_admin",
-      entity_type: "service_email_campaign",
-      entity_id: campaignInsert.data.id,
-      action: "queued",
+    await writeAdminAuditLog({
+      supabase,
+      request,
+      actorProfileId: profile.id,
+      isSuperAdmin,
+      entityType: "service_email_campaign",
+      entityId: campaignInsert.data.id,
+      action: "service_email.queued",
       after: {
         subject: payload.content.subject,
         recipient_scope: "active_property_managers",

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
   fetchCommercialSettings,
@@ -32,7 +33,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Dati approvazione non validi." }, { status: 400 });
     }
 
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } =
+      await requireSuperAdmin(request);
 
     const { data: ownerRequest, error: requestError } = await supabase
       .from("owner_requests")
@@ -167,15 +169,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw updateRequestError;
     }
 
-    const auditLogs = supabase.from("audit_logs" as never) as unknown as {
-      insert: (row: Record<string, unknown>) => Promise<unknown>;
-    };
-
-    await auditLogs.insert({
-      actor_profile_id: profile.id,
-      actor_role: "super_admin",
-      entity_type: "owner_request",
-      entity_id: ownerRequestId,
+    await writeAdminAuditLog({
+      supabase,
+      request,
+      actorProfileId: profile.id,
+      isSuperAdmin,
+      entityType: "owner_request",
+      entityId: ownerRequestId,
       action: "lead.approved_and_published",
       before: { status: ownerRequest.status },
       after: {

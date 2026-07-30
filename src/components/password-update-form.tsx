@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
-export function PasswordUpdateForm() {
+export function PasswordUpdateForm({ minimumLength = 8 }: { minimumLength?: number }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -33,8 +33,8 @@ export function PasswordUpdateForm() {
     event.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("La password deve contenere almeno 8 caratteri.");
+    if (password.length < minimumLength) {
+      setError(`La password deve contenere almeno ${minimumLength} caratteri.`);
       return;
     }
 
@@ -44,24 +44,45 @@ export function PasswordUpdateForm() {
     }
 
     setIsSubmitting(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) {
-      setIsSubmitting(false);
-      setError(
-        "Non è stato possibile aggiornare la password. Richiedi un nuovo link e riprova.",
-      );
-      return;
-    }
-
     const { data: sessionData } = await supabase.auth.getSession();
+    let handledByTeamRoute = false;
 
     if (sessionData.session) {
-      await fetch("/api/auth/team-password", {
+      const teamResponse = await fetch("/api/auth/team-password", {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${sessionData.session.access_token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ password }),
       });
+      const teamPayload = (await teamResponse.json().catch(() => ({}))) as {
+        handled?: boolean;
+        error?: string;
+      };
+
+      if (!teamResponse.ok) {
+        setIsSubmitting(false);
+        setError(
+          teamPayload.error ??
+            "Non è stato possibile aggiornare la password. Riprova.",
+        );
+        return;
+      }
+
+      handledByTeamRoute = teamPayload.handled === true;
+    }
+
+    if (!handledByTeamRoute) {
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+
+      if (updateError) {
+        setIsSubmitting(false);
+        setError(
+          "Non è stato possibile aggiornare la password. Richiedi un nuovo link e riprova.",
+        );
+        return;
+      }
     }
 
     await fetch("/api/auth/session", { method: "DELETE" });
@@ -113,7 +134,7 @@ export function PasswordUpdateForm() {
           className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
           type="password"
           autoComplete="new-password"
-          minLength={8}
+          minLength={minimumLength}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
@@ -125,7 +146,7 @@ export function PasswordUpdateForm() {
           className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
           type="password"
           autoComplete="new-password"
-          minLength={8}
+          minLength={minimumLength}
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
           required

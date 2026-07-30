@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
   fetchPmRegistrationSettings,
@@ -31,13 +32,27 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } =
+      await requireSuperAdmin(request);
     const settings = settingsSchema.parse(await request.json());
+    const { settings: previousSettings } =
+      await fetchPmRegistrationSettings(supabase);
 
     await savePmRegistrationSettings({
       supabase,
       profileId: profile.id,
       settings,
+    });
+
+    await writeAdminAuditLog({
+      supabase,
+      request,
+      actorProfileId: profile.id,
+      isSuperAdmin,
+      entityType: "pm_registration_settings",
+      action: "settings.pm_registration_updated",
+      before: previousSettings,
+      after: settings,
     });
 
     return NextResponse.json({ ok: true, settings });

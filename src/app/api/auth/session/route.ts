@@ -7,6 +7,7 @@ import {
   getSessionCookieOptions,
 } from "@/lib/auth/session-cookies";
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
+import { getTeamAccessForProfile } from "@/lib/admin/team-access";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 type SessionPayload = {
@@ -32,7 +33,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Profilo non attivo." }, { status: 403 });
   }
 
-  const response = NextResponse.json({ ok: true, roles: context.roles });
+  const isSuperAdmin = context.roles.includes("super_admin");
+  const isTeamMember = context.roles.includes("team_member");
+  const teamAccess =
+    isTeamMember && !isSuperAdmin
+      ? await getTeamAccessForProfile(context.profile.id)
+      : null;
+
+  if (isTeamMember && !isSuperAdmin && teamAccess?.status !== "active") {
+    return NextResponse.json(
+      { error: "Account Team non attivo." },
+      { status: 403 },
+    );
+  }
+
+  const response = NextResponse.json({
+    ok: true,
+    roles: context.roles,
+    mustChangePassword: teamAccess?.mustChangePassword ?? false,
+  });
   response.cookies.set(
     ACCESS_TOKEN_COOKIE,
     payload.accessToken,

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
   fetchCommercialSettings,
@@ -47,7 +48,10 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } =
+      await requireSuperAdmin(request);
+    const { settings: previousSettings } =
+      await fetchCommercialSettings(supabase);
     const payload = commercialSettingsSchema.parse(await request.json());
     const settings: CommercialSettings = {
       ...payload,
@@ -61,6 +65,17 @@ export async function PATCH(request: NextRequest) {
       supabase,
       profileId: profile.id,
       settings,
+    });
+
+    await writeAdminAuditLog({
+      supabase,
+      request,
+      actorProfileId: profile.id,
+      isSuperAdmin,
+      entityType: "commercial_settings",
+      action: "settings.commercial_updated",
+      before: previousSettings,
+      after: settings,
     });
 
     return NextResponse.json({ ok: true, settings });

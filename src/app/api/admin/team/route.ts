@@ -44,6 +44,10 @@ const postSchema = z.discriminatedUnion("action", [
       password: z.string().min(12).max(128),
     }),
   }),
+  z.object({
+    action: z.literal("resend_invite"),
+    memberId: z.string().uuid(),
+  }),
 ]);
 
 const patchSchema = z.discriminatedUnion("action", [
@@ -148,6 +152,89 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({ role }, { status: 201 });
+    }
+
+    if (payload.data.action === "resend_invite") {
+      const { data: existingMember, error: memberError } = await supabase
+        .from("team_members")
+        .select("id,profile_id,role_id,status,creation_mode")
+        .eq("id", payload.data.memberId)
+        .maybeSingle();
+
+      if (memberError) throw memberError;
+      if (!existingMember) {
+        throw new AdminApiError(404, "Membro Team non trovato.");
+      }
+      if (
+        existingMember.status !== "invited" ||
+        existingMember.creation_mode !== "invite"
+      ) {
+        throw new AdminApiError(
+          422,
+          "Puoi reinviare l'invito solo a un membro ancora in attesa.",
+        );
+      }
+
+      await ensureRoleIsActive(supabase, existingMember.role_id);
+
+      const { data: memberProfile, error: profileError } = await supabase
+        .from("profiles")
+        .select("email,first_name,last_name")
+        .eq("id", existingMember.profile_id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+      if (!memberProfile) {
+        throw new AdminApiError(404, "Profilo del membro Team non trovato.");
+      }
+
+      const authResult = await supabase.auth.admin.inviteUserByEmail(
+        memberProfile.email,
+        {
+          redirectTo: `${getRequestAppUrl(request)}/auth/callback?next=/admin`,
+          data: {
+            account_type: "team",
+            first_name: memberProfile.first_name,
+            last_name: memberProfile.last_name,
+          },
+        },
+      );
+
+      if (authResult.error) {
+        throw new AdminApiError(
+          422,
+          friendlyResendInviteError(authResult.error.message),
+        );
+      }
+
+      const now = new Date().toISOString();
+      const { data: member, error: updateError } = await supabase
+        .from("team_members")
+        .update({
+          invited_at: now,
+          invited_by: profile.id,
+          must_change_password: true,
+        })
+        .eq("id", existingMember.id)
+        .select("*")
+        .single();
+
+      if (updateError || !member) {
+        throw updateError ?? new Error("Invito Team non aggiornato.");
+      }
+
+      await writeTeamAudit(
+        supabase,
+        profile.id,
+        "team.member_invitation_resent",
+        member.id,
+        {
+          email: memberProfile.email,
+          role_id: existingMember.role_id,
+        },
+      );
+
+      return NextResponse.json({ member });
     }
 
     const creationMode =
@@ -507,6 +594,13 @@ function friendlyAuthError(message?: string) {
     return "Questa email è già associata a un account.";
   }
   return "Non è stato possibile creare il membro Team. Controlla i dati e riprova.";
+}
+
+function friendlyResendInviteError(message?: string) {
+  if (/already|registered|confirmed/i.test(message ?? "")) {
+    return "L'account risulta già attivo: non è necessario reinviare l'invito.";
+  }
+  return "Non è stato possibile reinviare l'invito. Riprova tra poco.";
 }
 
 function friendlyDatabaseError(message?: string) {

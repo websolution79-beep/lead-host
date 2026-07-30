@@ -407,6 +407,36 @@ export function AdminTeamConsole() {
     }
   }
 
+  async function resendMemberInvite(member: TeamMember) {
+    if (member.status !== "invited") return;
+
+    const email = member.profile?.email ?? "questo membro";
+    if (!window.confirm(`Reinviare l'invito a ${email}?`)) {
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      await request("POST", {
+        action: "resend_invite",
+        memberId: member.id,
+      });
+      setSuccess(`Nuovo invito inviato a ${email}.`);
+      await loadTeam();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Non è stato possibile reinviare l'invito.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="card flex min-h-64 items-center justify-center p-8">
@@ -535,6 +565,7 @@ export function AdminTeamConsole() {
           saving={saving}
           onRoleChange={setEditMemberRoleId}
           onStatusToggle={() => void toggleMemberStatus(editingMember)}
+          onResendInvite={() => void resendMemberInvite(editingMember)}
           onClose={() => setEditingMember(null)}
           onSubmit={saveMember}
         />
@@ -948,6 +979,7 @@ function MemberEditModal({
   saving,
   onRoleChange,
   onStatusToggle,
+  onResendInvite,
   onClose,
   onSubmit,
 }: {
@@ -957,6 +989,7 @@ function MemberEditModal({
   saving: boolean;
   onRoleChange: (roleId: string) => void;
   onStatusToggle: () => void;
+  onResendInvite: () => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
@@ -989,6 +1022,12 @@ function MemberEditModal({
                 : "Aggiornata"
             }
           />
+          {member.status === "invited" ? (
+            <InfoBox
+              label="Ultimo invito"
+              value={formatDate(member.invited_at ?? member.created_at)}
+            />
+          ) : null}
         </div>
         <Field label="Ruolo assegnato *">
           <select
@@ -1005,18 +1044,30 @@ function MemberEditModal({
           </select>
         </Field>
         <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
-          <button
-            className={
-              member.status === "suspended"
-                ? "btn btn-secondary"
-                : "btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-            }
-            type="button"
-            onClick={onStatusToggle}
-            disabled={saving}
-          >
-            {member.status === "suspended" ? "Riattiva membro" : "Sospendi membro"}
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {member.status === "invited" ? (
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={onResendInvite}
+                disabled={saving}
+              >
+                {saving ? "Invio..." : "Reinvia invito"}
+              </button>
+            ) : null}
+            <button
+              className={
+                member.status === "suspended"
+                  ? "btn btn-secondary"
+                  : "btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+              }
+              type="button"
+              onClick={onStatusToggle}
+              disabled={saving}
+            >
+              {member.status === "suspended" ? "Riattiva membro" : "Sospendi membro"}
+            </button>
+          </div>
           <div className="flex gap-2">
             <button className="btn btn-secondary" type="button" onClick={onClose}>
               Chiudi

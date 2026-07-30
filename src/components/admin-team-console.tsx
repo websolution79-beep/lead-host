@@ -219,11 +219,14 @@ export function AdminTeamConsole() {
     });
     const payload = (await response.json().catch(() => ({}))) as {
       error?: string;
+      delivery?: "invite" | "password_setup";
     };
 
     if (!response.ok) {
       throw new Error(payload.error ?? "Operazione Team non riuscita.");
     }
+
+    return payload;
   }
 
   async function saveRole(event: FormEvent<HTMLFormElement>) {
@@ -420,11 +423,15 @@ export function AdminTeamConsole() {
     setSuccess("");
 
     try {
-      await request("POST", {
+      const result = await request("POST", {
         action: "resend_invite",
         memberId: member.id,
       });
-      setSuccess(`Nuovo invito inviato a ${email}.`);
+      setSuccess(
+        result.delivery === "password_setup"
+          ? `Email per impostare la password inviata a ${email}.`
+          : `Nuovo invito inviato a ${email}.`,
+      );
       await loadTeam();
     } catch (requestError) {
       setError(

@@ -54,7 +54,11 @@ export async function PATCH(request: NextRequest) {
     .eq("profile_id", profile.id)
     .single();
 
-  if (memberError || !member || member.status !== "active") {
+  if (
+    memberError ||
+    !member ||
+    !["active", "invited"].includes(member.status)
+  ) {
     return NextResponse.json(
       { error: "Account Team non attivo." },
       { status: 403 },
@@ -73,11 +77,19 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  const memberUpdate =
+    member.status === "invited"
+      ? {
+          must_change_password: false,
+          status: "active" as const,
+          joined_at: new Date().toISOString(),
+        }
+      : { must_change_password: false };
   const { error: memberUpdateError } = await supabase
     .from("team_members")
-    .update({ must_change_password: false })
+    .update(memberUpdate)
     .eq("id", member.id)
-    .eq("status", "active");
+    .in("status", ["active", "invited"]);
 
   if (memberUpdateError) {
     return NextResponse.json(
@@ -94,8 +106,11 @@ export async function PATCH(request: NextRequest) {
     entityType: "team_member",
     entityId: member.id,
     action: "team.password_changed",
-    before: { must_change_password: member.must_change_password },
-    after: { must_change_password: false },
+    before: {
+      status: member.status,
+      must_change_password: member.must_change_password,
+    },
+    after: { must_change_password: false, status: "active" },
   });
 
   return NextResponse.json({ handled: true });

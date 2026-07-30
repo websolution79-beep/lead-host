@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
 
       const { data: memberProfile, error: profileError } = await supabase
         .from("profiles")
-        .select("email,first_name,last_name")
+        .select("auth_user_id,email,first_name,last_name")
         .eq("id", existingMember.profile_id)
         .maybeSingle();
 
@@ -188,17 +188,27 @@ export async function POST(request: NextRequest) {
         throw new AdminApiError(404, "Profilo del membro Team non trovato.");
       }
 
-      const authResult = await supabase.auth.admin.inviteUserByEmail(
-        memberProfile.email,
-        {
-          redirectTo: `${getRequestAppUrl(request)}/auth/callback?next=/admin`,
-          data: {
-            account_type: "team",
-            first_name: memberProfile.first_name,
-            last_name: memberProfile.last_name,
-          },
-        },
-      );
+      const authUserResult = memberProfile.auth_user_id
+        ? await supabase.auth.admin.getUserById(memberProfile.auth_user_id)
+        : { data: { user: null }, error: null };
+
+      if (authUserResult.error) throw authUserResult.error;
+
+      const appUrl = getRequestAppUrl(request);
+      const emailConfirmed = Boolean(authUserResult.data.user?.email_confirmed_at);
+      const delivery = emailConfirmed ? "password_setup" : "invite";
+      const authResult = emailConfirmed
+        ? await supabase.auth.resetPasswordForEmail(memberProfile.email, {
+            redirectTo: `${appUrl}/auth/callback?next=/reimposta-password`,
+          })
+        : await supabase.auth.admin.inviteUserByEmail(memberProfile.email, {
+            redirectTo: `${appUrl}/auth/callback?next=/admin`,
+            data: {
+              account_type: "team",
+              first_name: memberProfile.first_name,
+              last_name: memberProfile.last_name,
+            },
+          });
 
       if (authResult.error) {
         throw new AdminApiError(
@@ -226,7 +236,9 @@ export async function POST(request: NextRequest) {
       await writeTeamAudit(
         supabase,
         profile.id,
-        "team.member_invitation_resent",
+        delivery === "invite"
+          ? "team.member_invitation_resent"
+          : "team.member_password_setup_resent",
         member.id,
         {
           email: memberProfile.email,
@@ -234,7 +246,7 @@ export async function POST(request: NextRequest) {
         },
       );
 
-      return NextResponse.json({ member });
+      return NextResponse.json({ member, delivery });
     }
 
     const creationMode =

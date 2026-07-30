@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AccountSummary } from "@/components/account-summary";
+import { AdminAccessBoundary } from "@/components/admin-access-boundary";
 import { AppSidebarNav } from "@/components/app-sidebar-nav";
 import { BrandLogo } from "@/components/brand-logo";
 import { MobileMenu } from "@/components/mobile-menu";
@@ -139,7 +140,13 @@ export function AppAreaChrome({
             hideAt="lg"
           />
         </div>
-        <div className="flex-1">{children}</div>
+        <div className="flex-1">
+          {section === "admin" ? (
+            <AdminAccessBoundary>{children}</AdminAccessBoundary>
+          ) : (
+            children
+          )}
+        </div>
         <SiteFooter />
       </section>
     </main>

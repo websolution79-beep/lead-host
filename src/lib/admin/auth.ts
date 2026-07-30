@@ -3,6 +3,8 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 import {
+  getAdminApiAccessLevel,
+  getAdminApiPermissions,
   hasAdminPermission,
   type AdminAccessLevel,
   type AdminPermissionKey,
@@ -85,8 +87,30 @@ async function requireAdminContext(request: NextRequest): Promise<AdminContext> 
 export async function requireSuperAdmin(request: NextRequest): Promise<AdminContext> {
   const context = await requireAdminContext(request);
 
-  if (!context.isSuperAdmin) {
+  if (context.isSuperAdmin) {
+    return context;
+  }
+
+  const pathname = request.nextUrl.pathname;
+  const apiPermissions =
+    pathname === "/api/admin/team" ? [] : getAdminApiPermissions(pathname);
+
+  if (!apiPermissions.length) {
     throw new AdminApiError(403, "Ruolo Super Admin richiesto.");
+  }
+
+  const requiredLevel = getAdminApiAccessLevel(request.method);
+  const isAllowed = apiPermissions.some((permission) =>
+    hasAdminPermission(context.permissions, permission, requiredLevel),
+  );
+
+  if (!isAllowed) {
+    throw new AdminApiError(
+      403,
+      requiredLevel === "write"
+        ? "Non hai il permesso di modificare questa sezione."
+        : "Non hai il permesso di visualizzare questa sezione.",
+    );
   }
 
   return context;

@@ -43,6 +43,28 @@ export const ADMIN_ROUTE_PERMISSIONS: Array<{
   { href: "/admin", permission: "dashboard" },
 ];
 
+const ADMIN_API_PERMISSION_ROUTES: Array<{
+  prefix: string;
+  permissions: AdminPermissionKey[];
+}> = [
+  { prefix: "/api/admin/wallet-transactions", permissions: ["billing"] },
+  { prefix: "/api/admin/property-managers", permissions: ["property_managers"] },
+  { prefix: "/api/admin/email-templates", permissions: ["emails"] },
+  { prefix: "/api/admin/service-emails", permissions: ["emails"] },
+  { prefix: "/api/admin/acquisition", permissions: ["acquisition"] },
+  { prefix: "/api/admin/analytics", permissions: ["dashboard", "analytics"] },
+  { prefix: "/api/admin/billing", permissions: ["billing"] },
+  { prefix: "/api/admin/brevo", permissions: ["brevo"] },
+  { prefix: "/api/admin/coupons", permissions: ["coupons"] },
+  { prefix: "/api/admin/leads", permissions: ["leads"] },
+  { prefix: "/api/admin/payments", permissions: ["payments"] },
+  { prefix: "/api/admin/refunds", permissions: ["refunds"] },
+  { prefix: "/api/admin/reports", permissions: ["support"] },
+  { prefix: "/api/admin/settings", permissions: ["settings"] },
+  { prefix: "/api/admin/telegram", permissions: ["telegram"] },
+  { prefix: "/api/admin/tracking", permissions: ["tracking"] },
+];
+
 export function hasAdminPermission(
   permissions: AdminPermissionMap,
   permission: AdminPermissionKey,
@@ -61,4 +83,23 @@ export function getFirstAllowedAdminRoute(permissions: AdminPermissionMap) {
       hasAdminPermission(permissions, permission),
     )?.href ?? "/login"
   );
+}
+
+export function getAdminPagePermission(pathname: string) {
+  if (pathname === "/admin") return "dashboard" satisfies AdminPermissionKey;
+
+  return ADMIN_ROUTE_PERMISSIONS.find(
+    ({ href }) => href !== "/admin" && pathname.startsWith(href),
+  )?.permission;
+}
+
+export function getAdminApiPermissions(pathname: string) {
+  return (
+    ADMIN_API_PERMISSION_ROUTES.find(({ prefix }) => pathname.startsWith(prefix))
+      ?.permissions ?? []
+  );
+}
+
+export function getAdminApiAccessLevel(method: string): AdminAccessLevel {
+  return method === "GET" || method === "HEAD" ? "read" : "write";
 }

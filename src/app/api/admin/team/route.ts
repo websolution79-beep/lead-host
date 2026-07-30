@@ -9,7 +9,7 @@ import {
   ADMIN_PERMISSION_KEYS,
   type AdminPermissionKey,
 } from "@/lib/admin/permissions";
-import { appUrl } from "@/lib/env";
+import { getRequestAppUrl } from "@/lib/env";
 
 const accessLevelSchema = z.enum(["read", "write"]);
 const permissionSchema = z.object({
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     const authResult =
       creationMode === "invite"
         ? await supabase.auth.admin.inviteUserByEmail(memberInput.email, {
-            redirectTo: `${appUrl}/auth/callback?next=/admin`,
+            redirectTo: `${getRequestAppUrl(request)}/auth/callback?next=/admin`,
             data: metadata,
           })
         : await supabase.auth.admin.createUser({

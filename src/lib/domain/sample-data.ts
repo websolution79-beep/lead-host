@@ -21,7 +21,6 @@ export type MarketplaceLead = {
   sharedPriceCents?: number;
   exclusivePriceCents?: number;
   exclusivePurchaseId: string | null;
-  requestedAt: string;
   publishedAt: string;
   expiresAt: string;
   ownerDescription: string;
@@ -47,7 +46,6 @@ export const demoLeads: MarketplaceLead[] = [
     internalStatus: "available",
     sharedSlotsSold: 0,
     exclusivePurchaseId: null,
-    requestedAt: "2026-07-20",
     publishedAt: "2026-07-20",
     expiresAt: "2026-07-27",
     ownerDescription:
@@ -72,7 +70,6 @@ export const demoLeads: MarketplaceLead[] = [
     internalStatus: "one_slot_sold",
     sharedSlotsSold: 1,
     exclusivePurchaseId: null,
-    requestedAt: "2026-07-19",
     publishedAt: "2026-07-19",
     expiresAt: "2026-07-26",
     ownerDescription:
@@ -97,7 +94,6 @@ export const demoLeads: MarketplaceLead[] = [
     internalStatus: "sold_exclusive",
     sharedSlotsSold: 0,
     exclusivePurchaseId: "demo-exclusive-purchase",
-    requestedAt: "2026-07-13",
     publishedAt: "2026-07-13",
     expiresAt: "2026-07-20",
     ownerDescription:
@@ -122,7 +118,6 @@ export const demoLeads: MarketplaceLead[] = [
     internalStatus: "available",
     sharedSlotsSold: 0,
     exclusivePurchaseId: null,
-    requestedAt: "2026-07-20",
     publishedAt: "2026-07-20",
     expiresAt: "2026-07-27",
     ownerDescription:
@@ -147,7 +142,6 @@ export const demoLeads: MarketplaceLead[] = [
     internalStatus: "available",
     sharedSlotsSold: 0,
     exclusivePurchaseId: null,
-    requestedAt: "2026-07-18",
     publishedAt: "2026-07-18",
     expiresAt: "2026-07-25",
     ownerDescription:
@@ -172,7 +166,6 @@ export const demoLeads: MarketplaceLead[] = [
     internalStatus: "sold_two_pm",
     sharedSlotsSold: 2,
     exclusivePurchaseId: null,
-    requestedAt: "2026-07-16",
     publishedAt: "2026-07-16",
     expiresAt: "2026-07-23",
     ownerDescription:

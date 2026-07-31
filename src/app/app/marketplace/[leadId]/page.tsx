@@ -105,10 +105,6 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           </div>
 
           <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Detail
-              label="Richiesta ricevuta"
-              value={formatLeadRequestDate(lead.requestedAt)}
-            />
             <Detail label="Camere" value={String(lead.bedrooms)} />
             <Detail label="Bagni" value={String(lead.bathrooms)} />
             <Detail label="Posti letto" value={String(lead.beds)} />
@@ -227,29 +223,6 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
       </div>
     </AppShell>
   );
-}
-
-function formatLeadRequestDate(value: string) {
-  const date = parseLeadDate(value);
-  const now = new Date();
-  const time = new Intl.DateTimeFormat("it-IT", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-
-  if (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  ) {
-    return `Oggi alle ${time}`;
-  }
-
-  return new Intl.DateTimeFormat("it-IT", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
 }
 
 function ExclusiveSoldBadge() {

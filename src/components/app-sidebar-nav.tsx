@@ -193,34 +193,46 @@ const adminLinks: AppNavLink[] = [
 export function AppSidebarNav({ section }: AppSidebarNavProps) {
   const pathname = usePathname();
   const session = useAppSession();
+  const isRestrictedTeamMember =
+    session.roles.includes("team_member") && !session.isSuperAdmin;
+  const allowedAdminLinks = adminLinks.filter(
+    (link) =>
+      !link.superAdminOnly &&
+      (!link.permission ||
+        hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
+  );
   const links =
     section === "admin"
-      ? adminLinks.filter(
-          (link) =>
-            (session.isSuperAdmin || !link.superAdminOnly) &&
-            (session.isSuperAdmin ||
-              !link.permission ||
-              hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
-        )
-      : session.roles.includes("team_member") && !session.isSuperAdmin
-        ? pmLinks.filter(
-            (link) =>
-              link.permission === "marketplace" &&
-              hasAdminPermission(session.adminPermissions ?? {}, "marketplace"),
-          )
+      ? session.isSuperAdmin
+        ? adminLinks
+        : allowedAdminLinks
+      : isRestrictedTeamMember
+        ? [
+            ...pmLinks.filter(
+              (link) =>
+                link.permission === "marketplace" &&
+                hasAdminPermission(session.adminPermissions ?? {}, "marketplace"),
+            ),
+            ...allowedAdminLinks.filter((link) => link.href !== "/app/marketplace"),
+          ]
         : pmLinks;
+  const isTeamMemberMarketplaceView = section === "pm" && isRestrictedTeamMember;
   const contextLabel =
     section === "admin"
       ? session.isSuperAdmin
         ? "Area Super Admin"
         : "Area Team"
-      : "Area Property Manager";
+      : isTeamMemberMarketplaceView
+        ? "Area Team"
+        : "Area Property Manager";
   const contextDescription =
     section === "admin"
       ? session.isSuperAdmin
         ? "Gestione piattaforma, lead, PM, pagamenti e analytics."
         : "Accesso limitato alle sezioni assegnate al tuo ruolo."
-      : "Marketplace, lead acquistati, wallet e profilo PM.";
+      : isTeamMemberMarketplaceView
+        ? "Marketplace e sezioni assegnate al tuo ruolo."
+        : "Marketplace, lead acquistati, wallet e profilo PM.";
   const supportHref = section === "admin" ? "/admin/impostazioni" : "/app/assistenza";
   const supportBadgeHref = section === "admin" ? "/admin/segnalazioni" : "/app/assistenza";
   const supportLabel = section === "admin" ? "Impostazioni" : "Assistenza";
@@ -283,7 +295,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
 
       <RoleSwitcher section={section} />
 
-      {section === "pm" ? (
+      {section === "pm" && !isTeamMemberMarketplaceView ? (
         <Link
           href={supportHref}
           className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:border-green/30 hover:text-green"

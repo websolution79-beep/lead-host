@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
-import { useAppSession } from "@/components/app-session-provider";
 
 type CouponTier = {
   id?: string;
@@ -101,10 +100,7 @@ function emptyDraft(): CouponDraft {
   };
 }
 
-export function AdminCouponsConsole() {
-  const session = useAppSession();
-  const readOnly =
-    !session.isSuperAdmin && session.adminPermissions?.coupons !== "write";
+export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [couponsEnabled, setCouponsEnabled] = useState(false);

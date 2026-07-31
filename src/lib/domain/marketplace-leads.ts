@@ -162,7 +162,7 @@ function mapDbLeadToMarketplaceLead(
 
   return {
     id: lead.id,
-    title: lead.title,
+    title: capitalizeLeadTitle(lead.title),
     region: property.region ?? "Italia",
     province: property.province ?? "Provincia non indicata",
     city: property.city ?? "Località non indicata",
@@ -191,6 +191,16 @@ function mapDbLeadToMarketplaceLead(
       property.description ??
       "Il proprietario non ha aggiunto una descrizione facoltativa.",
   };
+}
+
+function capitalizeLeadTitle(title: string) {
+  const normalizedTitle = title.trim();
+
+  if (!normalizedTitle) {
+    return title;
+  }
+
+  return `${normalizedTitle.charAt(0).toLocaleUpperCase("it-IT")}${normalizedTitle.slice(1)}`;
 }
 
 function formatAddressWithCity(address: string, city: string | null) {

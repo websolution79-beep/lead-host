@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { z } from "zod";
-import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import {
+  adminApiErrorResponse,
+  requireAdminPermission,
+} from "@/lib/admin/auth";
 import { getEnv } from "@/lib/env";
 import {
   fetchWalletCouponsEnabled,
@@ -41,7 +44,7 @@ const deleteSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase } = await requireSuperAdmin(request);
+    const { supabase } = await requireAdminPermission(request, "coupons", "read");
     const [couponsEnabled, couponsResult, tiersResult, redemptionsResult] =
       await Promise.all([
         fetchWalletCouponsEnabled(supabase),
@@ -125,7 +128,11 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireAdminPermission(
+      request,
+      "coupons",
+      "write",
+    );
     const payload = patchSchema.parse(await request.json());
 
     if (payload.action === "toggle_feature") {
@@ -238,7 +245,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { supabase } = await requireSuperAdmin(request);
+    const { supabase } = await requireAdminPermission(request, "coupons", "write");
     const payload = deleteSchema.parse(await request.json());
     const { data: coupon, error: couponError } = await supabase
       .from("wallet_coupons")

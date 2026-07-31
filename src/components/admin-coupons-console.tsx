@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
+import { useAppSession } from "@/components/app-session-provider";
 
 type CouponTier = {
   id?: string;
@@ -101,6 +102,9 @@ function emptyDraft(): CouponDraft {
 }
 
 export function AdminCouponsConsole() {
+  const session = useAppSession();
+  const readOnly =
+    !session.isSuperAdmin && session.adminPermissions?.coupons === "read";
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [couponsEnabled, setCouponsEnabled] = useState(false);
@@ -151,7 +155,7 @@ export function AdminCouponsConsole() {
 
   async function toggleFeature() {
     const token = await getToken();
-    if (!token) return;
+    if (!token || readOnly) return;
 
     setSaving(true);
     setError("");
@@ -181,7 +185,7 @@ export function AdminCouponsConsole() {
 
   async function saveCoupon() {
     const token = await getToken();
-    if (!token) return;
+    if (!token || readOnly) return;
 
     setSaving(true);
     setError("");
@@ -231,7 +235,7 @@ export function AdminCouponsConsole() {
 
   async function deleteCoupon() {
     const token = await getToken();
-    if (!token || !couponToDelete) return;
+    if (!token || readOnly || !couponToDelete) return;
 
     setDeleting(true);
     setError("");
@@ -328,7 +332,7 @@ export function AdminCouponsConsole() {
           <button
             className={couponsEnabled ? "btn btn-primary" : "btn btn-secondary"}
             type="button"
-            disabled={saving || !storageReady}
+            disabled={saving || !storageReady || readOnly}
             onClick={toggleFeature}
           >
             <Check size={17} />
@@ -357,6 +361,7 @@ export function AdminCouponsConsole() {
           ) : null}
         </div>
 
+        <fieldset disabled={readOnly} className="contents">
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <Field label="Codice coupon *">
             <input
@@ -575,12 +580,13 @@ export function AdminCouponsConsole() {
         <button
           className="btn btn-primary mt-5"
           type="button"
-          disabled={saving || !storageReady}
+          disabled={saving || !storageReady || readOnly}
           onClick={saveCoupon}
         >
           <Save size={17} />
           {saving ? "Salvataggio..." : "Salva coupon"}
         </button>
+        </fieldset>
       </section>
 
       <section className="card p-5">
@@ -632,6 +638,7 @@ export function AdminCouponsConsole() {
                     <button
                       className="btn btn-secondary"
                       type="button"
+                      disabled={readOnly}
                       onClick={() => editCoupon(coupon)}
                     >
                       <Pencil size={16} />
@@ -640,6 +647,7 @@ export function AdminCouponsConsole() {
                     <button
                       className="btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
                       type="button"
+                      disabled={readOnly}
                       onClick={() => {
                         setDeleteError("");
                         setCouponToDelete(coupon);

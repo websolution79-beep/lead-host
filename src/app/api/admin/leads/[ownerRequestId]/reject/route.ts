@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { refreshDuplicateChecksAfterRejection } from "@/lib/owner-requests/duplicate-check";
 
 type RouteContext = {
   params: Promise<{
@@ -58,6 +59,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         visible_until: new Date().toISOString(),
       })
       .eq("owner_request_id", ownerRequestId);
+
+    try {
+      await refreshDuplicateChecksAfterRejection({
+        supabase,
+        rejectedOwnerRequestId: ownerRequestId,
+      });
+    } catch (refreshError) {
+      console.warn("Duplicate checks refresh after rejection failed:", refreshError);
+    }
 
     await writeAdminAuditLog({
       supabase,

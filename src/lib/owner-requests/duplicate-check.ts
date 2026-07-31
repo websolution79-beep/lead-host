@@ -104,7 +104,11 @@ export async function checkOwnerRequestDuplicates({
     ((requestsResult.data ?? []) as CandidateRequest[]).map((item) => [item.id, item]),
   );
   const matches = contacts
-    .filter((candidate) => candidate.owner_request_id !== currentOwnerRequestId)
+    .filter((candidate) => {
+      if (candidate.owner_request_id === currentOwnerRequestId) return false;
+
+      return requestsById.get(candidate.owner_request_id)?.status !== "not_publishable";
+    })
     .map((candidate) =>
       scoreCandidate({
         input,
@@ -134,6 +138,98 @@ export async function checkOwnerRequestDuplicates({
 
 export function duplicateCheckToJson(result: unknown): Json {
   return JSON.parse(JSON.stringify(result)) as Json;
+}
+
+export async function refreshDuplicateChecksAfterRejection({
+  supabase,
+  rejectedOwnerRequestId,
+}: {
+  supabase: ServiceClient;
+  rejectedOwnerRequestId: string;
+}) {
+  const { data: requests, error: requestsError } = await supabase
+    .from("owner_requests")
+    .select("id,status,duplicate_check")
+    .neq("status", "not_publishable")
+    .limit(600);
+
+  if (requestsError) throw requestsError;
+
+  const affectedRequests = (requests ?? []).filter((request) =>
+    duplicateCheckContainsRequest(request.duplicate_check, rejectedOwnerRequestId),
+  );
+
+  if (!affectedRequests.length) return;
+
+  const affectedIds = affectedRequests.map((request) => request.id);
+  const [contactsResult, propertiesResult] = await Promise.all([
+    supabase
+      .from("owner_contacts")
+      .select("owner_request_id,first_name,last_name,email,phone,precise_address")
+      .in("owner_request_id", affectedIds),
+    supabase
+      .from("properties")
+      .select("owner_request_id,region,province,city,property_type")
+      .in("owner_request_id", affectedIds),
+  ]);
+
+  if (contactsResult.error || propertiesResult.error) {
+    throw contactsResult.error ?? propertiesResult.error;
+  }
+
+  const contactsByRequestId = new Map(
+    (contactsResult.data ?? []).map((contact) => [contact.owner_request_id, contact]),
+  );
+  const propertiesByRequestId = new Map(
+    (propertiesResult.data ?? []).map((property) => [property.owner_request_id, property]),
+  );
+
+  for (const request of affectedRequests) {
+    const contact = contactsByRequestId.get(request.id);
+    const property = propertiesByRequestId.get(request.id);
+    const duplicateCheck = await checkOwnerRequestDuplicates({
+      supabase,
+      currentOwnerRequestId: request.id,
+      input: {
+        contact: {
+          firstName: contact?.first_name,
+          lastName: contact?.last_name,
+          email: contact?.email,
+          phone: contact?.phone,
+          preciseAddress: contact?.precise_address,
+        },
+        property: {
+          region: property?.region,
+          province: property?.province,
+          city: property?.city,
+          propertyType: property?.property_type,
+        },
+      },
+    });
+
+    const { error: updateError } = await supabase
+      .from("owner_requests")
+      .update({ duplicate_check: duplicateCheckToJson(duplicateCheck) })
+      .eq("id", request.id);
+
+    if (updateError) throw updateError;
+  }
+}
+
+function duplicateCheckContainsRequest(value: Json, ownerRequestId: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+
+  const matches = (value as { matches?: unknown }).matches;
+  return (
+    Array.isArray(matches) &&
+    matches.some(
+      (match) =>
+        Boolean(match) &&
+        typeof match === "object" &&
+        !Array.isArray(match) &&
+        (match as { owner_request_id?: unknown }).owner_request_id === ownerRequestId,
+    )
+  );
 }
 
 function scoreCandidate({

@@ -12,6 +12,6 @@ export function formatCents(amountCents: number) {
   return new Intl.NumberFormat("it-IT", {
     style: "currency",
     currency: "EUR",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amountCents / 100);
 }

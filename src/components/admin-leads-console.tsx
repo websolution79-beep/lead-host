@@ -1125,6 +1125,7 @@ function canEditRequest(record: AdminLeadRecord) {
     "pending",
     "to_verify",
     "approved",
+    "published",
   ].includes(record.requestStatus);
 }
 

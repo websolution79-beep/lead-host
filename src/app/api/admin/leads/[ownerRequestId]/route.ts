@@ -77,6 +77,7 @@ const editableStatuses = new Set([
   "pending",
   "to_verify",
   "approved",
+  "published",
 ]);
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -130,7 +131,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (!editableStatuses.has(requestResult.data.status)) {
       return NextResponse.json(
-        { error: "Puoi modificare solamente richieste non ancora pubblicate." },
+        { error: "Questo lead non può essere modificato nello stato attuale." },
         { status: 409 },
       );
     }

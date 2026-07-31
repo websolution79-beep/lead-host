@@ -17,6 +17,13 @@ test("maps admin pages without letting /admin swallow nested routes", () => {
   assert.equal(getAdminPagePermission("/admin/team"), undefined);
 });
 
+test("uses marketplace as the first route for a role with marketplace access", () => {
+  assert.equal(
+    getFirstAllowedAdminRoute({ marketplace: "read", leads: "read" }),
+    "/app/marketplace",
+  );
+});
+
 test("maps admin APIs to the expected permissions", () => {
   assert.deepEqual(getAdminApiPermissions("/api/admin/leads/summary"), ["leads"]);
   assert.deepEqual(getAdminApiPermissions("/api/admin/reports"), ["support"]);

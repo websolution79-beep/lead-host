@@ -1,4 +1,5 @@
 export const ADMIN_PERMISSION_KEYS = [
+  "marketplace",
   "dashboard",
   "leads",
   "acquisition",
@@ -26,6 +27,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Array<{
   href: string;
   permission: AdminPermissionKey;
 }> = [
+  { href: "/app/marketplace", permission: "marketplace" },
   { href: "/admin/leads", permission: "leads" },
   { href: "/admin/acquisizione", permission: "acquisition" },
   { href: "/admin/property-manager", permission: "property_managers" },

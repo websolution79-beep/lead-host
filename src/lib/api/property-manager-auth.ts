@@ -44,6 +44,13 @@ export async function requirePropertyManager(
     throw new PropertyManagerApiError(403, "Ruolo Property Manager non attivo.");
   }
 
+  if (context.roles.includes("team_member") && !context.roles.includes("super_admin")) {
+    throw new PropertyManagerApiError(
+      403,
+      "I membri Team possono consultare il Marketplace, ma non effettuare acquisti.",
+    );
+  }
+
   const { data: propertyManager, error: pmError } = await supabase
     .from("property_manager_profiles")
     .select("*")

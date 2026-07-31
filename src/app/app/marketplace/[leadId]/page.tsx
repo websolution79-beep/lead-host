@@ -22,6 +22,8 @@ import {
   parseLeadDate,
 } from "@/lib/domain/lead-state";
 import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
+import { getServerSessionProfile } from "@/lib/auth/server-session";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -33,6 +35,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   const { leadId } = await params;
+  const session = await getServerSessionProfile();
 
   const lead = await getPublishedMarketplaceLeadById(leadId);
 
@@ -61,6 +64,10 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   });
   const isExclusiveSold =
     lead.internalStatus === "sold_exclusive" || Boolean(lead.exclusivePurchaseId);
+  const isTeamMarketplaceReader =
+    Boolean(session?.roles.includes("team_member")) &&
+    !session?.isSuperAdmin &&
+    hasAdminPermission(session?.teamAccess?.permissions ?? {}, "marketplace");
 
   return (
     <AppShell section="pm" eyebrow="Dettaglio lead" title={lead.title}>
@@ -190,16 +197,26 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           </div>
 
           <div className="mt-6">
-            <LeadPurchaseActions
-              leadId={lead.id}
-              leadTitle={lead.title}
-              sharedAvailable={sharedAvailable}
-              exclusiveAvailable={exclusiveAvailable}
-              sharedPriceCents={lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS}
-              exclusivePriceCents={
-                lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS
-              }
-            />
+            {isTeamMarketplaceReader ? (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                <p className="font-semibold">Marketplace in sola lettura</p>
+                <p className="mt-1">
+                  Puoi consultare le opportunità, ma gli acquisti sono riservati ai
+                  Property Manager autorizzati.
+                </p>
+              </div>
+            ) : (
+              <LeadPurchaseActions
+                leadId={lead.id}
+                leadTitle={lead.title}
+                sharedAvailable={sharedAvailable}
+                exclusiveAvailable={exclusiveAvailable}
+                sharedPriceCents={lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS}
+                exclusivePriceCents={
+                  lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS
+                }
+              />
+            )}
           </div>
 
           <p className="mt-5 text-xs leading-5 text-muted">

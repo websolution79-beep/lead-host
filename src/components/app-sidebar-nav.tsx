@@ -49,7 +49,12 @@ type AppNavLink = {
 };
 
 const pmLinks: AppNavLink[] = [
-  { label: "Marketplace", href: "/app/marketplace", icon: Map },
+  {
+    label: "Marketplace",
+    href: "/app/marketplace",
+    icon: Map,
+    permission: "marketplace",
+  },
   { label: "I miei lead", href: "/app/i-miei-lead", icon: Inbox },
   { label: "Wallet", href: "/app/acquisti", icon: CreditCard },
   { label: "Notifiche", href: "/app/notifiche", icon: Bell },
@@ -64,6 +69,13 @@ const adminLinks: AppNavLink[] = [
     icon: BarChart3,
     category: "Panoramica",
     permission: "dashboard",
+  },
+  {
+    label: "Marketplace",
+    href: "/app/marketplace",
+    icon: Map,
+    category: "Operatività",
+    permission: "marketplace",
   },
   {
     label: "Lead",
@@ -190,7 +202,13 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
               !link.permission ||
               hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
         )
-      : pmLinks;
+      : session.roles.includes("team_member") && !session.isSuperAdmin
+        ? pmLinks.filter(
+            (link) =>
+              link.permission === "marketplace" &&
+              hasAdminPermission(session.adminPermissions ?? {}, "marketplace"),
+          )
+        : pmLinks;
   const contextLabel =
     section === "admin"
       ? session.isSuperAdmin

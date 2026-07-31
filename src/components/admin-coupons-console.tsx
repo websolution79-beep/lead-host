@@ -104,7 +104,7 @@ function emptyDraft(): CouponDraft {
 export function AdminCouponsConsole() {
   const session = useAppSession();
   const readOnly =
-    !session.isSuperAdmin && session.adminPermissions?.coupons === "read";
+    !session.isSuperAdmin && session.adminPermissions?.coupons !== "write";
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [couponsEnabled, setCouponsEnabled] = useState(false);

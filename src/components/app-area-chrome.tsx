@@ -17,6 +17,7 @@ type AppAreaChromeProps = {
   adminHomeHref?: string;
   adminPermissions?: AdminPermissionMap;
   isSuperAdmin?: boolean;
+  isMarketingPreviewVisible?: boolean;
 };
 
 const pmLinks = [
@@ -27,6 +28,8 @@ const pmLinks = [
   { label: "Profilo", href: "/app/profilo" },
   { label: "Assistenza", href: "/app/assistenza" },
 ];
+
+const marketingPreviewLink = { label: "Marketing", href: "/app/marketing" };
 
 const adminLinks: Array<{
   label: string;
@@ -105,6 +108,7 @@ export function AppAreaChrome({
   adminHomeHref = "/admin",
   adminPermissions = {},
   isSuperAdmin = false,
+  isMarketingPreviewVisible = false,
 }: AppAreaChromeProps) {
   const links =
     section === "admin"
@@ -115,7 +119,9 @@ export function AppAreaChrome({
               !link.permission ||
               hasAdminPermission(adminPermissions, link.permission)),
         )
-      : pmLinks;
+      : isMarketingPreviewVisible
+        ? [pmLinks[0], marketingPreviewLink, ...pmLinks.slice(1)]
+        : pmLinks;
   const homeHref = section === "admin" ? adminHomeHref : "/app/marketplace";
 
   return (

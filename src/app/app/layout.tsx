@@ -63,7 +63,12 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
         adminPermissions: session.teamAccess?.permissions,
       }}
     >
-      <AppAreaChrome section="pm">{children}</AppAreaChrome>
+      <AppAreaChrome
+        section="pm"
+        isMarketingPreviewVisible={session.isSuperAdmin}
+      >
+        {children}
+      </AppAreaChrome>
     </AppSessionProvider>
   );
 }

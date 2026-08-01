@@ -11,6 +11,7 @@ import {
   Building2,
   CreditCard,
   Crosshair,
+  Columns3,
   FileText,
   Inbox,
   LifeBuoy,
@@ -61,6 +62,12 @@ const pmLinks: AppNavLink[] = [
   { label: "Profilo", href: "/app/profilo", icon: UserCircle },
   { label: "Assistenza", href: "/app/assistenza", icon: LifeBuoy },
 ];
+
+const marketingPreviewLink: AppNavLink = {
+  label: "Marketing",
+  href: "/app/marketing",
+  icon: Columns3,
+};
 
 const adminLinks: AppNavLink[] = [
   {
@@ -215,7 +222,9 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
             ),
             ...allowedAdminLinks.filter((link) => link.href !== "/app/marketplace"),
           ]
-        : pmLinks;
+        : session.isSuperAdmin
+          ? [pmLinks[0], marketingPreviewLink, ...pmLinks.slice(1)]
+          : pmLinks;
   const isTeamMemberMarketplaceView = section === "pm" && isRestrictedTeamMember;
   const contextLabel =
     section === "admin"

@@ -552,6 +552,111 @@ export type Database = {
         };
         Relationships: [];
       };
+      marketing_crm_pipelines: {
+        Row: {
+          id: string;
+          profile_id: string;
+          name: string;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          name?: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          name?: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      marketing_crm_stages: {
+        Row: {
+          id: string;
+          pipeline_id: string;
+          name: string;
+          color: string;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          pipeline_id: string;
+          name: string;
+          color?: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          pipeline_id?: string;
+          name?: string;
+          color?: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      marketing_crm_contacts: {
+        Row: {
+          id: string;
+          profile_id: string;
+          pipeline_id: string;
+          stage_id: string;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          property_address: string | null;
+          notes: string | null;
+          next_follow_up_at: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          pipeline_id: string;
+          stage_id: string;
+          full_name: string;
+          email?: string | null;
+          phone?: string | null;
+          property_address?: string | null;
+          notes?: string | null;
+          next_follow_up_at?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          pipeline_id?: string;
+          stage_id?: string;
+          full_name?: string;
+          email?: string | null;
+          phone?: string | null;
+          property_address?: string | null;
+          notes?: string | null;
+          next_follow_up_at?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       team_permissions: {
         Row: {
           key: string;

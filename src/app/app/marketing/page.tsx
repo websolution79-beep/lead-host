@@ -36,12 +36,12 @@ export default function MarketingPage() {
             <p className="mt-2 leading-6 text-muted">Pipeline personalizzabile per seguire ogni proprietario, attività e prossimi contatti.</p>
             <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-green">Entra nel CRM <ArrowRight size={16} /></span>
           </Link>
-          <article className="card p-5 opacity-80">
+          <Link className="card group p-5 transition hover:border-green/40 hover:shadow-md" href="/app/marketing/rendita-stimata">
             <span className="grid size-11 place-items-center rounded-lg bg-slate-100 text-slate-500"><BadgeCheck size={21} /></span>
             <h3 className="mt-5 text-xl font-semibold text-ink">Rendita Stimata</h3>
-            <p className="mt-2 leading-6 text-muted">Calcolo della possibile rendita e PDF brandizzato: lo realizzeremo come secondo blocco del modulo.</p>
-            <span className="mt-5 inline-flex text-sm font-bold text-slate-500">In arrivo</span>
-          </article>
+            <p className="mt-2 leading-6 text-muted">Configura ora il modello di relazione con dati, logo e parametri predefiniti.</p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-green">Configura il modello <ArrowRight size={16} /></span>
+          </Link>
         </section>
       </div>
     </AppShell>

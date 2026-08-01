@@ -14,6 +14,7 @@ import {
   LoaderCircle,
   MapPin,
   Pencil,
+  Phone,
   Plus,
   Save,
   Trash2,
@@ -568,6 +569,15 @@ function ContactCard({
         <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} />
         <div className="min-w-0 flex-1">
           <p className="break-words font-bold text-ink">{contact.full_name}</p>
+          {contact.property_type ? (
+            <p className="mt-1 text-xs font-bold uppercase text-green">{contact.property_type}</p>
+          ) : null}
+          {contact.phone ? (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-muted">
+              <Phone className="shrink-0" size={14} />
+              <span className="break-all">{contact.phone}</span>
+            </p>
+          ) : null}
           {contact.property_address || contact.city ? (
             <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-muted">
               <MapPin className="mt-0.5 shrink-0" size={14} />

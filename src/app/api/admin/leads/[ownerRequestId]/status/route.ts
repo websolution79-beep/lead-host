@@ -78,7 +78,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .update({
         status: payload.data.status,
         status_reason: statusReason,
-        status_changed_at: changedAt,
       })
       .eq("id", ownerRequestId);
 

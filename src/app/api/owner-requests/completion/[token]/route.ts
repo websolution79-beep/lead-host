@@ -363,8 +363,6 @@ async function markRequestReadyForReview({
     .from("owner_requests")
     .update({
       status: "to_verify",
-      status_changed_at: completedAt,
-      status_reason: null,
       completion_token_invalidated_at: completedAt,
       privacy_consent_at: completedAt,
       data_sharing_consent_at: completedAt,

@@ -311,7 +311,6 @@ async function insertNewOwnerRequest(
     .insert({
       ...row,
       status: "to_verify",
-      status_changed_at: new Date().toISOString(),
     })
     .select("id,created_at")
     .single();

@@ -7,6 +7,24 @@ alter table public.owner_requests
   add column if not exists status_reason text,
   add column if not exists status_changed_at timestamptz default now();
 
+create or replace function public.set_owner_request_status_changed_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  if old.status is distinct from new.status then
+    new.status_changed_at = now();
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists owner_requests_status_changed_at on public.owner_requests;
+create trigger owner_requests_status_changed_at
+before update of status on public.owner_requests
+for each row execute function public.set_owner_request_status_changed_at();
+
 update public.owner_requests
 set
   status = 'to_verify'::owner_request_status,

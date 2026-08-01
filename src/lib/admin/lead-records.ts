@@ -97,7 +97,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,status_reason,status_changed_at,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at",
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at",
     )
     .order("created_at", { ascending: false })
     .limit(150);
@@ -112,28 +112,39 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     return [];
   }
 
-  const [contactsResult, propertiesResult, leadsResult] = await Promise.all([
-    supabase
-      .from("owner_contacts")
-      .select("owner_request_id,first_name,last_name,email,phone,precise_address")
-      .in("owner_request_id", ownerRequestIds),
-    supabase
-      .from("properties")
-      .select(
-        "id,owner_request_id,region,province,city,property_type,bedrooms,bathrooms,beds,approximate_area_sqm,current_status,requested_services,timing,description",
-      )
-      .in("owner_request_id", ownerRequestIds),
-    supabase
-      .from("leads")
-      .select(
-        "id,owner_request_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until",
-      )
-      .in("owner_request_id", ownerRequestIds),
-  ]);
+  const [contactsResult, propertiesResult, leadsResult, statusMetadataResult] =
+    await Promise.all([
+      supabase
+        .from("owner_contacts")
+        .select("owner_request_id,first_name,last_name,email,phone,precise_address")
+        .in("owner_request_id", ownerRequestIds),
+      supabase
+        .from("properties")
+        .select(
+          "id,owner_request_id,region,province,city,property_type,bedrooms,bathrooms,beds,approximate_area_sqm,current_status,requested_services,timing,description",
+        )
+        .in("owner_request_id", ownerRequestIds),
+      supabase
+        .from("leads")
+        .select(
+          "id,owner_request_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until",
+        )
+        .in("owner_request_id", ownerRequestIds),
+      supabase
+        .from("owner_requests")
+        .select("id,status_reason,status_changed_at")
+        .in("id", ownerRequestIds),
+    ]);
 
   if (contactsResult.error) throw contactsResult.error;
   if (propertiesResult.error) throw propertiesResult.error;
   if (leadsResult.error) throw leadsResult.error;
+  if (
+    statusMetadataResult.error &&
+    !statusMetadataResult.error.message.includes("status_reason")
+  ) {
+    throw statusMetadataResult.error;
+  }
 
   const contactsByRequest = new Map(
     (contactsResult.data ?? []).map((item) => [item.owner_request_id, item]),
@@ -144,6 +155,9 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const leadsByRequest = new Map(
     (leadsResult.data ?? []).map((item) => [item.owner_request_id, item]),
   );
+  const statusMetadataByRequest = new Map(
+    (statusMetadataResult.data ?? []).map((item) => [item.id, item]),
+  );
   const leadIds = (leadsResult.data ?? []).map((item) => item.id);
   const purchasesByLead = await fetchPurchasesByLead(supabase, leadIds);
 
@@ -151,6 +165,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     const contact = contactsByRequest.get(request.id) ?? null;
     const property = propertiesByRequest.get(request.id) ?? null;
     const lead = leadsByRequest.get(request.id) ?? null;
+    const statusMetadata = statusMetadataByRequest.get(request.id) ?? null;
     const suggestedPricing = resolveLeadPricing(settings, {
       region: property?.region,
       province: property?.province,
@@ -173,8 +188,8 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       requestStatus: request.status,
       acquisitionChannel: request.acquisition_channel,
       qualificationNotes: request.qualification_notes,
-      statusReason: request.status_reason,
-      statusChangedAt: request.status_changed_at,
+      statusReason: statusMetadata?.status_reason ?? null,
+      statusChangedAt: statusMetadata?.status_changed_at ?? null,
       consents: {
         privacy: Boolean(request.privacy_consent_at),
         dataSharing: Boolean(request.data_sharing_consent_at),

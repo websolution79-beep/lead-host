@@ -378,7 +378,6 @@ async function insertNewOwnerRequest(row: {
     .from("owner_requests")
     .insert({
       ...row,
-      status_changed_at: new Date().toISOString(),
     })
     .select("id,created_at,status")
     .single();

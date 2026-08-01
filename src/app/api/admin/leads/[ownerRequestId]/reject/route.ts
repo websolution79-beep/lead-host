@@ -52,7 +52,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         status: "not_publishable",
         qualification_notes: payload.data.reason,
         status_reason: payload.data.reason,
-        status_changed_at: new Date().toISOString(),
       })
       .eq("id", ownerRequestId);
 

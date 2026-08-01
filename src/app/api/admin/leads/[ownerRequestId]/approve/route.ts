@@ -170,7 +170,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         status: "published",
         qualification_notes: payload.data.notes || null,
         status_reason: null,
-        status_changed_at: new Date().toISOString(),
       })
       .eq("id", ownerRequestId);
 

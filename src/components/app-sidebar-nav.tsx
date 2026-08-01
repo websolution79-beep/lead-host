@@ -19,6 +19,7 @@ import {
   MessagesSquare,
   Map,
   Megaphone,
+  PackageOpen,
   ReceiptText,
   Send,
   Settings,
@@ -181,6 +182,13 @@ const adminLinks: AppNavLink[] = [
     icon: Settings,
     category: "Configurazione",
     permission: "settings",
+  },
+  {
+    label: "Addons",
+    href: "/admin/addons",
+    icon: PackageOpen,
+    category: "Configurazione",
+    superAdminOnly: true,
   },
   {
     label: "Team",

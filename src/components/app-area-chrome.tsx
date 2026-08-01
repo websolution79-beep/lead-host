@@ -104,6 +104,12 @@ const adminLinks: Array<{
     group: "Configurazione",
     permission: "settings",
   },
+  {
+    label: "Addons",
+    href: "/admin/addons",
+    group: "Configurazione",
+    superAdminOnly: true,
+  },
   { label: "Team", href: "/admin/team", group: "Configurazione", superAdminOnly: true },
   { label: "Profilo", href: "/admin/profilo", group: "Configurazione" },
 ];

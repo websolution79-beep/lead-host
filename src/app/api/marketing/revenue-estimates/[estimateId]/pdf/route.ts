@@ -4,8 +4,7 @@ import { requireSuperAdmin, adminApiErrorResponse } from "@/lib/admin/auth";
 
 // The standalone build embeds the standard fonts, avoiding filesystem reads in Vercel functions.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const PDFDocument =
-  require("pdfkit/js/pdfkit.standalone.js") as typeof PDFDocumentType;
+const PDFDocument = require("pdfkit/js/pdfkit.standalone.js") as typeof PDFDocumentType;
 
 export const runtime = "nodejs";
 

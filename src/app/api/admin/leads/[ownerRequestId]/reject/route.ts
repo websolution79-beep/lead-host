@@ -17,7 +17,9 @@ const rejectSchema = z.object({
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const { ownerRequestId } = await context.params;
-    const payload = rejectSchema.safeParse(await request.json().catch(() => ({})));
+    const payload = rejectSchema.safeParse(
+      await request.json().catch(() => ({})),
+    );
 
     if (!payload.success) {
       return NextResponse.json(
@@ -36,7 +38,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single();
 
     if (requestError || !ownerRequest) {
-      return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Richiesta non trovata." },
+        { status: 404 },
+      );
     }
 
     if (!["to_verify", "pending", "approved"].includes(ownerRequest.status)) {
@@ -46,7 +51,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { error: updateRequestError } = await supabase
+    let { error: updateRequestError } = await supabase
       .from("owner_requests")
       .update({
         status: "not_publishable",
@@ -54,6 +59,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
         status_reason: payload.data.reason,
       })
       .eq("id", ownerRequestId);
+
+    if (
+      updateRequestError &&
+      isMissingReviewMetadataError(updateRequestError)
+    ) {
+      const fallback = await supabase
+        .from("owner_requests")
+        .update({
+          status: "not_publishable",
+          qualification_notes: payload.data.reason,
+        })
+        .eq("id", ownerRequestId);
+      updateRequestError = fallback.error;
+    }
 
     if (updateRequestError) {
       throw updateRequestError;
@@ -74,7 +93,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         rejectedOwnerRequestId: ownerRequestId,
       });
     } catch (refreshError) {
-      console.warn("Duplicate checks refresh after rejection failed:", refreshError);
+      console.warn(
+        "Duplicate checks refresh after rejection failed:",
+        refreshError,
+      );
     }
 
     await writeAdminAuditLog({
@@ -93,4 +115,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+function isMissingReviewMetadataError(error: {
+  code?: string;
+  message?: string;
+}) {
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    message.includes("status_reason")
+  );
 }

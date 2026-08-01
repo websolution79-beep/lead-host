@@ -27,10 +27,15 @@ const approveSchema = z.object({
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const { ownerRequestId } = await context.params;
-    const payload = approveSchema.safeParse(await request.json().catch(() => ({})));
+    const payload = approveSchema.safeParse(
+      await request.json().catch(() => ({})),
+    );
 
     if (!payload.success) {
-      return NextResponse.json({ error: "Dati approvazione non validi." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Dati approvazione non validi." },
+        { status: 400 },
+      );
     }
 
     const { supabase, profile, isSuperAdmin } =
@@ -43,7 +48,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .single();
 
     if (requestError || !ownerRequest) {
-      return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Richiesta non trovata." },
+        { status: 404 },
+      );
     }
 
     if (!["to_verify", "pending", "approved"].includes(ownerRequest.status)) {
@@ -66,11 +74,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let property = existingProperty;
 
     if (!property) {
-      const { data: insertedProperty, error: propertyInsertError } = await supabase
-        .from("properties")
-        .insert({ owner_request_id: ownerRequestId })
-        .select("id,region,province,city,property_type")
-        .single();
+      const { data: insertedProperty, error: propertyInsertError } =
+        await supabase
+          .from("properties")
+          .insert({ owner_request_id: ownerRequestId })
+          .select("id,region,province,city,property_type")
+          .single();
 
       if (propertyInsertError || !insertedProperty) {
         throw propertyInsertError ?? new Error("Scheda immobile non creata.");
@@ -164,7 +173,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       throw publishError ?? new Error("Lead non pubblicato.");
     }
 
-    const { error: updateRequestError } = await supabase
+    let { error: updateRequestError } = await supabase
       .from("owner_requests")
       .update({
         status: "published",
@@ -172,6 +181,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
         status_reason: null,
       })
       .eq("id", ownerRequestId);
+
+    if (
+      updateRequestError &&
+      isMissingReviewMetadataError(updateRequestError)
+    ) {
+      const fallback = await supabase
+        .from("owner_requests")
+        .update({
+          status: "published",
+          qualification_notes: payload.data.notes || null,
+        })
+        .eq("id", ownerRequestId);
+      updateRequestError = fallback.error;
+    }
 
     if (updateRequestError) {
       throw updateRequestError;
@@ -240,14 +263,30 @@ function buildLeadTitle(property: {
   region: string | null;
   property_type: string | null;
 }) {
-  const place = property.city ?? property.province ?? property.region ?? "Italia";
+  const place =
+    property.city ?? property.province ?? property.region ?? "Italia";
 
   return `${property.property_type ?? "Immobile"} a ${place}`;
 }
 
-function isLeadPriceConstraintError(error: { code?: string; message?: string }) {
+function isLeadPriceConstraintError(error: {
+  code?: string;
+  message?: string;
+}) {
   return (
     error.code === "23514" &&
     (error.message?.includes("lead_prices_fixed") ?? false)
+  );
+}
+
+function isMissingReviewMetadataError(error: {
+  code?: string;
+  message?: string;
+}) {
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    message.includes("status_reason")
   );
 }

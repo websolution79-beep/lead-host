@@ -1,6 +1,10 @@
-import PDFDocument from "pdfkit";
+import type PDFDocumentType from "pdfkit";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSuperAdmin, adminApiErrorResponse } from "@/lib/admin/auth";
+
+// The standalone build embeds the standard fonts, avoiding filesystem reads in Vercel functions.
+const PDFDocument =
+  require("pdfkit/js/pdfkit.standalone.js") as typeof PDFDocumentType;
 
 export const runtime = "nodejs";
 
@@ -35,7 +39,15 @@ export async function GET(
     console.error("Revenue estimate PDF generation failed", error);
     const response = adminApiErrorResponse(error);
     if (response.status !== 500) return response;
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Errore PDF non identificato." }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Errore PDF non identificato.",
+      },
+      { status: 500 },
+    );
   }
 }
 

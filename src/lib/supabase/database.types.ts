@@ -723,6 +723,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      marketing_crm_property_images: {
+        Row: {
+          id: string;
+          profile_id: string;
+          contact_id: string;
+          storage_path: string;
+          original_name: string;
+          byte_size: number;
+          width: number;
+          height: number;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          contact_id: string;
+          storage_path: string;
+          original_name: string;
+          byte_size: number;
+          width: number;
+          height: number;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          contact_id?: string;
+          storage_path?: string;
+          original_name?: string;
+          byte_size?: number;
+          width?: number;
+          height?: number;
+          position?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       team_permissions: {
         Row: {
           key: string;

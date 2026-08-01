@@ -10,6 +10,7 @@ import {
   FileText,
   GripVertical,
   Home,
+  ImageIcon,
   LoaderCircle,
   MapPin,
   Pencil,
@@ -100,6 +101,15 @@ type CrmDocument = {
   download_url: string;
 };
 
+type CrmPropertyImage = {
+  id: string;
+  original_name: string;
+  byte_size: number;
+  width: number;
+  height: number;
+  image_url: string;
+};
+
 type StageDraft = {
   id?: string;
   name: string;
@@ -126,6 +136,11 @@ const allowedCrmDocumentTypes = new Set([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
+const crmImageAccept = "image/jpeg,image/png,image/webp";
+const maxCrmImages = 10;
+const maxCrmImageBytes = 1024 * 1024;
+const maxCrmOriginalImageBytes = 15 * 1024 * 1024;
+const allowedCrmImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export function MarketingCrmBoard() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
@@ -214,7 +229,7 @@ export function MarketingCrmBoard() {
     setContactEditor({ contact, draft: contactToDraft(contact) });
   }
 
-  async function saveContact(pendingDocuments: File[] = []) {
+  async function saveContact(pendingDocuments: File[] = [], pendingImages: File[] = []) {
     if (!contactEditor) return;
     const draft = contactEditor.draft;
     const contact = {
@@ -245,16 +260,17 @@ export function MarketingCrmBoard() {
     );
     if (!updated) return;
 
-    if (!contactEditor.contact && pendingDocuments.length) {
+    if (!contactEditor.contact && (pendingDocuments.length || pendingImages.length)) {
       if (!updated.createdContactId) {
-        setError("Proprietario salvato, ma non riesco a collegare i documenti. Riapri la scheda e allegali.");
+        setError("Proprietario salvato, ma non riesco a collegare gli allegati. Riapri la scheda e allegali.");
       } else {
         setSaving(true);
         try {
-          await uploadCrmDocumentFiles(supabase, updated.createdContactId, pendingDocuments);
-          setSuccess(pendingDocuments.length === 1 ? "Proprietario e documento salvati." : "Proprietario e documenti salvati.");
+          if (pendingDocuments.length) await uploadCrmDocumentFiles(supabase, updated.createdContactId, pendingDocuments);
+          if (pendingImages.length) await uploadCrmPropertyImages(supabase, updated.createdContactId, pendingImages);
+          setSuccess("Proprietario e allegati salvati.");
         } catch (uploadError) {
-          setError(uploadError instanceof Error ? `Proprietario salvato, ma ${uploadError.message}` : "Proprietario salvato, ma l'upload dei documenti non è riuscito.");
+          setError(uploadError instanceof Error ? `Proprietario salvato, ma ${uploadError.message}` : "Proprietario salvato, ma l'upload degli allegati non è riuscito.");
         } finally {
           setSaving(false);
         }
@@ -488,7 +504,7 @@ export function MarketingCrmBoard() {
           }
           onClose={() => setContactEditor(null)}
           onDelete={() => contactEditor.contact && void deleteContact(contactEditor.contact)}
-          onSave={(pendingDocuments) => void saveContact(pendingDocuments)}
+          onSave={(pendingDocuments, pendingImages) => void saveContact(pendingDocuments, pendingImages)}
         />
       ) : null}
 
@@ -586,10 +602,11 @@ function ContactEditor({
   saving: boolean;
   onChange: (update: Partial<ContactDraft>) => void;
   onClose: () => void;
-  onSave: (pendingDocuments: File[]) => void;
+  onSave: (pendingDocuments: File[], pendingImages: File[]) => void;
   onDelete: () => void;
 }) {
   const [pendingDocuments, setPendingDocuments] = useState<File[]>([]);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
   const regions = useMemo(
     () => mergeOptions(ITALY_GEO.map((item) => item.region), draft.region),
     [draft.region],
@@ -745,12 +762,13 @@ function ContactEditor({
         </section>
 
         {contact ? <CrmDocumentsPanel contactId={contact.id} /> : <PendingDocumentsPanel files={pendingDocuments} onChange={setPendingDocuments} />}
+        {contact ? <CrmImagesPanel contactId={contact.id} /> : <PendingImagesPanel files={pendingImages} onChange={setPendingImages} />}
       </div>
       <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
         {contact ? <button className="btn border border-red-200 bg-red-50 text-red-700 sm:w-auto" type="button" disabled={saving} onClick={onDelete}><Trash2 size={16} />Elimina</button> : <span />}
         <div className="grid gap-2 sm:flex">
           <button className="btn btn-secondary" type="button" disabled={saving} onClick={onClose}>Annulla</button>
-          <button className="btn btn-primary" type="button" disabled={saving || draft.fullName.trim().length < 2} onClick={() => onSave(pendingDocuments)}><Save size={16} />{saving ? "Salvataggio..." : "Salva proprietario"}</button>
+          <button className="btn btn-primary" type="button" disabled={saving || draft.fullName.trim().length < 2} onClick={() => onSave(pendingDocuments, pendingImages)}><Save size={16} />{saving ? "Salvataggio..." : "Salva proprietario"}</button>
         </div>
       </div>
     </Modal>
@@ -781,6 +799,29 @@ function PendingDocumentsPanel({ files, onChange }: { files: File[]; onChange: (
       {!files.length ? <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-muted">PDF, DOC o DOCX, massimo 10 MB per file.</p> : null}
       <div className="mt-4 grid gap-2">
         {files.map((file, index) => <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3" key={`${file.name}-${file.lastModified}-${index}`}><div className="min-w-0"><p className="truncate text-sm font-semibold text-ink">{file.name}</p><p className="mt-0.5 text-xs text-muted">{formatFileSize(file.size)}</p></div><button aria-label={`Rimuovi ${file.name}`} className="grid size-9 shrink-0 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-700" type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))}><X size={16} /></button></div>)}
+      </div>
+    </section>
+  );
+}
+
+function PendingImagesPanel({ files, onChange }: { files: File[]; onChange: (files: File[]) => void }) {
+  function addFiles(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const candidates = [...files, ...Array.from(fileList)];
+    const validationError = validateCrmImageFiles(candidates);
+    if (validationError) { window.alert(validationError); return; }
+    onChange(candidates);
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-2 text-green"><ImageIcon size={18} /><div><h3 className="font-semibold text-ink">Immagini immobile</h3><p className="mt-0.5 text-xs font-normal text-muted">Saranno ottimizzate e caricate quando salvi.</p></div></div>
+        <label className="btn btn-secondary cursor-pointer sm:w-auto"><Upload size={16} />Seleziona immagini<input accept={crmImageAccept} className="sr-only" multiple type="file" onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /></label>
+      </div>
+      {!files.length ? <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-muted">JPG, PNG o WebP. Massimo 10 immagini, ottimizzate a 1.920 px e 1 MB.</p> : null}
+      <div className="mt-4 grid gap-2">
+        {files.map((file, index) => <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3" key={`${file.name}-${file.lastModified}-${index}`}><div className="min-w-0"><p className="truncate text-sm font-semibold text-ink">{file.name}</p><p className="mt-0.5 text-xs text-muted">{formatFileSize(file.size)} · verrà ottimizzata</p></div><button aria-label={`Rimuovi ${file.name}`} className="grid size-9 shrink-0 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-700" type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))}><X size={16} /></button></div>)}
       </div>
     </section>
   );
@@ -933,6 +974,60 @@ function CrmDocumentsPanel({ contactId }: { contactId: string }) {
   );
 }
 
+function CrmImagesPanel({ contactId }: { contactId: string }) {
+  const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const [images, setImages] = useState<CrmPropertyImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const request = useCallback(async (body?: Record<string, unknown>) => {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+    const response = await fetch(body ? "/api/marketing/crm/images" : `/api/marketing/crm/images?contactId=${contactId}`, {
+      method: body ? "POST" : "GET",
+      headers: body ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { Authorization: `Bearer ${token}` },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const payload = (await response.json()) as { error?: string; images?: CrmPropertyImage[] };
+    if (!response.ok) throw new Error(payload.error ?? "Operazione sulle immagini non riuscita.");
+    return payload;
+  }, [contactId, supabase]);
+
+  const loadImages = useCallback(async () => {
+    setLoading(true);
+    try { const payload = await request(); setImages(payload.images ?? []); } catch (loadError) { setError(loadError instanceof Error ? loadError.message : "Non riesco a caricare le immagini."); } finally { setLoading(false); }
+  }, [request]);
+
+  useEffect(() => { const timer = window.setTimeout(() => void loadImages(), 0); return () => window.clearTimeout(timer); }, [loadImages]);
+
+  async function uploadFiles(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const files = Array.from(fileList);
+    const validationError = validateCrmImageFiles(files);
+    if (validationError) { setError(validationError); return; }
+    if (images.length + files.length > maxCrmImages) { setError("Puoi allegare al massimo 10 immagini per immobile."); return; }
+    setUploading(true); setError("");
+    try { await uploadCrmPropertyImages(supabase, contactId, files); await loadImages(); } catch (uploadError) { setError(uploadError instanceof Error ? uploadError.message : "Upload immagini non riuscito."); } finally { setUploading(false); }
+  }
+
+  async function deleteImage(image: CrmPropertyImage) {
+    if (!window.confirm(`Eliminare definitivamente ${image.original_name}?`)) return;
+    try { await request({ action: "delete_image", imageId: image.id }); await loadImages(); } catch (deleteError) { setError(deleteError instanceof Error ? deleteError.message : "Eliminazione immagine non riuscita."); }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="flex items-center gap-2 text-green"><ImageIcon size={18} /><div><h3 className="font-semibold text-ink">Immagini immobile</h3><p className="mt-0.5 text-xs font-normal text-muted">Massimo 10 immagini. Ottimizzate automaticamente prima dell&apos;upload.</p></div></div><label className={`btn btn-secondary cursor-pointer sm:w-auto ${uploading ? "pointer-events-none opacity-60" : ""}`}>{uploading ? <LoaderCircle className="animate-spin" size={16} /> : <Upload size={16} />}{uploading ? "Ottimizzazione..." : "Aggiungi immagini"}<input accept={crmImageAccept} className="sr-only" disabled={uploading} multiple type="file" onChange={(event) => { void uploadFiles(event.target.files); event.currentTarget.value = ""; }} /></label></div>
+      {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
+      {loading ? <p className="mt-4 text-sm text-muted">Carico le immagini...</p> : null}
+      {!loading && !images.length ? <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-muted">Nessuna immagine allegata.</p> : null}
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">{images.map((image) => <article className="overflow-hidden rounded-lg border border-slate-200" key={image.id}><a href={image.image_url} rel="noreferrer" target="_blank"><img alt={image.original_name} className="aspect-[4/3] w-full object-cover" loading="lazy" src={image.image_url} /></a><div className="flex items-center justify-between gap-2 p-2"><p className="min-w-0 truncate text-xs font-semibold text-ink">{image.original_name}</p><button aria-label={`Elimina ${image.original_name}`} className="grid size-8 shrink-0 place-items-center rounded-md text-red-700 hover:bg-red-50" type="button" disabled={uploading} onClick={() => void deleteImage(image)}><Trash2 size={15} /></button></div></article>)}</div>
+    </section>
+  );
+}
+
 async function uploadCrmDocumentFiles(
   supabase: ReturnType<typeof createPublicSupabaseClient>,
   contactId: string,
@@ -985,6 +1080,60 @@ function validateCrmDocumentFiles(files: File[]) {
   if (files.some((file) => !allowedCrmDocumentTypes.has(file.type) || file.size > maxCrmDocumentBytes)) {
     return "Sono ammessi solo PDF, DOC e DOCX fino a 10 MB per file.";
   }
+  return "";
+}
+
+async function uploadCrmPropertyImages(
+  supabase: ReturnType<typeof createPublicSupabaseClient>,
+  contactId: string,
+  files: File[],
+) {
+  const validationError = validateCrmImageFiles(files);
+  if (validationError) throw new Error(validationError);
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (!token) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+
+  for (const sourceFile of files) {
+    const image = await optimizeCrmPropertyImage(sourceFile);
+    const response = await fetch("/api/marketing/crm/images", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "create_upload", contactId, fileName: image.originalName, byteSize: image.file.size, width: image.width, height: image.height }) });
+    const upload = (await response.json()) as { error?: string; storagePath?: string; token?: string };
+    if (!response.ok || !upload.storagePath || !upload.token) throw new Error(upload.error ?? "Upload immagine non disponibile.");
+    const { error: uploadError } = await supabase.storage.from("marketing-crm-property-images").uploadToSignedUrl(upload.storagePath, upload.token, image.file, { contentType: "image/webp" });
+    if (uploadError) throw uploadError;
+    const complete = await fetch("/api/marketing/crm/images", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "complete_upload", contactId, storagePath: upload.storagePath, fileName: image.originalName, byteSize: image.file.size, width: image.width, height: image.height }) });
+    const completed = (await complete.json()) as { error?: string };
+    if (!complete.ok) throw new Error(completed.error ?? "Salvataggio immagine non riuscito.");
+  }
+}
+
+async function optimizeCrmPropertyImage(sourceFile: File) {
+  const bitmap = await createImageBitmap(sourceFile);
+  try {
+    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Ottimizzazione immagine non disponibile nel browser.");
+    context.drawImage(bitmap, 0, 0, width, height);
+    let blob = await canvasToWebp(canvas, 0.82);
+    if (blob.size > maxCrmImageBytes) blob = await canvasToWebp(canvas, 0.68);
+    if (blob.size > maxCrmImageBytes) throw new Error(`${sourceFile.name} è troppo dettagliata: riduci l'immagine prima di caricarla.`);
+    const name = `${sourceFile.name.replace(/\.[^.]+$/, "") || "immobile"}.webp`;
+    return { file: new File([blob], name, { type: "image/webp" }), originalName: sourceFile.name, width, height };
+  } finally { bitmap.close(); }
+}
+
+function canvasToWebp(canvas: HTMLCanvasElement, quality: number) {
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Conversione immagine non riuscita.")), "image/webp", quality));
+}
+
+function validateCrmImageFiles(files: File[]) {
+  if (files.length > maxCrmImages) return "Puoi allegare al massimo 10 immagini per immobile.";
+  if (files.some((file) => !allowedCrmImageTypes.has(file.type) || file.size > maxCrmOriginalImageBytes)) return "Sono ammessi JPG, PNG e WebP fino a 15 MB per file.";
   return "";
 }
 

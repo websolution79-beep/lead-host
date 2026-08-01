@@ -124,15 +124,6 @@ export async function createRevenueEstimatePdf(
       .fillColor("#64748B")
       .font("Helvetica")
       .text(identity.headerText, 42, doc.y, { width: 511, align: "center" });
-  if (identity.contactDetails)
-    doc
-      .moveDown(0.2)
-      .fontSize(7)
-      .fillColor("#64748B")
-      .text(identity.contactDetails, 42, doc.y, {
-        width: 511,
-        align: "center",
-      });
   doc
     .moveDown(1.15)
     .fontSize(21)

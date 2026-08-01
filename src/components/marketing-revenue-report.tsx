@@ -165,11 +165,6 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
           {identity.headerText ? (
             <p className="mt-2 text-sm text-slate-500">{identity.headerText}</p>
           ) : null}
-          {identity.contactDetails ? (
-            <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-500">
-              {identity.contactDetails}
-            </p>
-          ) : null}
         </header>
         <section className="report-block pt-8 text-center">
           <h1 className="text-3xl font-bold text-ink">

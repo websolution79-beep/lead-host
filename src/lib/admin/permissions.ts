@@ -52,6 +52,7 @@ const ADMIN_API_PERMISSION_ROUTES: Array<{
   { prefix: "/api/admin/wallet-transactions", permissions: ["billing"] },
   { prefix: "/api/admin/property-managers", permissions: ["property_managers"] },
   { prefix: "/api/admin/email-templates", permissions: ["emails"] },
+  { prefix: "/api/admin/email-recipients", permissions: ["emails"] },
   { prefix: "/api/admin/service-emails", permissions: ["emails"] },
   { prefix: "/api/admin/acquisition", permissions: ["acquisition"] },
   { prefix: "/api/admin/analytics", permissions: ["dashboard", "analytics"] },

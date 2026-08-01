@@ -7,6 +7,7 @@ import {
   type TransactionalEmailTemplateId,
 } from "@/lib/config/transactional-email-settings";
 import type { Json } from "@/lib/supabase/database.types";
+import { resolveTransactionalEmailInternalRecipients } from "@/lib/config/transactional-email-recipients";
 
 export type EmailEventType = TransactionalEmailTemplateId;
 
@@ -153,9 +154,61 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
   }
 }
 
-export function getAdminNotificationEmails() {
-  return (getEnv("TRANSACTIONAL_ADMIN_EMAILS") ?? "")
-    .split(",")
-    .map((email) => email.trim())
-    .filter(Boolean);
+export async function sendTransactionalEmailWithInternalCopies(
+  payload: EmailPayload,
+) {
+  const primaryResult = await sendTransactionalEmail(payload);
+  const supabase = createServiceSupabaseClient();
+  const internalRecipients = await resolveTransactionalEmailInternalRecipients(
+    supabase,
+    payload.eventType,
+  );
+  const primaryEmail = payload.to.trim().toLowerCase();
+  const copyResults = await Promise.all(
+    internalRecipients
+      .filter((email) => email !== primaryEmail)
+      .map((to) =>
+        sendTransactionalEmail({
+          ...payload,
+          to,
+          profileId: null,
+          propertyManagerId: null,
+          metadata: mergeEmailMetadata(payload.metadata, {
+            internal_copy: true,
+            primary_recipient: primaryEmail,
+          }),
+        }),
+      ),
+  );
+
+  return { ...primaryResult, internalCopies: copyResults };
+}
+
+export async function sendTransactionalEmailToInternalRecipients(
+  payload: Omit<EmailPayload, "to">,
+) {
+  const supabase = createServiceSupabaseClient();
+  const recipients = await resolveTransactionalEmailInternalRecipients(
+    supabase,
+    payload.eventType,
+  );
+
+  return Promise.all(
+    recipients.map((to) =>
+      sendTransactionalEmail({
+        ...payload,
+        to,
+        metadata: mergeEmailMetadata(payload.metadata, { internal_recipient: true }),
+      }),
+    ),
+  );
+}
+
+function mergeEmailMetadata(current: Json | undefined, extra: Record<string, Json>) {
+  const base =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? current
+      : {};
+
+  return { ...base, ...extra } satisfies Json;
 }

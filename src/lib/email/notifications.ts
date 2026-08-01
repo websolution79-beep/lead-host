@@ -8,7 +8,11 @@ import {
   renderPropertyManagerVerifiedEmail,
   renderWelcomeEmail,
 } from "@/lib/email/templates";
-import { getAdminNotificationEmails, sendTransactionalEmail } from "@/lib/email/service";
+import {
+  sendTransactionalEmail,
+  sendTransactionalEmailToInternalRecipients,
+  sendTransactionalEmailWithInternalCopies,
+} from "@/lib/email/service";
 import {
   createLeadPurchaseInternalNotification,
   createNewLeadInternalNotifications,
@@ -103,24 +107,18 @@ export async function sendAdminOwnerRequestNotification({
   city: string;
   propertyType: string;
 }) {
-  const adminEmails = await getSuperAdminNotificationEmails();
   const email = renderAdminOwnerRequestEmail(reference, city, propertyType);
 
-  await Promise.all(
-    adminEmails.map((to) =>
-      sendTransactionalEmail({
-        to,
-        ownerRequestId,
-        eventType: "admin.owner_request_pending",
-        templateVariables: {
-          reference,
-          city,
-          property_type: propertyType,
-        },
-        ...email,
-      }),
-    ),
-  );
+  await sendTransactionalEmailToInternalRecipients({
+    ownerRequestId,
+    eventType: "admin.owner_request_pending",
+    templateVariables: {
+      reference,
+      city,
+      property_type: propertyType,
+    },
+    ...email,
+  });
 }
 
 export async function sendSupportRequestAdminNotification({
@@ -138,27 +136,20 @@ export async function sendSupportRequestAdminNotification({
   requestDetails: string;
   leadContext: string;
 }) {
-  const adminEmails = await getSuperAdminNotificationEmails();
-
-  return Promise.all(
-    adminEmails.map((to) =>
-      sendTransactionalEmail({
-        to,
-        eventType: "admin.support_request_pending",
-        metadata: { support_report_id: reportId },
-        templateVariables: {
-          property_manager_name: propertyManagerName,
-          property_manager_email: propertyManagerEmail,
-          request_subject: requestSubject,
-          request_details: requestDetails,
-          lead_context: leadContext,
-        },
-        subject: "",
-        html: "",
-        text: "",
-      }),
-    ),
-  );
+  return sendTransactionalEmailToInternalRecipients({
+    eventType: "admin.support_request_pending",
+    metadata: { support_report_id: reportId },
+    templateVariables: {
+      property_manager_name: propertyManagerName,
+      property_manager_email: propertyManagerEmail,
+      request_subject: requestSubject,
+      request_details: requestDetails,
+      lead_context: leadContext,
+    },
+    subject: "",
+    html: "",
+    text: "",
+  });
 }
 
 export async function sendSupportMessageAdminNotification({
@@ -176,27 +167,20 @@ export async function sendSupportMessageAdminNotification({
   reply: string;
   leadContext: string;
 }) {
-  const adminEmails = await getSuperAdminNotificationEmails();
-
-  return Promise.all(
-    adminEmails.map((to) =>
-      sendTransactionalEmail({
-        to,
-        eventType: "admin.support_request_reply",
-        metadata: { support_report_id: reportId },
-        templateVariables: {
-          property_manager_name: propertyManagerName,
-          property_manager_email: propertyManagerEmail,
-          request_subject: requestSubject,
-          reply,
-          lead_context: leadContext,
-        },
-        subject: "",
-        html: "",
-        text: "",
-      }),
-    ),
-  );
+  return sendTransactionalEmailToInternalRecipients({
+    eventType: "admin.support_request_reply",
+    metadata: { support_report_id: reportId },
+    templateVariables: {
+      property_manager_name: propertyManagerName,
+      property_manager_email: propertyManagerEmail,
+      request_subject: requestSubject,
+      reply,
+      lead_context: leadContext,
+    },
+    subject: "",
+    html: "",
+    text: "",
+  });
 }
 
 export async function sendSupportReplyEmail({
@@ -260,31 +244,6 @@ export async function sendOwnerRequestCompletionEmail({
   });
 }
 
-async function getSuperAdminNotificationEmails() {
-  const supabase = createServiceSupabaseClient();
-  const { data: roleRows, error: rolesError } = await supabase
-    .from("user_roles")
-    .select("profile_id")
-    .eq("role", "super_admin");
-
-  if (rolesError || !roleRows?.length) {
-    return getAdminNotificationEmails();
-  }
-
-  const profileIds = Array.from(new Set(roleRows.map((item) => item.profile_id)));
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("email")
-    .in("id", profileIds)
-    .eq("status", "active");
-
-  const superAdminEmails = profilesError
-    ? []
-    : ((profiles ?? []) as { email: string }[]).map((profile) => profile.email);
-
-  return Array.from(new Set([...superAdminEmails, ...getAdminNotificationEmails()]));
-}
-
 export async function sendLeadPurchaseEmail({
   profile,
   propertyManagerId,
@@ -325,7 +284,7 @@ export async function sendLeadPurchaseEmail({
     balance,
   });
 
-  return sendTransactionalEmail({
+  return sendTransactionalEmailWithInternalCopies({
     to: profile.email,
     profileId: profile.id,
     propertyManagerId,
@@ -382,7 +341,7 @@ export async function sendWalletTopUpEmail({
     walletCredit,
   });
 
-  return sendTransactionalEmail({
+  return sendTransactionalEmailWithInternalCopies({
     to: profile.email,
     profileId: profile.id,
     eventType: "wallet.top_up",

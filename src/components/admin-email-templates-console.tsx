@@ -8,10 +8,16 @@ import {
   RefreshCw,
   Save,
   Send,
+  ShieldCheck,
+  Users,
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { TransactionalEmailTemplate } from "@/lib/config/transactional-email-settings";
+import {
+  isConfigurableRecipientTemplate,
+  type TransactionalEmailRecipientConfig,
+} from "@/lib/config/transactional-email-recipients";
 
 type EmailLog = {
   id: string;
@@ -32,6 +38,32 @@ type EmailTemplatesResponse = {
   error?: string;
 };
 
+type RecipientRole = {
+  id: string;
+  name: string;
+  is_active: boolean;
+};
+
+type RecipientMember = {
+  id: string;
+  roleId: string;
+  roleName: string;
+  status: "invited" | "active" | "suspended";
+  profileStatus: "active" | "suspended";
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+};
+
+type EmailRecipientsResponse = {
+  configs: TransactionalEmailRecipientConfig[];
+  roles: RecipientRole[];
+  members: RecipientMember[];
+  configuredAdminEmails: string[];
+  canManageRecipients: boolean;
+  error?: string;
+};
+
 export function AdminEmailTemplatesConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [templates, setTemplates] = useState<TransactionalEmailTemplate[]>([]);
@@ -44,9 +76,20 @@ export function AdminEmailTemplatesConsole() {
   const [logsReady, setLogsReady] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [recipientConfigs, setRecipientConfigs] = useState<
+    TransactionalEmailRecipientConfig[]
+  >([]);
+  const [recipientRoles, setRecipientRoles] = useState<RecipientRole[]>([]);
+  const [recipientMembers, setRecipientMembers] = useState<RecipientMember[]>([]);
+  const [configuredAdminEmails, setConfiguredAdminEmails] = useState<string[]>([]);
+  const [canManageRecipients, setCanManageRecipients] = useState(false);
+  const [recipientSaving, setRecipientSaving] = useState(false);
 
   const selectedTemplate =
     templates.find((template) => template.id === selectedId) ?? templates[0] ?? null;
+  const selectedRecipientConfig = selectedTemplate
+    ? recipientConfigs.find((config) => config.templateId === selectedTemplate.id) ?? null
+    : null;
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -66,11 +109,19 @@ export function AdminEmailTemplatesConsole() {
       return;
     }
 
-    const response = await fetch("/api/admin/email-templates", {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
+    const [response, recipientsResponse] = await Promise.all([
+      fetch("/api/admin/email-templates", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+      fetch("/api/admin/email-recipients", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+    ]);
     const payload = (await response.json()) as EmailTemplatesResponse;
+    const recipientsPayload =
+      (await recipientsResponse.json()) as EmailRecipientsResponse;
 
     if (!response.ok) {
       setError(payload.error ?? "Non riesco a caricare i template email.");
@@ -83,6 +134,18 @@ export function AdminEmailTemplatesConsole() {
     setLogs(payload.logs);
     setStorageReady(payload.storageReady);
     setLogsReady(payload.logsReady);
+    if (recipientsResponse.ok) {
+      setRecipientConfigs(recipientsPayload.configs);
+      setRecipientRoles(recipientsPayload.roles);
+      setRecipientMembers(recipientsPayload.members);
+      setConfiguredAdminEmails(recipientsPayload.configuredAdminEmails);
+      setCanManageRecipients(recipientsPayload.canManageRecipients);
+    } else {
+      setError(
+        recipientsPayload.error ??
+          "Non riesco a caricare la configurazione dei destinatari.",
+      );
+    }
     setLoading(false);
   }, [getAccessToken]);
 
@@ -168,6 +231,52 @@ export function AdminEmailTemplatesConsole() {
     setSuccess(`Email test elaborata: ${payload.result?.status ?? "ok"}.`);
     setTesting(false);
     void loadTemplates();
+  }
+
+  function updateSelectedRecipientConfig(
+    update: Partial<TransactionalEmailRecipientConfig>,
+  ) {
+    if (!selectedRecipientConfig) return;
+
+    setRecipientConfigs((current) =>
+      current.map((config) =>
+        config.templateId === selectedRecipientConfig.templateId
+          ? { ...config, ...update }
+          : config,
+      ),
+    );
+  }
+
+  async function saveRecipients() {
+    const token = await getAccessToken();
+    setRecipientSaving(true);
+    setError("");
+    setSuccess("");
+
+    if (!token) {
+      setError("Sessione admin non trovata.");
+      setRecipientSaving(false);
+      return;
+    }
+
+    const response = await fetch("/api/admin/email-recipients", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ configs: recipientConfigs }),
+    });
+    const payload = (await response.json()) as EmailRecipientsResponse;
+
+    if (!response.ok) {
+      setError(payload.error ?? "Non sono riuscito a salvare i destinatari.");
+    } else {
+      setRecipientConfigs(payload.configs);
+      setSuccess("Destinatari email aggiornati.");
+    }
+
+    setRecipientSaving(false);
   }
 
   return (
@@ -256,6 +365,14 @@ export function AdminEmailTemplatesConsole() {
               testing={testing}
               onChange={updateSelectedTemplate}
               onTest={sendTestEmail}
+              recipientConfig={selectedRecipientConfig}
+              recipientRoles={recipientRoles}
+              recipientMembers={recipientMembers}
+              configuredAdminEmails={configuredAdminEmails}
+              canManageRecipients={canManageRecipients}
+              recipientSaving={recipientSaving}
+              onRecipientChange={updateSelectedRecipientConfig}
+              onSaveRecipients={saveRecipients}
             />
           ) : null}
         </div>
@@ -310,11 +427,27 @@ function TemplateEditor({
   testing,
   onChange,
   onTest,
+  recipientConfig,
+  recipientRoles,
+  recipientMembers,
+  configuredAdminEmails,
+  canManageRecipients,
+  recipientSaving,
+  onRecipientChange,
+  onSaveRecipients,
 }: {
   template: TransactionalEmailTemplate;
   testing: boolean;
   onChange: (update: Partial<TransactionalEmailTemplate>) => void;
   onTest: () => void;
+  recipientConfig: TransactionalEmailRecipientConfig | null;
+  recipientRoles: RecipientRole[];
+  recipientMembers: RecipientMember[];
+  configuredAdminEmails: string[];
+  canManageRecipients: boolean;
+  recipientSaving: boolean;
+  onRecipientChange: (update: Partial<TransactionalEmailRecipientConfig>) => void;
+  onSaveRecipients: () => void;
 }) {
   return (
     <section className="card p-5">
@@ -351,6 +484,19 @@ function TemplateEditor({
           </code>
         ))}
       </div>
+
+      {isConfigurableRecipientTemplate(template.id) && recipientConfig ? (
+        <RecipientSettings
+          config={recipientConfig}
+          roles={recipientRoles}
+          members={recipientMembers}
+          configuredAdminEmails={configuredAdminEmails}
+          canManage={canManageRecipients}
+          saving={recipientSaving}
+          onChange={onRecipientChange}
+          onSave={onSaveRecipients}
+        />
+      ) : null}
 
       <div className="mt-6 grid gap-4">
         <TextField
@@ -399,6 +545,199 @@ function TemplateEditor({
           <Send size={17} />
           {testing ? "Invio test..." : "Invia test a me"}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function RecipientSettings({
+  config,
+  roles,
+  members,
+  configuredAdminEmails,
+  canManage,
+  saving,
+  onChange,
+  onSave,
+}: {
+  config: TransactionalEmailRecipientConfig;
+  roles: RecipientRole[];
+  members: RecipientMember[];
+  configuredAdminEmails: string[];
+  canManage: boolean;
+  saving: boolean;
+  onChange: (update: Partial<TransactionalEmailRecipientConfig>) => void;
+  onSave: () => void;
+}) {
+  const activeRoles = roles.filter((role) => role.is_active);
+  const activeMembers = members.filter(
+    (member) => member.status === "active" && member.profileStatus === "active",
+  );
+  const selectedMemberIds = new Set(config.memberIds);
+  const selectedRoleIds = new Set(config.roleIds);
+  const resolvedMembers = activeMembers.filter(
+    (member) =>
+      selectedMemberIds.has(member.id) || selectedRoleIds.has(member.roleId),
+  );
+  const activeSelections =
+    resolvedMembers.length +
+    config.additionalEmails.length +
+    (config.includeDefaultAdmins ? Math.max(1, configuredAdminEmails.length) : 0);
+
+  function toggleId(field: "roleIds" | "memberIds", id: string) {
+    const current = config[field];
+    onChange({
+      [field]: current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    });
+  }
+
+  return (
+    <section className="-mx-5 mt-6 border-y border-slate-200 bg-slate-50 px-5 py-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-green">
+            <Users size={18} />
+            <p className="text-xs font-bold uppercase">Destinatari interni</p>
+          </div>
+          <h3 className="mt-2 text-lg font-semibold text-ink">
+            Chi riceve una copia di questa email
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
+            Il destinatario principale previsto dal flusso resta invariato. Le persone
+            selezionate ricevono una copia separata e vengono registrate nello storico.
+          </p>
+        </div>
+        <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600">
+          <ShieldCheck size={14} />
+          {activeSelections} selezioni attive
+        </span>
+      </div>
+
+      {!canManage ? (
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+          La configurazione dei destinatari puo essere modificata solo dal Super Admin.
+        </p>
+      ) : null}
+
+      <div className="mt-5 grid gap-5">
+        <label className="flex min-h-14 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4">
+          <input
+            className="mt-1 size-4 accent-emerald-700"
+            type="checkbox"
+            checked={config.includeDefaultAdmins}
+            disabled={!canManage}
+            onChange={(event) =>
+              onChange({ includeDefaultAdmins: event.target.checked })
+            }
+          />
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-ink">
+              Super Admin e indirizzi amministrativi
+            </span>
+            <span className="mt-1 block break-words text-xs leading-5 text-muted">
+              Include tutti i Super Admin attivi
+              {configuredAdminEmails.length
+                ? ` e ${configuredAdminEmails.join(", ")}`
+                : "."}
+            </span>
+          </span>
+        </label>
+
+        <div>
+          <p className="text-sm font-bold text-ink">Ruoli Team</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Tutti i membri attivi dei ruoli selezionati riceveranno la notifica.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {activeRoles.map((role) => (
+              <label
+                className="flex min-h-12 items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-ink"
+                key={role.id}
+              >
+                <input
+                  className="size-4 accent-emerald-700"
+                  type="checkbox"
+                  checked={config.roleIds.includes(role.id)}
+                  disabled={!canManage}
+                  onChange={() => toggleId("roleIds", role.id)}
+                />
+                {role.name}
+              </label>
+            ))}
+            {!activeRoles.length ? (
+              <p className="text-sm text-muted">Nessun ruolo Team attivo.</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-bold text-ink">Singoli membri</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Puoi aggiungere membri specifici anche senza selezionare il loro ruolo.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {activeMembers.map((member) => (
+              <label
+                className="flex min-h-16 items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3"
+                key={member.id}
+              >
+                <input
+                  className="mt-1 size-4 shrink-0 accent-emerald-700"
+                  type="checkbox"
+                  checked={config.memberIds.includes(member.id)}
+                  disabled={!canManage}
+                  onChange={() => toggleId("memberIds", member.id)}
+                />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-bold text-ink">
+                    {formatMemberName(member)}
+                  </span>
+                  <span className="mt-0.5 block break-all text-xs text-muted">
+                    {member.email}
+                  </span>
+                  <span className="mt-1 block text-xs font-semibold text-green">
+                    {member.roleName}
+                  </span>
+                </span>
+              </label>
+            ))}
+            {!activeMembers.length ? (
+              <p className="text-sm text-muted">Nessun membro Team attivo.</p>
+            ) : null}
+          </div>
+        </div>
+
+        <label className="grid gap-2 text-sm font-semibold text-ink">
+          Altri indirizzi email
+          <textarea
+            className="min-h-24 rounded-lg border border-slate-200 bg-white p-4 text-sm font-normal outline-none focus:border-green"
+            placeholder="Un indirizzo per riga oppure separato da virgola"
+            value={config.additionalEmails.join("\n")}
+            disabled={!canManage}
+            onChange={(event) =>
+              onChange({
+                additionalEmails: parseEmailList(event.target.value),
+              })
+            }
+          />
+          <span className="text-xs font-normal leading-5 text-muted">
+            Gli indirizzi duplicati vengono eliminati automaticamente.
+          </span>
+        </label>
+
+        {canManage ? (
+          <button
+            className="btn btn-secondary w-full sm:w-fit"
+            type="button"
+            disabled={saving}
+            onClick={onSave}
+          >
+            <Save size={17} />
+            {saving ? "Salvataggio..." : "Salva destinatari"}
+          </button>
+        ) : null}
       </div>
     </section>
   );
@@ -507,4 +846,21 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function formatMemberName(member: RecipientMember) {
+  const name = `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
+
+  return name || member.email || "Membro Team";
+}
+
+function parseEmailList(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(/[\n,;]+/)
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  );
 }

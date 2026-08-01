@@ -10,6 +10,11 @@ import {
 
 test("maps admin pages without letting /admin swallow nested routes", () => {
   assert.equal(getAdminPagePermission("/admin"), "dashboard");
+  assert.equal(getAdminPagePermission("/admin/marketplace"), "marketplace");
+  assert.equal(
+    getAdminPagePermission("/admin/marketplace/example"),
+    "marketplace",
+  );
   assert.equal(getAdminPagePermission("/admin/leads"), "leads");
   assert.equal(getAdminPagePermission("/admin/leads/example"), "leads");
   assert.equal(getAdminPagePermission("/admin/acquisizione/meta"), "acquisition");
@@ -20,7 +25,7 @@ test("maps admin pages without letting /admin swallow nested routes", () => {
 test("uses marketplace as the first route for a role with marketplace access", () => {
   assert.equal(
     getFirstAllowedAdminRoute({ marketplace: "read", leads: "read" }),
-    "/app/marketplace",
+    "/admin/marketplace",
   );
 });
 

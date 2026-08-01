@@ -79,7 +79,7 @@ const adminLinks: AppNavLink[] = [
   },
   {
     label: "Marketplace",
-    href: "/app/marketplace",
+    href: "/admin/marketplace",
     icon: Map,
     category: "Operatività",
     permission: "marketplace",
@@ -220,7 +220,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                 link.permission === "marketplace" &&
                 hasAdminPermission(session.adminPermissions ?? {}, "marketplace"),
             ),
-            ...allowedAdminLinks.filter((link) => link.href !== "/app/marketplace"),
+            ...allowedAdminLinks.filter((link) => link.href !== "/admin/marketplace"),
           ]
         : session.isSuperAdmin
           ? [pmLinks[0], marketingPreviewLink, ...pmLinks.slice(1)]

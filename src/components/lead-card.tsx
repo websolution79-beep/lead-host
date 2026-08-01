@@ -24,10 +24,14 @@ import { VerifiedOwnerBadge } from "@/components/verified-owner-badge";
 
 type LeadCardProps = {
   lead: MarketplaceLead;
+  detailBasePath?: string;
 };
 
-export function LeadCard({ lead }: LeadCardProps) {
-  const detailHref = `/app/marketplace/${lead.id}`;
+export function LeadCard({
+  lead,
+  detailBasePath = "/app/marketplace",
+}: LeadCardProps) {
+  const detailHref = `${detailBasePath}/${lead.id}`;
   const statusStyle = getStatusStyle(lead.publicStatus);
   const expiresAt = parseLeadDate(lead.expiresAt);
   const sharedAvailable = isSharedAvailable({

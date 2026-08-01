@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  ArrowLeft,
   Mail,
   MapPin,
   Phone,
@@ -25,6 +23,7 @@ import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads"
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { hasAdminPermission } from "@/lib/admin/permissions";
 import { VerifiedOwnerBadge } from "@/components/verified-owner-badge";
+import { MarketplaceBackLink } from "@/components/marketplace-back-link";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -73,13 +72,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
   return (
     <AppShell section="pm" eyebrow="Dettaglio lead" title={lead.title}>
       <div className="mb-5">
-        <Link
-          href="/app/marketplace"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-green"
-        >
-          <ArrowLeft size={16} />
-          Torna al marketplace
-        </Link>
+        <MarketplaceBackLink />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_360px]">

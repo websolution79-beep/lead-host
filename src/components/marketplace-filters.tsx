@@ -20,9 +20,13 @@ type AvailabilityFilter =
 
 type MarketplaceFiltersProps = {
   leads: MarketplaceLead[];
+  detailBasePath?: string;
 };
 
-export function MarketplaceFilters({ leads }: MarketplaceFiltersProps) {
+export function MarketplaceFilters({
+  leads,
+  detailBasePath = "/app/marketplace",
+}: MarketplaceFiltersProps) {
   const [region, setRegion] = useState("all");
   const [province, setProvince] = useState("all");
   const [city, setCity] = useState("all");
@@ -181,7 +185,7 @@ export function MarketplaceFilters({ leads }: MarketplaceFiltersProps) {
       {filteredLeads.length > 0 ? (
         <div className="marketplace-grid">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+            <LeadCard key={lead.id} lead={lead} detailBasePath={detailBasePath} />
           ))}
         </div>
       ) : (

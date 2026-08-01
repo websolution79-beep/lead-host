@@ -39,6 +39,12 @@ const adminLinks: Array<{
   superAdminOnly?: boolean;
 }> = [
   { label: "Dashboard", href: "/admin", group: "Panoramica", permission: "dashboard" },
+  {
+    label: "Marketplace",
+    href: "/admin/marketplace",
+    group: "Operatività",
+    permission: "marketplace",
+  },
   { label: "Lead", href: "/admin/leads", group: "Operatività", permission: "leads" },
   {
     label: "Acquisizione",

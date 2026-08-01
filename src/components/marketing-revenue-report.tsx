@@ -298,10 +298,9 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 function euro(value: number) {
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-  }).format(value);
+  const sign = value < 0 ? "-" : "";
+  const [integer, decimal] = Math.abs(value).toFixed(2).split(".");
+  return `${sign}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${decimal} €`;
 }
 function percent(value: number) {
   return new Intl.NumberFormat("it-IT", {

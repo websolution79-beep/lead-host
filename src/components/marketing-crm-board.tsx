@@ -7,13 +7,22 @@ import {
   CalendarClock,
   Columns3,
   GripVertical,
+  Home,
   MapPin,
   Pencil,
   Plus,
   Save,
   Trash2,
+  UserRound,
   X,
 } from "lucide-react";
+import { ITALY_GEO } from "@/lib/geo/italy-geo";
+import {
+  OWNER_CURRENT_STATUS_OPTIONS,
+  OWNER_PROPERTY_TYPES,
+  OWNER_REQUESTED_SERVICE_OPTIONS,
+  OWNER_TIMING_OPTIONS,
+} from "@/lib/owner-requests/options";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 type CrmStage = {
@@ -31,6 +40,17 @@ type CrmContact = {
   email: string | null;
   phone: string | null;
   property_address: string | null;
+  property_type: string | null;
+  region: string | null;
+  province: string | null;
+  city: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  area_sqm: number | null;
+  current_status: string | null;
+  requested_services: string[];
+  timing: string | null;
+  property_description: string | null;
   notes: string | null;
   next_follow_up_at: string | null;
   position: number;
@@ -51,6 +71,17 @@ type ContactDraft = {
   email: string;
   phone: string;
   propertyAddress: string;
+  propertyType: string;
+  region: string;
+  province: string;
+  city: string;
+  bedrooms: string;
+  bathrooms: string;
+  areaSqm: string;
+  currentStatus: string;
+  requestedServices: string[];
+  timing: string;
+  propertyDescription: string;
   notes: string;
   nextFollowUpAt: string;
 };
@@ -169,6 +200,17 @@ export function MarketingCrmBoard() {
       email: nullableValue(draft.email),
       phone: nullableValue(draft.phone),
       propertyAddress: nullableValue(draft.propertyAddress),
+      propertyType: nullableValue(draft.propertyType),
+      region: nullableValue(draft.region),
+      province: nullableValue(draft.province),
+      city: nullableValue(draft.city),
+      bedrooms: nullableIntegerValue(draft.bedrooms),
+      bathrooms: nullableIntegerValue(draft.bathrooms),
+      areaSqm: nullableIntegerValue(draft.areaSqm),
+      currentStatus: nullableValue(draft.currentStatus),
+      requestedServices: draft.requestedServices,
+      timing: nullableValue(draft.timing),
+      propertyDescription: nullableValue(draft.propertyDescription),
       notes: nullableValue(draft.notes),
       nextFollowUpAt: inputToIso(draft.nextFollowUpAt),
     };
@@ -476,6 +518,12 @@ function ContactCard({
               <span className="break-words">{contact.property_address}</span>
             </p>
           ) : null}
+          {!contact.property_address && contact.city ? (
+            <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-muted">
+              <MapPin className="mt-0.5 shrink-0" size={14} />
+              <span className="break-words">{contact.city}</span>
+            </p>
+          ) : null}
           {contact.next_follow_up_at ? (
             <p className="mt-3 flex items-center gap-1.5 text-xs font-bold text-amber-700">
               <CalendarClock size={14} />
@@ -507,34 +555,159 @@ function ContactEditor({
   onSave: () => void;
   onDelete: () => void;
 }) {
+  const regions = useMemo(
+    () => mergeOptions(ITALY_GEO.map((item) => item.region), draft.region),
+    [draft.region],
+  );
+  const provinces = useMemo(() => {
+    const region = ITALY_GEO.find((item) => item.region === draft.region);
+    return mergeOptions(region?.provinces.map((item) => item.province) ?? [], draft.province);
+  }, [draft.province, draft.region]);
+  const cities = useMemo(() => {
+    const region = ITALY_GEO.find((item) => item.region === draft.region);
+    const province = region?.provinces.find((item) => item.province === draft.province);
+    return mergeOptions(province?.cities ?? [], draft.city);
+  }, [draft.city, draft.province, draft.region]);
+  const propertyTypes = useMemo(
+    () => mergeOptions([...OWNER_PROPERTY_TYPES], draft.propertyType),
+    [draft.propertyType],
+  );
+  const timingOptions = useMemo(
+    () => mergeOptions([...OWNER_TIMING_OPTIONS], draft.timing),
+    [draft.timing],
+  );
+  const currentStatusOptions = useMemo(
+    () => mergeOptions([...OWNER_CURRENT_STATUS_OPTIONS], draft.currentStatus),
+    [draft.currentStatus],
+  );
+  const requestedServiceOptions = useMemo(
+    () => mergeOptions([...OWNER_REQUESTED_SERVICE_OPTIONS], ...draft.requestedServices),
+    [draft.requestedServices],
+  );
+
+  function toggleRequestedService(service: string) {
+    onChange({
+      requestedServices: draft.requestedServices.includes(service)
+        ? draft.requestedServices.filter((item) => item !== service)
+        : [...draft.requestedServices, service],
+    });
+  }
+
   return (
     <Modal title={contact ? "Modifica proprietario" : "Nuovo proprietario"} onClose={onClose}>
-      <div className="grid gap-4">
-        <Field label="Nome e cognome *">
-          <input className="form-input" value={draft.fullName} onChange={(event) => onChange({ fullName: event.target.value })} />
-        </Field>
-        <Field label="Stage">
-          <select className="form-input" value={draft.stageId} onChange={(event) => onChange({ stageId: event.target.value })}>
-            {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
-          </select>
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Telefono">
-            <input className="form-input" inputMode="tel" value={draft.phone} onChange={(event) => onChange({ phone: event.target.value })} />
-          </Field>
-          <Field label="Email">
-            <input className="form-input" inputMode="email" value={draft.email} onChange={(event) => onChange({ email: event.target.value })} />
-          </Field>
-        </div>
-        <Field label="Indirizzo immobile">
-          <input className="form-input" value={draft.propertyAddress} onChange={(event) => onChange({ propertyAddress: event.target.value })} />
-        </Field>
-        <Field label="Da ricontattare il">
-          <input className="form-input" type="datetime-local" value={draft.nextFollowUpAt} onChange={(event) => onChange({ nextFollowUpAt: event.target.value })} />
-        </Field>
-        <Field label="Note">
-          <textarea className="min-h-28 rounded-lg border border-slate-200 bg-white p-3 text-sm text-ink outline-none focus:border-green" value={draft.notes} onChange={(event) => onChange({ notes: event.target.value })} />
-        </Field>
+      <div className="grid gap-6">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-2 text-green">
+            <UserRound size={18} />
+            <h3 className="font-semibold text-ink">Proprietario</h3>
+          </div>
+          <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nome e cognome *">
+                <input className="form-input" value={draft.fullName} onChange={(event) => onChange({ fullName: event.target.value })} />
+              </Field>
+              <Field label="Stage">
+                <select className="form-input" value={draft.stageId} onChange={(event) => onChange({ stageId: event.target.value })}>
+                  {stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Telefono">
+                <input className="form-input" inputMode="tel" value={draft.phone} onChange={(event) => onChange({ phone: event.target.value })} />
+              </Field>
+              <Field label="Email">
+                <input className="form-input" inputMode="email" value={draft.email} onChange={(event) => onChange({ email: event.target.value })} />
+              </Field>
+            </div>
+            <Field label="Da ricontattare il">
+              <input className="form-input" type="datetime-local" value={draft.nextFollowUpAt} onChange={(event) => onChange({ nextFollowUpAt: event.target.value })} />
+            </Field>
+            <Field label="Note sul contatto">
+              <textarea className="min-h-24 rounded-lg border border-slate-200 bg-white p-3 text-sm text-ink outline-none focus:border-green" value={draft.notes} onChange={(event) => onChange({ notes: event.target.value })} />
+            </Field>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+          <div className="mb-4 flex items-center gap-2 text-green">
+            <Home size={18} />
+            <div>
+              <h3 className="font-semibold text-ink">Immobile</h3>
+              <p className="mt-0.5 text-xs font-normal text-muted">Facoltativo: aggiungi i dati che ti servono per lavorare il proprietario.</p>
+            </div>
+          </div>
+          <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Tipo di immobile">
+                <select className="form-input" value={draft.propertyType} onChange={(event) => onChange({ propertyType: event.target.value })}>
+                  <option value="">Seleziona</option>
+                  {propertyTypes.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </Field>
+              <Field label="Stato attuale">
+                <select className="form-input" value={draft.currentStatus} onChange={(event) => onChange({ currentStatus: event.target.value })}>
+                  <option value="">Seleziona</option>
+                  {currentStatusOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </Field>
+            </div>
+            <Field label="Indirizzo">
+              <input className="form-input" value={draft.propertyAddress} onChange={(event) => onChange({ propertyAddress: event.target.value })} />
+            </Field>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Regione">
+                <select className="form-input" value={draft.region} onChange={(event) => onChange({ region: event.target.value, province: "", city: "" })}>
+                  <option value="">Seleziona</option>
+                  {regions.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </Field>
+              <Field label="Provincia">
+                <select className="form-input" value={draft.province} disabled={!draft.region} onChange={(event) => onChange({ province: event.target.value, city: "" })}>
+                  <option value="">Seleziona</option>
+                  {provinces.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </Field>
+              <Field label="Città">
+                <select className="form-input" value={draft.city} disabled={!draft.province} onChange={(event) => onChange({ city: event.target.value })}>
+                  <option value="">Seleziona</option>
+                  {cities.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label="Camere">
+                <input className="form-input" inputMode="numeric" min="0" type="number" value={draft.bedrooms} onChange={(event) => onChange({ bedrooms: event.target.value })} />
+              </Field>
+              <Field label="Bagni">
+                <input className="form-input" inputMode="numeric" min="0" type="number" value={draft.bathrooms} onChange={(event) => onChange({ bathrooms: event.target.value })} />
+              </Field>
+              <Field label="Metratura (mq)">
+                <input className="form-input" inputMode="numeric" min="1" type="number" value={draft.areaSqm} onChange={(event) => onChange({ areaSqm: event.target.value })} />
+              </Field>
+            </div>
+            <Field label="Quando vorrebbe iniziare">
+              <select className="form-input" value={draft.timing} onChange={(event) => onChange({ timing: event.target.value })}>
+                <option value="">Seleziona</option>
+                {timingOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </Field>
+            <div>
+              <p className="text-sm font-semibold text-ink">Servizi richiesti</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {requestedServiceOptions.map((service) => (
+                  <label className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700" key={service}>
+                    <input checked={draft.requestedServices.includes(service)} className="size-4 accent-emerald-700" type="checkbox" onChange={() => toggleRequestedService(service)} />
+                    <span>{service}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <Field label="Descrizione immobile">
+              <textarea className="min-h-28 rounded-lg border border-slate-200 bg-white p-3 text-sm text-ink outline-none focus:border-green" value={draft.propertyDescription} onChange={(event) => onChange({ propertyDescription: event.target.value })} />
+            </Field>
+          </div>
+        </section>
       </div>
       <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
         {contact ? <button className="btn border border-red-200 bg-red-50 text-red-700 sm:w-auto" type="button" disabled={saving} onClick={onDelete}><Trash2 size={16} />Elimina</button> : <span />}
@@ -582,9 +755,58 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
 
 function Field({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-2 text-sm font-semibold text-ink"><span>{label}</span>{children}</label>; }
 
-function emptyContactDraft(stageId: string): ContactDraft { return { stageId, fullName: "", email: "", phone: "", propertyAddress: "", notes: "", nextFollowUpAt: "" }; }
-function contactToDraft(contact: CrmContact): ContactDraft { return { stageId: contact.stage_id, fullName: contact.full_name, email: contact.email ?? "", phone: contact.phone ?? "", propertyAddress: contact.property_address ?? "", notes: contact.notes ?? "", nextFollowUpAt: isoToInput(contact.next_follow_up_at) }; }
+function emptyContactDraft(stageId: string): ContactDraft {
+  return {
+    stageId,
+    fullName: "",
+    email: "",
+    phone: "",
+    propertyAddress: "",
+    propertyType: "",
+    region: "",
+    province: "",
+    city: "",
+    bedrooms: "",
+    bathrooms: "",
+    areaSqm: "",
+    currentStatus: "",
+    requestedServices: [],
+    timing: "",
+    propertyDescription: "",
+    notes: "",
+    nextFollowUpAt: "",
+  };
+}
+
+function contactToDraft(contact: CrmContact): ContactDraft {
+  return {
+    stageId: contact.stage_id,
+    fullName: contact.full_name,
+    email: contact.email ?? "",
+    phone: contact.phone ?? "",
+    propertyAddress: contact.property_address ?? "",
+    propertyType: contact.property_type ?? "",
+    region: contact.region ?? "",
+    province: contact.province ?? "",
+    city: contact.city ?? "",
+    bedrooms: contact.bedrooms?.toString() ?? "",
+    bathrooms: contact.bathrooms?.toString() ?? "",
+    areaSqm: contact.area_sqm?.toString() ?? "",
+    currentStatus: contact.current_status ?? "",
+    requestedServices: contact.requested_services ?? [],
+    timing: contact.timing ?? "",
+    propertyDescription: contact.property_description ?? "",
+    notes: contact.notes ?? "",
+    nextFollowUpAt: isoToInput(contact.next_follow_up_at),
+  };
+}
+
+function mergeOptions(values: readonly string[], ...selectedValues: string[]) {
+  return Array.from(new Set([...values, ...selectedValues.filter(Boolean)]));
+}
+
 function nullableValue(value: string) { const trimmed = value.trim(); return trimmed || null; }
+function nullableIntegerValue(value: string) { const trimmed = value.trim(); return trimmed ? Number.parseInt(trimmed, 10) : null; }
 function inputToIso(value: string) { return value ? new Date(value).toISOString() : null; }
 function isoToInput(value: string | null) { if (!value) return ""; const date = new Date(value); const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 16); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }

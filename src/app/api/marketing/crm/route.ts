@@ -19,6 +19,8 @@ const defaultStages = [
 ] as const;
 
 const nullableText = z.string().trim().max(5000).nullable();
+const nullableShortText = (max: number) => z.string().trim().max(max).nullable();
+const nullableInteger = (min: number, max: number) => z.number().int().min(min).max(max).nullable();
 const stageSchema = z.object({
   stageId: z.string().uuid(),
   name: z.string().trim().min(2).max(80).optional(),
@@ -30,6 +32,17 @@ const contactInputSchema = z.object({
   email: z.string().trim().email().max(255).nullable(),
   phone: z.string().trim().max(50).nullable(),
   propertyAddress: z.string().trim().max(300).nullable(),
+  propertyType: nullableShortText(80),
+  region: nullableShortText(100),
+  province: nullableShortText(100),
+  city: nullableShortText(120),
+  bedrooms: nullableInteger(0, 99),
+  bathrooms: nullableInteger(0, 99),
+  areaSqm: nullableInteger(1, 100000),
+  currentStatus: nullableShortText(120),
+  requestedServices: z.array(z.string().trim().min(1).max(120)).max(20),
+  timing: nullableShortText(120),
+  propertyDescription: nullableText,
   notes: nullableText,
   nextFollowUpAt: z.string().datetime().nullable(),
 });
@@ -186,6 +199,17 @@ export async function PATCH(request: NextRequest) {
         email: emptyToNull(payload.contact.email),
         phone: emptyToNull(payload.contact.phone),
         property_address: emptyToNull(payload.contact.propertyAddress),
+        property_type: emptyToNull(payload.contact.propertyType),
+        region: emptyToNull(payload.contact.region),
+        province: emptyToNull(payload.contact.province),
+        city: emptyToNull(payload.contact.city),
+        bedrooms: payload.contact.bedrooms,
+        bathrooms: payload.contact.bathrooms,
+        area_sqm: payload.contact.areaSqm,
+        current_status: emptyToNull(payload.contact.currentStatus),
+        requested_services: payload.contact.requestedServices,
+        timing: emptyToNull(payload.contact.timing),
+        property_description: emptyToNull(payload.contact.propertyDescription),
         notes: emptyToNull(payload.contact.notes),
         next_follow_up_at: payload.contact.nextFollowUpAt,
         position: nextContactPosition(crm.contacts, payload.contact.stageId),
@@ -205,6 +229,17 @@ export async function PATCH(request: NextRequest) {
           email: emptyToNull(payload.contact.email),
           phone: emptyToNull(payload.contact.phone),
           property_address: emptyToNull(payload.contact.propertyAddress),
+          property_type: emptyToNull(payload.contact.propertyType),
+          region: emptyToNull(payload.contact.region),
+          province: emptyToNull(payload.contact.province),
+          city: emptyToNull(payload.contact.city),
+          bedrooms: payload.contact.bedrooms,
+          bathrooms: payload.contact.bathrooms,
+          area_sqm: payload.contact.areaSqm,
+          current_status: emptyToNull(payload.contact.currentStatus),
+          requested_services: payload.contact.requestedServices,
+          timing: emptyToNull(payload.contact.timing),
+          property_description: emptyToNull(payload.contact.propertyDescription),
           notes: emptyToNull(payload.contact.notes),
           next_follow_up_at: payload.contact.nextFollowUpAt,
         })

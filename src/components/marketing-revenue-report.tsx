@@ -91,7 +91,10 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
         `/api/marketing/revenue-estimates/${estimate!.id}/pdf`,
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      if (!response.ok) throw new Error("Generazione PDF non riuscita.");
+      if (!response.ok) {
+        const failure = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(failure?.error ?? "Generazione PDF non riuscita.");
+      }
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
@@ -100,8 +103,8 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      setError("Non riesco a generare il PDF. Riprova tra poco.");
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : "Non riesco a generare il PDF. Riprova tra poco.");
     } finally {
       setDownloading(false);
     }

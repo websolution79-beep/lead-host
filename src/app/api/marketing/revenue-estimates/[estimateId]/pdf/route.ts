@@ -32,7 +32,10 @@ export async function GET(
       },
     });
   } catch (error) {
-    return adminApiErrorResponse(error);
+    console.error("Revenue estimate PDF generation failed", error);
+    const response = adminApiErrorResponse(error);
+    if (response.status !== 500) return response;
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Errore PDF non identificato." }, { status: 500 });
   }
 }
 

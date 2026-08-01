@@ -25,9 +25,21 @@ export default function MarketingRevenueEstimatePage() {
         </Link>
       </div>
       <MarketingRevenueEstimates />
-      <div className="mt-10 scroll-mt-6" id="modello">
-        <MarketingRevenueTemplateSettings />
-      </div>
+      <details
+        className="mt-8 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
+        id="modello"
+      >
+        <summary className="cursor-pointer text-lg font-semibold text-ink marker:text-green">
+          Modello predefinito
+        </summary>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Configura i valori che verranno proposti automaticamente nelle nuove
+          stime.
+        </p>
+        <div className="mt-6">
+          <MarketingRevenueTemplateSettings />
+        </div>
+      </details>
     </AppShell>
   );
 }

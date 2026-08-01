@@ -6,10 +6,20 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { RevenueEstimate } from "@/components/marketing-revenue-estimates";
 
+type TemplateIdentity = {
+  brand_name: string | null;
+  header_text: string | null;
+  contact_details: string | null;
+  logo_path: string | null;
+};
+
 export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [estimate, setEstimate] = useState<RevenueEstimate | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [templateIdentity, setTemplateIdentity] =
+    useState<TemplateIdentity | null>(null);
+  const [templateLogoUrl, setTemplateLogoUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     const token = (await supabase.auth.getSession()).data.session?.access_token;
@@ -17,14 +27,24 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       setError("Sessione non disponibile.");
       return;
     }
-    const response = await fetch("/api/marketing/revenue-estimates", {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
+    const [response, templateResponse] = await Promise.all([
+      fetch("/api/marketing/revenue-estimates", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+      fetch("/api/marketing/revenue-template", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+    ]);
     const payload = (await response.json()) as {
       estimates?: RevenueEstimate[];
       logoUrls?: Record<string, string>;
       error?: string;
+    };
+    const templatePayload = (await templateResponse.json()) as {
+      template?: TemplateIdentity;
+      logoUrl?: string | null;
     };
     const found = payload.estimates?.find((item) => item.id === estimateId);
     if (!response.ok || !found) {
@@ -32,6 +52,8 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       return;
     }
     setEstimate(found);
+    setTemplateIdentity(templatePayload.template ?? null);
+    setTemplateLogoUrl(templatePayload.logoUrl ?? null);
     setLogoUrl(
       found.logo_path ? (payload.logoUrls?.[found.logo_path] ?? null) : null,
     );
@@ -50,6 +72,13 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
         Carico l&apos;anteprima della relazione...
       </section>
     );
+  const identity = {
+    brandName: estimate.brand_name ?? templateIdentity?.brand_name ?? null,
+    headerText: estimate.header_text ?? templateIdentity?.header_text ?? null,
+    contactDetails:
+      estimate.contact_details ?? templateIdentity?.contact_details ?? null,
+    logoUrl: logoUrl ?? templateLogoUrl,
+  };
   return (
     <div className="grid gap-5">
       <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -72,21 +101,29 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       <article className="revenue-report-print mx-auto w-full max-w-[210mm] bg-white p-6 text-slate-800 shadow-xl sm:p-10">
         <header className="border-b-4 border-green pb-6 text-center">
           <div className="flex min-h-16 items-center justify-center">
-            {logoUrl ? (
+            {identity.logoUrl ? (
               <img
-                alt={estimate.brand_name ?? "Logo"}
+                alt={identity.brandName ?? "Logo"}
                 className="max-h-16 max-w-48 object-contain"
-                src={logoUrl}
+                src={identity.logoUrl}
               />
             ) : (
               <p className="text-xl font-bold tracking-wide text-green">
-                {estimate.brand_name || ""}
+                {identity.brandName || ""}
               </p>
             )}
           </div>
-          {estimate.header_text ? (
-            <p className="mt-2 text-sm text-slate-500">
-              {estimate.header_text}
+          {identity.brandName && identity.logoUrl ? (
+            <p className="mt-2 text-base font-semibold text-ink">
+              {identity.brandName}
+            </p>
+          ) : null}
+          {identity.headerText ? (
+            <p className="mt-2 text-sm text-slate-500">{identity.headerText}</p>
+          ) : null}
+          {identity.contactDetails ? (
+            <p className="mt-2 whitespace-pre-line text-xs leading-5 text-slate-500">
+              {identity.contactDetails}
             </p>
           ) : null}
         </header>
@@ -191,7 +228,7 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
           <p className="mt-4">{estimate.disclaimer}</p>
         </section>
         <footer className="mt-8 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
-          {estimate.contact_details || estimate.brand_name || ""}
+          {identity.contactDetails || identity.brandName || ""}
         </footer>
       </article>
       <style jsx global>{`

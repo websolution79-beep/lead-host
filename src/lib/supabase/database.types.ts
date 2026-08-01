@@ -552,6 +552,310 @@ export type Database = {
         };
         Relationships: [];
       };
+      addon_products: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          short_description: string | null;
+          description: string | null;
+          status: "draft" | "active" | "inactive";
+          is_menu_visible: boolean;
+          checkout_enabled: boolean;
+          trial_days: number;
+          list_price_cents: number | null;
+          sale_price_cents: number | null;
+          currency: string;
+          billing_interval: "month" | "year";
+          billing_interval_count: number;
+          grace_period_days: number;
+          cancellation_mode: "period_end" | "immediate";
+          stripe_product_id: string | null;
+          stripe_price_id: string | null;
+          cover_image_url: string | null;
+          video_url: string | null;
+          features: Json;
+          terms_url: string;
+          display_order: number;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          short_description?: string | null;
+          description?: string | null;
+          status?: "draft" | "active" | "inactive";
+          is_menu_visible?: boolean;
+          checkout_enabled?: boolean;
+          trial_days?: number;
+          list_price_cents?: number | null;
+          sale_price_cents?: number | null;
+          currency?: string;
+          billing_interval?: "month" | "year";
+          billing_interval_count?: number;
+          grace_period_days?: number;
+          cancellation_mode?: "period_end" | "immediate";
+          stripe_product_id?: string | null;
+          stripe_price_id?: string | null;
+          cover_image_url?: string | null;
+          video_url?: string | null;
+          features?: Json;
+          terms_url?: string;
+          display_order?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          short_description?: string | null;
+          description?: string | null;
+          status?: "draft" | "active" | "inactive";
+          is_menu_visible?: boolean;
+          checkout_enabled?: boolean;
+          trial_days?: number;
+          list_price_cents?: number | null;
+          sale_price_cents?: number | null;
+          currency?: string;
+          billing_interval?: "month" | "year";
+          billing_interval_count?: number;
+          grace_period_days?: number;
+          cancellation_mode?: "period_end" | "immediate";
+          stripe_product_id?: string | null;
+          stripe_price_id?: string | null;
+          cover_image_url?: string | null;
+          video_url?: string | null;
+          features?: Json;
+          terms_url?: string;
+          display_order?: number;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      addon_subscriptions: {
+        Row: {
+          id: string;
+          addon_product_id: string;
+          profile_id: string;
+          status:
+            | "incomplete"
+            | "trialing"
+            | "active"
+            | "past_due"
+            | "paused"
+            | "unpaid"
+            | "canceled"
+            | "expired";
+          source: "stripe" | "manual";
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          stripe_price_id: string | null;
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          current_period_started_at: string | null;
+          current_period_ends_at: string | null;
+          cancel_at_period_end: boolean;
+          canceled_at: string | null;
+          access_expires_at: string | null;
+          manual_reason: string | null;
+          granted_by: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          addon_product_id: string;
+          profile_id: string;
+          status?:
+            | "incomplete"
+            | "trialing"
+            | "active"
+            | "past_due"
+            | "paused"
+            | "unpaid"
+            | "canceled"
+            | "expired";
+          source?: "stripe" | "manual";
+          stripe_customer_id?: string | null;
+          stripe_subscription_id?: string | null;
+          stripe_price_id?: string | null;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          current_period_started_at?: string | null;
+          current_period_ends_at?: string | null;
+          cancel_at_period_end?: boolean;
+          canceled_at?: string | null;
+          access_expires_at?: string | null;
+          manual_reason?: string | null;
+          granted_by?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["addon_subscriptions"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      addon_trial_usage: {
+        Row: {
+          id: string;
+          addon_product_id: string;
+          profile_id: string;
+          subscription_id: string | null;
+          source: "stripe" | "manual";
+          used_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          addon_product_id: string;
+          profile_id: string;
+          subscription_id?: string | null;
+          source?: "stripe" | "manual";
+          used_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["addon_trial_usage"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      addon_payments: {
+        Row: {
+          id: string;
+          addon_product_id: string;
+          subscription_id: string | null;
+          profile_id: string;
+          payment_kind: "initial" | "renewal" | "adjustment";
+          provider: string;
+          provider_invoice_id: string | null;
+          provider_payment_intent_id: string | null;
+          provider_checkout_session_id: string | null;
+          amount_cents: number;
+          refunded_amount_cents: number;
+          currency: string;
+          status:
+            | "created"
+            | "pending"
+            | "paid"
+            | "failed"
+            | "refunded"
+            | "void"
+            | "uncollectible";
+          billing_period_started_at: string | null;
+          billing_period_ends_at: string | null;
+          paid_at: string | null;
+          refunded_at: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          addon_product_id: string;
+          subscription_id?: string | null;
+          profile_id: string;
+          payment_kind?: "initial" | "renewal" | "adjustment";
+          provider?: string;
+          provider_invoice_id?: string | null;
+          provider_payment_intent_id?: string | null;
+          provider_checkout_session_id?: string | null;
+          amount_cents: number;
+          refunded_amount_cents?: number;
+          currency?: string;
+          status?:
+            | "created"
+            | "pending"
+            | "paid"
+            | "failed"
+            | "refunded"
+            | "void"
+            | "uncollectible";
+          billing_period_started_at?: string | null;
+          billing_period_ends_at?: string | null;
+          paid_at?: string | null;
+          refunded_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["addon_payments"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      addon_webhook_events: {
+        Row: {
+          id: string;
+          provider: string;
+          provider_event_id: string;
+          event_type: string;
+          status: "received" | "processing" | "processed" | "failed" | "ignored";
+          payload: Json;
+          attempts: number;
+          last_error: string | null;
+          received_at: string;
+          processed_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider?: string;
+          provider_event_id: string;
+          event_type: string;
+          status?: "received" | "processing" | "processed" | "failed" | "ignored";
+          payload: Json;
+          attempts?: number;
+          last_error?: string | null;
+          received_at?: string;
+          processed_at?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["addon_webhook_events"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      addon_access_events: {
+        Row: {
+          id: string;
+          addon_product_id: string;
+          subscription_id: string | null;
+          profile_id: string;
+          actor_profile_id: string | null;
+          action: string;
+          reason: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          addon_product_id: string;
+          subscription_id?: string | null;
+          profile_id: string;
+          actor_profile_id?: string | null;
+          action: string;
+          reason?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["addon_access_events"]["Insert"]
+        >;
+        Relationships: [];
+      };
       marketing_crm_pipelines: {
         Row: {
           id: string;

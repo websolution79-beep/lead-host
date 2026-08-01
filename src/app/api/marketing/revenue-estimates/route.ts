@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { adminApiErrorResponse } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 
 const percentage = z.number().min(0).max(1);
@@ -74,7 +75,7 @@ const estimateSchema = z
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireMarketingAddonAccess(request);
     const [estimates, contacts] = await Promise.all([
       supabase
         .from("marketing_revenue_estimates")
@@ -123,7 +124,7 @@ export async function PATCH(request: NextRequest) {
 async function saveEstimate(request: NextRequest, isUpdate: boolean) {
   try {
     const { supabase, profile, isSuperAdmin } =
-      await requireSuperAdmin(request);
+      await requireMarketingAddonAccess(request);
     const payload = estimateSchema.parse(await request.json());
     if (isUpdate && !payload.id)
       return NextResponse.json(
@@ -187,6 +188,7 @@ async function saveEstimate(request: NextRequest, isUpdate: boolean) {
       request,
       actorProfileId: profile.id,
       isSuperAdmin,
+      actorRole: isSuperAdmin ? "super_admin" : "property_manager",
       entityType: "marketing_revenue_estimate",
       entityId: data.id,
       action: isUpdate ? "updated" : "created",

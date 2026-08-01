@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { adminApiErrorResponse, AdminApiError, requireSuperAdmin } from "@/lib/admin/auth";
+import { adminApiErrorResponse, AdminApiError } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 
 const bucket = "marketing-crm-documents";
@@ -36,7 +37,7 @@ const actionSchema = z.discriminatedUnion("action", [
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireMarketingAddonAccess(request);
     const contactId = z.string().uuid().parse(request.nextUrl.searchParams.get("contactId"));
     await ensureContact(supabase, contactId, profile.id);
 
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, profile, isSuperAdmin } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } = await requireMarketingAddonAccess(request);
     const payload = actionSchema.parse(await request.json());
 
     if (payload.action === "create_upload") {
@@ -118,6 +119,7 @@ export async function POST(request: NextRequest) {
         request,
         actorProfileId: profile.id,
         isSuperAdmin,
+        actorRole: isSuperAdmin ? "super_admin" : "property_manager",
         entityType: "marketing_crm_document",
         entityId: document.id,
         action: "uploaded",
@@ -149,6 +151,7 @@ export async function POST(request: NextRequest) {
       request,
       actorProfileId: profile.id,
       isSuperAdmin,
+      actorRole: isSuperAdmin ? "super_admin" : "property_manager",
       entityType: "marketing_crm_document",
       entityId: document.id,
       action: "deleted",
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function ensureContact(
-  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"],
+  supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"],
   contactId: string,
   profileId: string,
 ) {

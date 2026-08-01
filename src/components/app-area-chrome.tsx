@@ -10,6 +10,7 @@ import {
   type AdminPermissionKey,
   type AdminPermissionMap,
 } from "@/lib/admin/permissions";
+import type { MarketingAddonState } from "@/lib/addons/access";
 
 type AppAreaChromeProps = {
   children: ReactNode;
@@ -17,7 +18,7 @@ type AppAreaChromeProps = {
   adminHomeHref?: string;
   adminPermissions?: AdminPermissionMap;
   isSuperAdmin?: boolean;
-  isMarketingPreviewVisible?: boolean;
+  marketingAddon?: MarketingAddonState;
 };
 
 const pmLinks = [
@@ -120,7 +121,7 @@ export function AppAreaChrome({
   adminHomeHref = "/admin",
   adminPermissions = {},
   isSuperAdmin = false,
-  isMarketingPreviewVisible = false,
+  marketingAddon,
 }: AppAreaChromeProps) {
   const links =
     section === "admin"
@@ -131,8 +132,8 @@ export function AppAreaChrome({
               !link.permission ||
               hasAdminPermission(adminPermissions, link.permission)),
         )
-      : isMarketingPreviewVisible
-        ? [pmLinks[0], marketingPreviewLink, ...pmLinks.slice(1)]
+      : marketingAddon?.menuVisible
+        ? [pmLinks[0], pmLinks[1], { ...marketingPreviewLink, highlighted: marketingAddon.hasAccess }, ...pmLinks.slice(2)]
         : pmLinks;
   const homeHref = section === "admin" ? adminHomeHref : "/app/marketplace";
 

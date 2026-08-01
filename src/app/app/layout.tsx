@@ -10,6 +10,7 @@ import {
 import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { privatePageRobots } from "@/lib/seo/robots";
+import { getMarketingAddonState } from "@/lib/addons/access";
 
 type AppAreaLayoutProps = {
   children: ReactNode;
@@ -49,6 +50,11 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
     redirect("/login?error=role");
   }
 
+  const marketingAddon =
+    session.isSuperAdmin || hasRole(session.roles, "property_manager")
+      ? await getMarketingAddonState(session.profile.id, session.isSuperAdmin)
+      : null;
+
   return (
     <AppSessionProvider
       session={{
@@ -61,11 +67,17 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
         roles: session.roles,
         isSuperAdmin: session.isSuperAdmin,
         adminPermissions: session.teamAccess?.permissions,
+        marketingAddon: marketingAddon
+          ? {
+              menuVisible: marketingAddon.menuVisible,
+              hasAccess: marketingAddon.hasAccess,
+            }
+          : undefined,
       }}
     >
       <AppAreaChrome
         section="pm"
-        isMarketingPreviewVisible={session.isSuperAdmin}
+        marketingAddon={marketingAddon ?? undefined}
       >
         {children}
       </AppAreaChrome>

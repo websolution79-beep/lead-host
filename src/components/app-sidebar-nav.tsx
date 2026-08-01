@@ -48,6 +48,7 @@ type AppNavLink = {
   category?: string;
   permission?: AdminPermissionKey;
   superAdminOnly?: boolean;
+  highlighted?: boolean;
 };
 
 const pmLinks: AppNavLink[] = [
@@ -216,6 +217,17 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       (!link.permission ||
         hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
   );
+  const pmNavigationLinks = session.marketingAddon?.menuVisible
+    ? [
+        pmLinks[0],
+        pmLinks[1],
+        {
+          ...marketingPreviewLink,
+          highlighted: session.marketingAddon.hasAccess,
+        },
+        ...pmLinks.slice(2),
+      ]
+    : pmLinks;
   const links =
     section === "admin"
       ? session.isSuperAdmin
@@ -230,9 +242,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
             ),
             ...allowedAdminLinks.filter((link) => link.href !== "/admin/marketplace"),
           ]
-        : session.isSuperAdmin
-          ? [pmLinks[0], marketingPreviewLink, ...pmLinks.slice(1)]
-          : pmLinks;
+        : pmNavigationLinks;
   const isTeamMemberMarketplaceView = section === "pm" && isRestrictedTeamMember;
   const contextLabel =
     section === "admin"
@@ -275,6 +285,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
           link.href === "/app" || link.href === "/admin"
             ? pathname === link.href
             : pathname.startsWith(link.href);
+        const isHighlighted = Boolean(link.highlighted && !isActive);
 
         return (
           <Fragment key={link.href}>
@@ -288,6 +299,8 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
               className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
                 isActive
                   ? "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
+                  : isHighlighted
+                    ? "border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)]"
                   : "text-slate-600 hover:bg-slate-100 hover:text-ink"
               }`}
             >
@@ -295,12 +308,19 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                 className={`flex size-8 items-center justify-center rounded-md transition ${
                   isActive
                     ? "bg-white/12 text-white"
+                    : isHighlighted
+                      ? "bg-white text-emerald-700 ring-1 ring-emerald-200"
                     : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-green"
                 }`}
               >
                 <Icon size={17} />
               </span>
               {link.label}
+              {link.href === "/app/marketing" && session.marketingAddon?.hasAccess ? (
+                <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isActive ? "bg-white/15 text-white" : "bg-emerald-100 text-emerald-800"}`}>
+                  Attivo
+                </span>
+              ) : null}
               {section === "admin" && link.href === "/admin/leads" ? (
                 <AdminLeadNavBadge />
               ) : null}

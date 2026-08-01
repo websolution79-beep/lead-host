@@ -14,6 +14,10 @@ export type AppSession = {
   roles: AppRole[];
   isSuperAdmin?: boolean;
   adminPermissions?: AdminPermissionMap;
+  marketingAddon?: {
+    menuVisible: boolean;
+    hasAccess: boolean;
+  };
 };
 
 type AppSessionContextValue = AppSession & {

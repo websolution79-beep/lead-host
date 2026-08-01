@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { adminApiErrorResponse } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
@@ -35,7 +36,7 @@ const templateSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireMarketingAddonAccess(request);
     const template = await getOrCreateTemplate(supabase, profile.id);
     const signed = template.logo_path
       ? await supabase.storage.from("marketing-revenue-branding").createSignedUrl(template.logo_path, 3600)
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase, profile, isSuperAdmin } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } = await requireMarketingAddonAccess(request);
     const payload = templateSchema.parse(await request.json());
     const template = await getOrCreateTemplate(supabase, profile.id);
     const { data: updated, error } = await supabase.from("marketing_revenue_templates").update({
@@ -73,12 +74,12 @@ export async function PATCH(request: NextRequest) {
       disclaimer: payload.disclaimer,
     }).eq("id", template.id).eq("profile_id", profile.id).select("*").single();
     if (error) throw error;
-    await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, entityType: "marketing_revenue_template", entityId: updated.id, action: "updated", after: { reportTitle: updated.report_title } });
+    await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, actorRole: isSuperAdmin ? "super_admin" : "property_manager", entityType: "marketing_revenue_template", entityId: updated.id, action: "updated", after: { reportTitle: updated.report_title } });
     return NextResponse.json({ template: updated });
   } catch (error) { return adminApiErrorResponse(error); }
 }
 
-async function getOrCreateTemplate(supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"], profileId: string) {
+async function getOrCreateTemplate(supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"], profileId: string) {
   const current = await supabase.from("marketing_revenue_templates").select("*").eq("profile_id", profileId).maybeSingle();
   if (current.error) throw current.error;
   if (current.data) return current.data;

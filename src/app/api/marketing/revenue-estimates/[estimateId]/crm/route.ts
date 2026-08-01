@@ -3,8 +3,8 @@ import { z } from "zod";
 import {
   adminApiErrorResponse,
   AdminApiError,
-  requireSuperAdmin,
 } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { createRevenueEstimatePdf } from "../pdf/route";
 
@@ -27,7 +27,7 @@ export async function POST(
   try {
     const { estimateId } = await params;
     const { supabase, profile, isSuperAdmin } =
-      await requireSuperAdmin(request);
+      await requireMarketingAddonAccess(request);
     const payload = requestSchema.parse(await request.json());
     const { data: estimate, error: estimateError } = await supabase
       .from("marketing_revenue_estimates")
@@ -136,6 +136,7 @@ export async function POST(
       request,
       actorProfileId: profile.id,
       isSuperAdmin,
+      actorRole: isSuperAdmin ? "super_admin" : "property_manager",
       entityType: "marketing_crm_document",
       entityId: documentResult.data.id,
       action: existingDocument
@@ -159,7 +160,7 @@ export async function POST(
 }
 
 async function getCrmContact(
-  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"],
+  supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"],
   profileId: string,
   contactId: string,
 ) {
@@ -175,7 +176,7 @@ async function getCrmContact(
 }
 
 async function createCrmContact(
-  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"],
+  supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"],
   profileId: string,
   estimate: Record<string, unknown>,
 ) {

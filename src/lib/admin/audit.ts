@@ -8,6 +8,7 @@ export async function writeAdminAuditLog({
   request,
   actorProfileId,
   isSuperAdmin,
+  actorRole,
   entityType,
   entityId,
   action,
@@ -18,6 +19,7 @@ export async function writeAdminAuditLog({
   request?: NextRequest;
   actorProfileId: string;
   isSuperAdmin: boolean;
+  actorRole?: "super_admin" | "team_member" | "property_manager";
   entityType: string;
   entityId?: string | null;
   action: string;
@@ -34,7 +36,7 @@ export async function writeAdminAuditLog({
   const userAgent = request?.headers.get("user-agent")?.slice(0, 1000) || null;
   const { error } = await auditLogs.insert({
     actor_profile_id: actorProfileId,
-    actor_role: isSuperAdmin ? "super_admin" : "team_member",
+    actor_role: actorRole ?? (isSuperAdmin ? "super_admin" : "team_member"),
     entity_type: entityType,
     entity_id: entityId ?? null,
     action,

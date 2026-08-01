@@ -1,7 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { adminApiErrorResponse, AdminApiError, requireSuperAdmin } from "@/lib/admin/auth";
+import { adminApiErrorResponse, AdminApiError } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 
 const bucket = "marketing-crm-property-images";
@@ -16,7 +17,7 @@ const actionSchema = z.discriminatedUnion("action", [
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireMarketingAddonAccess(request);
     const contactId = z.string().uuid().parse(request.nextUrl.searchParams.get("contactId"));
     await ensureContact(supabase, contactId, profile.id);
     const { data, error } = await supabase.from("marketing_crm_property_images").select("*").eq("contact_id", contactId).eq("profile_id", profile.id).order("position").order("created_at");
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase, profile, isSuperAdmin } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } = await requireMarketingAddonAccess(request);
     const payload = actionSchema.parse(await request.json());
     if (payload.action === "create_upload") {
       await ensureContact(supabase, payload.contactId, profile.id);
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       if ((count ?? 0) >= maxImages) throw new AdminApiError(422, "Puoi allegare al massimo 10 immagini per immobile.");
       const { data: image, error } = await supabase.from("marketing_crm_property_images").insert({ profile_id: profile.id, contact_id: payload.contactId, storage_path: payload.storagePath, original_name: cleanFileName(payload.fileName), byte_size: payload.byteSize, width: payload.width, height: payload.height, position: count ?? 0 }).select("*").single();
       if (error) throw error;
-      await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, entityType: "marketing_crm_property_image", entityId: image.id, action: "uploaded", after: { contactId: payload.contactId, fileName: image.original_name, byteSize: image.byte_size } });
+      await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, actorRole: isSuperAdmin ? "super_admin" : "property_manager", entityType: "marketing_crm_property_image", entityId: image.id, action: "uploaded", after: { contactId: payload.contactId, fileName: image.original_name, byteSize: image.byte_size } });
       return NextResponse.json({ image });
     }
     const { data: image, error: imageError } = await supabase.from("marketing_crm_property_images").select("*").eq("id", payload.imageId).eq("profile_id", profile.id).maybeSingle();
@@ -62,12 +63,12 @@ export async function POST(request: NextRequest) {
     if (storageError) throw storageError;
     const { error: deleteError } = await supabase.from("marketing_crm_property_images").delete().eq("id", image.id).eq("profile_id", profile.id);
     if (deleteError) throw deleteError;
-    await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, entityType: "marketing_crm_property_image", entityId: image.id, action: "deleted", before: { contactId: image.contact_id, fileName: image.original_name, byteSize: image.byte_size } });
+    await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, actorRole: isSuperAdmin ? "super_admin" : "property_manager", entityType: "marketing_crm_property_image", entityId: image.id, action: "deleted", before: { contactId: image.contact_id, fileName: image.original_name, byteSize: image.byte_size } });
     return NextResponse.json({ ok: true });
   } catch (error) { return adminApiErrorResponse(error); }
 }
 
-async function ensureContact(supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"], contactId: string, profileId: string) {
+async function ensureContact(supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"], contactId: string, profileId: string) {
   const { data, error } = await supabase.from("marketing_crm_contacts").select("id").eq("id", contactId).eq("profile_id", profileId).maybeSingle();
   if (error) throw error;
   if (!data) throw new AdminApiError(404, "Proprietario CRM non trovato.");

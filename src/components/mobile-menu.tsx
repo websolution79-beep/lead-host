@@ -12,6 +12,7 @@ type MobileMenuLink = {
   href: string;
   label: string;
   group?: string;
+  highlighted?: boolean;
 };
 
 type MobileMenuProps = {
@@ -87,7 +88,9 @@ export function MobileMenu({
                     className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
                       isDark
                         ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
-                        : "text-slate-600 hover:bg-fog hover:text-ink"
+                        : link.highlighted
+                          ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
+                          : "text-slate-600 hover:bg-fog hover:text-ink"
                     }`}
                     onClick={() => setIsOpen(false)}
                   >

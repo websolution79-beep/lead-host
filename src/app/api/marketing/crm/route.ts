@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import {
   adminApiErrorResponse,
-  requireSuperAdmin,
 } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 
 const defaultStages = [
@@ -79,7 +79,7 @@ const patchSchema = z.discriminatedUnion("action", [
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireMarketingAddonAccess(request);
     return NextResponse.json(await getCrmPayload(supabase, profile.id));
   } catch (error) {
     return adminApiErrorResponse(error);
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { supabase, profile, isSuperAdmin } = await requireSuperAdmin(request);
+    const { supabase, profile, isSuperAdmin } = await requireMarketingAddonAccess(request);
     const payload = patchSchema.parse(await request.json());
     const crm = await getCrmPayload(supabase, profile.id);
     const pipelineId = crm.pipeline.id;
@@ -289,6 +289,7 @@ export async function PATCH(request: NextRequest) {
       request,
       actorProfileId: profile.id,
       isSuperAdmin,
+      actorRole: isSuperAdmin ? "super_admin" : "property_manager",
       entityType: auditEntityType,
       entityId: auditEntityId,
       action: `marketing.crm.${payload.action}`,
@@ -305,7 +306,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 async function getCrmPayload(
-  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"],
+  supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"],
   profileId: string,
 ) {
   const { data: initialPipeline, error } = await supabase

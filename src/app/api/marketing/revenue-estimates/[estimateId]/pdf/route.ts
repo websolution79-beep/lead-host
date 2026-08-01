@@ -1,6 +1,7 @@
 import type PDFDocumentType from "pdfkit";
 import { NextResponse, type NextRequest } from "next/server";
-import { requireSuperAdmin, adminApiErrorResponse } from "@/lib/admin/auth";
+import { adminApiErrorResponse } from "@/lib/admin/auth";
+import { requireMarketingAddonAccess } from "@/lib/addons/access";
 
 // The standalone build embeds the standard fonts, avoiding filesystem reads in Vercel functions.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -14,7 +15,7 @@ export async function GET(
 ) {
   try {
     const { estimateId } = await params;
-    const { supabase, profile } = await requireSuperAdmin(request);
+    const { supabase, profile } = await requireMarketingAddonAccess(request);
     const { data: estimate, error } = await supabase
       .from("marketing_revenue_estimates")
       .select("*")

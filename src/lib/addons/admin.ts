@@ -21,7 +21,7 @@ export async function getMarketingAddonAdminOverview(supabase: ServiceClient) {
 
   const { data: subscriptions, error: subscriptionsError } = await supabase
     .from("addon_subscriptions")
-    .select("status, source")
+    .select("status, source, access_expires_at")
     .eq("addon_product_id", product.id);
 
   if (subscriptionsError) {
@@ -30,12 +30,21 @@ export async function getMarketingAddonAdminOverview(supabase: ServiceClient) {
 
   const summary = (subscriptions ?? []).reduce<AddonSubscriptionSummary>(
     (totals, subscription) => {
+      const isExpired = Boolean(
+        subscription.access_expires_at &&
+          new Date(subscription.access_expires_at).getTime() <= Date.now(),
+      );
+
       if (subscription.status === "trialing") totals.trialing += 1;
-      if (subscription.status === "active") totals.active += 1;
+      if (subscription.status === "active" && !isExpired) totals.active += 1;
       if (["past_due", "unpaid"].includes(subscription.status)) {
         totals.paymentIssues += 1;
       }
-      if (subscription.source === "manual" && subscription.status === "active") {
+      if (
+        subscription.source === "manual" &&
+        subscription.status === "active" &&
+        !isExpired
+      ) {
         totals.manual += 1;
       }
 

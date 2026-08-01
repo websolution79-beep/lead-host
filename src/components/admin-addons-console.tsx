@@ -16,6 +16,7 @@ import {
   Video,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { AdminAddonAccessManager } from "@/components/admin-addon-access-manager";
 import type {
   AddonCancellationMode,
   AddonProductAdmin,
@@ -60,8 +61,8 @@ export function AdminAddonsConsole() {
     return data.session?.access_token ?? null;
   }, [supabase]);
 
-  const loadProduct = useCallback(async () => {
-    setLoading(true);
+  const loadProduct = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError("");
 
     const token = await getToken();
@@ -231,6 +232,8 @@ export function AdminAddonsConsole() {
         <MetricCard icon={CircleAlert} label="Problemi pagamento" value={summary.paymentIssues} tone="red" />
         <MetricCard icon={Sparkles} label="Accessi manuali" value={summary.manual} tone="amber" />
       </section>
+
+      <AdminAddonAccessManager onChanged={() => loadProduct(false)} />
 
       <section className="card p-5 sm:p-6">
         <SectionTitle icon={Settings2} title="Stato e visibilità" />

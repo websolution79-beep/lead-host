@@ -33,3 +33,42 @@ export type AddonSubscriptionSummary = {
   paymentIssues: number;
   manual: number;
 };
+
+export type AddonSubscriptionStatus =
+  | "incomplete"
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "paused"
+  | "unpaid"
+  | "canceled"
+  | "expired";
+
+export type AddonManualAccess = {
+  id: string;
+  profileId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  status: AddonSubscriptionStatus;
+  effectiveStatus: AddonSubscriptionStatus;
+  accessExpiresAt: string | null;
+  manualReason: string;
+  grantedAt: string;
+  updatedAt: string;
+  canceledAt: string | null;
+};
+
+export type AddonPropertyManagerOption = {
+  profileId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  profileStatus: "active" | "suspended";
+  currentAccess: {
+    id: string;
+    source: "stripe" | "manual";
+    status: AddonSubscriptionStatus;
+    accessExpiresAt: string | null;
+  } | null;
+};

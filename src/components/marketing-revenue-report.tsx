@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Printer } from "lucide-react";
+import { ArrowLeft, Download, FolderPlus, Plus, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { RevenueEstimate } from "@/components/marketing-revenue-estimates";
 
@@ -11,6 +11,14 @@ type TemplateIdentity = {
   header_text: string | null;
   contact_details: string | null;
   logo_path: string | null;
+};
+
+type CrmContact = {
+  id: string;
+  full_name: string;
+  city: string | null;
+  property_address: string | null;
+  property_type: string | null;
 };
 
 export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
@@ -22,19 +30,28 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
   const [templateLogoUrl, setTemplateLogoUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
-  const reportRef = useRef<HTMLElement>(null);
+  const [crmContacts, setCrmContacts] = useState<CrmContact[]>([]);
+  const [crmDialogOpen, setCrmDialogOpen] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState("");
+  const [attaching, setAttaching] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const load = useCallback(async () => {
     const token = (await supabase.auth.getSession()).data.session?.access_token;
     if (!token) {
       setError("Sessione non disponibile.");
       return;
     }
-    const [response, templateResponse] = await Promise.all([
+    const [response, templateResponse, crmResponse] = await Promise.all([
       fetch("/api/marketing/revenue-estimates", {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       }),
       fetch("/api/marketing/revenue-template", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }),
+      fetch("/api/marketing/crm", {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
       }),
@@ -48,6 +65,10 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       template?: TemplateIdentity;
       logoUrl?: string | null;
     };
+    const crmPayload = (await crmResponse.json()) as {
+      contacts?: CrmContact[];
+      error?: string;
+    };
     const found = payload.estimates?.find((item) => item.id === estimateId);
     if (!response.ok || !found) {
       setError(payload.error ?? "Valutazione non trovata.");
@@ -56,6 +77,7 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
     setEstimate(found);
     setTemplateIdentity(templatePayload.template ?? null);
     setTemplateLogoUrl(templatePayload.logoUrl ?? null);
+    if (crmResponse.ok) setCrmContacts(crmPayload.contacts ?? []);
     setLogoUrl(
       found.logo_path ? (payload.logoUrls?.[found.logo_path] ?? null) : null,
     );
@@ -92,7 +114,9 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
         { headers: { Authorization: `Bearer ${token}` } },
       );
       if (!response.ok) {
-        const failure = await response.json().catch(() => null) as { error?: string } | null;
+        const failure = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(failure?.error ?? "Generazione PDF non riuscita.");
       }
       const url = URL.createObjectURL(await response.blob());
@@ -104,10 +128,83 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (downloadError) {
-      setError(downloadError instanceof Error ? downloadError.message : "Non riesco a generare il PDF. Riprova tra poco.");
+      setError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "Non riesco a generare il PDF. Riprova tra poco.",
+      );
     } finally {
       setDownloading(false);
     }
+  }
+  async function attachToCrm(options: {
+    contactId?: string;
+    createContact?: boolean;
+  }) {
+    setAttaching(true);
+    setActionError("");
+    setActionMessage("");
+    try {
+      const token = (await supabase.auth.getSession()).data.session
+        ?.access_token;
+      if (!token) throw new Error("Sessione non disponibile.");
+      const response = await fetch(
+        `/api/marketing/revenue-estimates/${estimate!.id}/crm`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(options),
+        },
+      );
+      const payload = (await response.json()) as {
+        contact?: CrmContact;
+        replaced?: boolean;
+        error?: string;
+      };
+      if (!response.ok || !payload.contact) {
+        throw new Error(
+          payload.error ?? "Non riesco ad aggiungere il PDF al CRM.",
+        );
+      }
+      setEstimate((current) =>
+        current ? { ...current, crm_contact_id: payload.contact!.id } : current,
+      );
+      setCrmContacts((current) => [
+        payload.contact!,
+        ...current.filter((contact) => contact.id !== payload.contact!.id),
+      ]);
+      setSelectedContactId(payload.contact.id);
+      setCrmDialogOpen(false);
+      setActionMessage(
+        payload.replaced
+          ? `Relazione aggiornata nella scheda CRM di ${payload.contact.full_name}.`
+          : `Relazione aggiunta alla scheda CRM di ${payload.contact.full_name}.`,
+      );
+    } catch (attachError) {
+      setActionError(
+        attachError instanceof Error
+          ? attachError.message
+          : "Non riesco ad aggiungere il PDF al CRM.",
+      );
+    } finally {
+      setAttaching(false);
+    }
+  }
+  function openCrmAction() {
+    setActionError("");
+    setActionMessage("");
+    const linkedContact = crmContacts.find(
+      (contact) => contact.id === estimate!.crm_contact_id,
+    );
+    if (linkedContact) {
+      void attachToCrm({ contactId: linkedContact.id });
+      return;
+    }
+    setSelectedContactId("");
+    setCrmDialogOpen(true);
   }
   return (
     <div className="grid gap-5">
@@ -131,18 +228,26 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
           </button>
           <button
             className="btn btn-primary w-full"
+            disabled={attaching}
             type="button"
-            onClick={() => window.print()}
+            onClick={openCrmAction}
           >
-            <Printer size={17} />
-            Stampa
+            <FolderPlus size={17} />
+            {attaching ? "Aggiungo al CRM..." : "Aggiungi al CRM"}
           </button>
         </div>
       </div>
-      <article
-        ref={reportRef}
-        className="revenue-report-print mx-auto w-full max-w-[210mm] bg-white p-6 text-slate-800 shadow-xl sm:p-10"
-      >
+      {actionError ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          {actionError}
+        </p>
+      ) : null}
+      {actionMessage ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-green">
+          {actionMessage}
+        </p>
+      ) : null}
+      <article className="revenue-report-print mx-auto w-full max-w-[210mm] bg-white p-6 text-slate-800 shadow-xl sm:p-10">
         <header className="border-b-4 border-green pb-6 text-center">
           <div className="flex min-h-16 items-center justify-center">
             {identity.logoUrl ? (
@@ -270,39 +375,82 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
           {identity.contactDetails || identity.brandName || ""}
         </footer>
       </article>
-      <style jsx global>{`
-        @page {
-          size: A4;
-          margin: 12mm;
-        }
-        .revenue-report-print {
-          print-color-adjust: exact;
-          -webkit-print-color-adjust: exact;
-        }
-        @media print {
-          body {
-            background: white !important;
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-          }
-          .no-print,
-          .premium-header,
-          aside,
-          nav {
-            display: none !important;
-          }
-          .revenue-report-print {
-            box-shadow: none !important;
-            max-width: none !important;
-            width: 100% !important;
-            padding: 0 !important;
-          }
-          .report-block {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-        }
-      `}</style>
+      {crmDialogOpen ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/45 p-3 sm:p-6">
+          <div className="mx-auto mt-8 w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl sm:mt-20 sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="section-kicker">Collegamento CRM</p>
+                <h2 className="mt-2 text-xl font-semibold text-ink">
+                  Aggiungi la relazione alla pipeline
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Scegli una scheda esistente oppure creane una nuova con i dati
+                  presenti nella valutazione.
+                </p>
+              </div>
+              <button
+                aria-label="Chiudi"
+                className="icon-button shrink-0"
+                disabled={attaching}
+                type="button"
+                onClick={() => setCrmDialogOpen(false)}
+              >
+                <X size={19} />
+              </button>
+            </div>
+            <label className="mt-6 grid gap-2 text-sm font-semibold text-ink">
+              <span>Scheda CRM esistente</span>
+              <select
+                className="form-input"
+                value={selectedContactId}
+                onChange={(event) => setSelectedContactId(event.target.value)}
+              >
+                <option value="">Seleziona un proprietario</option>
+                {crmContacts.map((contact) => (
+                  <option key={contact.id} value={contact.id}>
+                    {contact.full_name}
+                    {contact.city ? ` - ${contact.city}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="btn btn-primary mt-4 w-full"
+              disabled={!selectedContactId || attaching}
+              type="button"
+              onClick={() => void attachToCrm({ contactId: selectedContactId })}
+            >
+              <FolderPlus size={17} />
+              {attaching ? "Aggiungo..." : "Collega e aggiungi PDF"}
+            </button>
+            <div className="my-6 flex items-center gap-3 text-xs font-bold uppercase text-muted">
+              <span className="h-px flex-1 bg-slate-200" />
+              oppure
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="font-semibold text-ink">
+                Crea una nuova scheda CRM
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Verranno importati proprietario, tipologia, città e indirizzo
+                disponibili nella valutazione. Potrai completare gli altri dati
+                dalla pipeline.
+              </p>
+              <button
+                className="btn btn-secondary mt-4 w-full"
+                disabled={attaching}
+                type="button"
+                onClick={() => void attachToCrm({ createContact: true })}
+              >
+                <Plus size={17} />
+                {attaching ? "Creo la scheda..." : "Crea scheda e aggiungi PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -82,65 +82,24 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
     logoUrl: logoUrl ?? templateLogoUrl,
   };
   async function downloadPdf() {
-    if (!reportRef.current) return;
     setDownloading(true);
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-      const canvas = await html2canvas(reportRef.current, {
-        backgroundColor: "#ffffff",
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-      const pageWidthMm = 210;
-      const pageHeightMm = 297;
-      const pixelsPerMm = canvas.width / pageWidthMm;
-      const pageHeightPx = Math.floor(pageHeightMm * pixelsPerMm);
-      for (
-        let offset = 0, page = 0;
-        offset < canvas.height;
-        offset += pageHeightPx, page += 1
-      ) {
-        const height = Math.min(pageHeightPx, canvas.height - offset);
-        const slice = document.createElement("canvas");
-        slice.width = canvas.width;
-        slice.height = height;
-        slice
-          .getContext("2d")
-          ?.drawImage(
-            canvas,
-            0,
-            offset,
-            canvas.width,
-            height,
-            0,
-            0,
-            canvas.width,
-            height,
-          );
-        if (page) pdf.addPage();
-        pdf.addImage(
-          slice.toDataURL("image/png"),
-          "PNG",
-          0,
-          0,
-          pageWidthMm,
-          height / pixelsPerMm,
-        );
-      }
-      const name = (estimate!.owner_name || "rendita-stimata")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/gi, "-")
-        .replace(/^-|-$/g, "");
-      pdf.save(`relazione-incassi-${name || "immobile"}.pdf`);
+      const token = (await supabase.auth.getSession()).data.session
+        ?.access_token;
+      if (!token) throw new Error("Sessione non disponibile.");
+      const response = await fetch(
+        `/api/marketing/revenue-estimates/${estimate!.id}/pdf`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!response.ok) throw new Error("Generazione PDF non riuscita.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `relazione-incassi-${estimate!.owner_name || "immobile"}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     } catch {
       setError("Non riesco a generare il PDF. Riprova tra poco.");
     } finally {

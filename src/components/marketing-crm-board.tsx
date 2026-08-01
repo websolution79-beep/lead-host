@@ -512,16 +512,10 @@ function ContactCard({
         <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} />
         <div className="min-w-0 flex-1">
           <p className="break-words font-bold text-ink">{contact.full_name}</p>
-          {contact.property_address ? (
+          {contact.property_address || contact.city ? (
             <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-muted">
               <MapPin className="mt-0.5 shrink-0" size={14} />
-              <span className="break-words">{contact.property_address}</span>
-            </p>
-          ) : null}
-          {!contact.property_address && contact.city ? (
-            <p className="mt-2 flex items-start gap-1.5 text-sm leading-5 text-muted">
-              <MapPin className="mt-0.5 shrink-0" size={14} />
-              <span className="break-words">{contact.city}</span>
+              <span className="break-words">{formatPropertyLocation(contact)}</span>
             </p>
           ) : null}
           {contact.next_follow_up_at ? (
@@ -807,6 +801,7 @@ function mergeOptions(values: readonly string[], ...selectedValues: string[]) {
 
 function nullableValue(value: string) { const trimmed = value.trim(); return trimmed || null; }
 function nullableIntegerValue(value: string) { const trimmed = value.trim(); return trimmed ? Number.parseInt(trimmed, 10) : null; }
+function formatPropertyLocation(contact: CrmContact) { return [contact.city, contact.property_address].filter(Boolean).join(", "); }
 function inputToIso(value: string) { return value ? new Date(value).toISOString() : null; }
 function isoToInput(value: string | null) { if (!value) return ""; const date = new Date(value); const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 16); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }

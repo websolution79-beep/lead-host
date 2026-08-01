@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Download, Printer } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { RevenueEstimate } from "@/components/marketing-revenue-estimates";
 
@@ -21,6 +21,8 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
     useState<TemplateIdentity | null>(null);
   const [templateLogoUrl, setTemplateLogoUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const reportRef = useRef<HTMLElement>(null);
   const load = useCallback(async () => {
     const token = (await supabase.auth.getSession()).data.session?.access_token;
     if (!token) {
@@ -79,6 +81,72 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
       estimate.contact_details ?? templateIdentity?.contact_details ?? null,
     logoUrl: logoUrl ?? templateLogoUrl,
   };
+  async function downloadPdf() {
+    if (!reportRef.current) return;
+    setDownloading(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const canvas = await html2canvas(reportRef.current, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      const pageWidthMm = 210;
+      const pageHeightMm = 297;
+      const pixelsPerMm = canvas.width / pageWidthMm;
+      const pageHeightPx = Math.floor(pageHeightMm * pixelsPerMm);
+      for (
+        let offset = 0, page = 0;
+        offset < canvas.height;
+        offset += pageHeightPx, page += 1
+      ) {
+        const height = Math.min(pageHeightPx, canvas.height - offset);
+        const slice = document.createElement("canvas");
+        slice.width = canvas.width;
+        slice.height = height;
+        slice
+          .getContext("2d")
+          ?.drawImage(
+            canvas,
+            0,
+            offset,
+            canvas.width,
+            height,
+            0,
+            0,
+            canvas.width,
+            height,
+          );
+        if (page) pdf.addPage();
+        pdf.addImage(
+          slice.toDataURL("image/png"),
+          "PNG",
+          0,
+          0,
+          pageWidthMm,
+          height / pixelsPerMm,
+        );
+      }
+      const name = (estimate!.owner_name || "rendita-stimata")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gi, "-")
+        .replace(/^-|-$/g, "");
+      pdf.save(`relazione-incassi-${name || "immobile"}.pdf`);
+    } catch {
+      setError("Non riesco a generare il PDF. Riprova tra poco.");
+    } finally {
+      setDownloading(false);
+    }
+  }
   return (
     <div className="grid gap-5">
       <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -89,16 +157,30 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
           <ArrowLeft size={17} />
           Tutte le stime
         </Link>
-        <button
-          className="btn btn-primary w-full sm:w-auto"
-          type="button"
-          onClick={() => window.print()}
-        >
-          <Printer size={17} />
-          Stampa anteprima
-        </button>
+        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2">
+          <button
+            className="btn btn-secondary w-full"
+            disabled={downloading}
+            type="button"
+            onClick={() => void downloadPdf()}
+          >
+            <Download size={17} />
+            {downloading ? "Genero PDF..." : "Scarica PDF"}
+          </button>
+          <button
+            className="btn btn-primary w-full"
+            type="button"
+            onClick={() => window.print()}
+          >
+            <Printer size={17} />
+            Stampa
+          </button>
+        </div>
       </div>
-      <article className="revenue-report-print mx-auto w-full max-w-[210mm] bg-white p-6 text-slate-800 shadow-xl sm:p-10">
+      <article
+        ref={reportRef}
+        className="revenue-report-print mx-auto w-full max-w-[210mm] bg-white p-6 text-slate-800 shadow-xl sm:p-10"
+      >
         <header className="border-b-4 border-green pb-6 text-center">
           <div className="flex min-h-16 items-center justify-center">
             {identity.logoUrl ? (
@@ -236,9 +318,15 @@ export function MarketingRevenueReport({ estimateId }: { estimateId: string }) {
           size: A4;
           margin: 12mm;
         }
+        .revenue-report-print {
+          print-color-adjust: exact;
+          -webkit-print-color-adjust: exact;
+        }
         @media print {
           body {
             background: white !important;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
           }
           .no-print,
           .premium-header,

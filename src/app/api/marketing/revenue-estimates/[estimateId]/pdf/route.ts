@@ -93,6 +93,8 @@ export async function createRevenueEstimatePdf(
   const green = "#00856A";
   const ink = "#142033";
   const pale = "#EAF3FF";
+  const cream = "#FFF9E9";
+  const creamBorder = "#F1E6C5";
   doc.rect(42, 42, 511, 3).fill(green);
   doc.x = 42;
   doc.y = 54;
@@ -103,11 +105,11 @@ export async function createRevenueEstimatePdf(
         : "image/jpeg";
     doc.image(
       `data:${mime};base64,${logoBuffer.toString("base64")}`,
-      227,
+      222,
       doc.y,
-      { fit: [140, 40], align: "center", valign: "center" },
+      { fit: [150, 44], align: "center", valign: "center" },
     );
-    doc.y += 42;
+    doc.y += 48;
   }
   if (identity.brandName)
     doc
@@ -132,8 +134,8 @@ export async function createRevenueEstimatePdf(
         align: "center",
       });
   doc
-    .moveDown(1)
-    .fontSize(20)
+    .moveDown(1.15)
+    .fontSize(21)
     .fillColor(ink)
     .font("Helvetica-Bold")
     .text(String(estimate.report_title), 42, doc.y, {
@@ -160,20 +162,20 @@ export async function createRevenueEstimatePdf(
       width: 511,
       align: "center",
     });
-  const boxY = doc.y + 16;
-  doc.rect(42, boxY, 511, 102).fillAndStroke(pale, ink);
+  const boxY = doc.y + 18;
+  doc.rect(42, boxY, 511, 108).fillAndStroke(pale, ink);
   doc
     .fillColor("#334155")
     .font("Helvetica-Bold")
     .fontSize(10)
-    .text("NETTO MENSILE PROPRIETARIO", 42, boxY + 15, {
+    .text("NETTO MENSILE PROPRIETARIO", 42, boxY + 17, {
       width: 511,
       align: "center",
     });
   doc
     .fillColor(ink)
-    .fontSize(28)
-    .text(euro(num(estimate.owner_monthly_net)), 42, boxY + 35, {
+    .fontSize(29)
+    .text(euro(num(estimate.owner_monthly_net)), 42, boxY + 39, {
       width: 511,
       align: "center",
     });
@@ -182,10 +184,10 @@ export async function createRevenueEstimatePdf(
     .text(
       `Netto annuo: ${euro(num(estimate.owner_annual_net))}`,
       42,
-      boxY + 72,
+      boxY + 78,
       { width: 511, align: "center" },
     );
-  doc.y = boxY + 122;
+  doc.y = boxY + 128;
   title(doc, "Analisi finanziaria", green, ink);
   row(
     doc,
@@ -284,23 +286,59 @@ export async function createRevenueEstimatePdf(
     ink,
   );
   doc.x = 42;
-  doc.y = metricsY + 50;
+  doc.y = metricsY + 62;
+  const cardX = 42;
+  const cardY = doc.y;
+  const cardWidth = 511;
+  const cardPadding = 16;
+  const textWidth = cardWidth - cardPadding * 2;
+  const parameters = `Mix Airbnb ${percent(num(estimate.airbnb_mix_rate))} - Booking ${percent(num(estimate.booking_mix_rate))} - Diretto ${percent(num(estimate.direct_mix_rate))} - Fee PM ${percent(num(estimate.pm_fee_rate))} - Aliquota fiscale ${percent(num(estimate.tax_rate))}`;
+  const disclaimer = String(estimate.disclaimer || "");
+  doc.font("Helvetica").fontSize(8.5);
+  const parametersHeight = doc.heightOfString(`Parametri: ${parameters}`, {
+    width: textWidth,
+    lineGap: 2,
+  });
+  const disclaimerHeight = doc.heightOfString(disclaimer, {
+    width: textWidth,
+    lineGap: 3,
+  });
+  const cardHeight =
+    cardPadding + parametersHeight + 12 + disclaimerHeight + cardPadding;
   doc
-    .moveDown(0.8)
-    .fontSize(8)
-    .fillColor("#475569")
-    .text(
-      `Parametri: Mix Airbnb ${percent(num(estimate.airbnb_mix_rate))} - Booking ${percent(num(estimate.booking_mix_rate))} - Diretto ${percent(num(estimate.direct_mix_rate))} - Fee PM ${percent(num(estimate.pm_fee_rate))} - Aliquota fiscale ${percent(num(estimate.tax_rate))}`,
-    );
+    .roundedRect(cardX, cardY, cardWidth, cardHeight, 6)
+    .fillAndStroke(cream, creamBorder);
   doc
-    .moveDown(0.5)
-    .fontSize(7)
-    .fillColor("#475569")
-    .text(String(estimate.disclaimer), 42, doc.y, { width: 511 });
+    .fillColor(ink)
+    .font("Helvetica-Bold")
+    .fontSize(8.5)
+    .text("Parametri:", cardX + cardPadding, cardY + cardPadding, {
+      continued: true,
+    })
+    .font("Helvetica")
+    .text(` ${parameters}`, { width: textWidth, lineGap: 2 });
+  const disclaimerY = cardY + cardPadding + parametersHeight + 12;
+  doc
+    .font("Helvetica")
+    .fontSize(8.5)
+    .fillColor("#334155")
+    .text(disclaimer, cardX + cardPadding, disclaimerY, {
+      width: textWidth,
+      lineGap: 3,
+    });
+  doc.x = 42;
+  doc.y = cardY + cardHeight + 10;
   if (identity.contactDetails || identity.brandName) {
+    doc.page.margins.bottom = 20;
     doc
-      .moveDown(0.6)
-      .fontSize(7)
+      .moveTo(42, doc.y)
+      .lineTo(553, doc.y)
+      .strokeColor("#D8E0EA")
+      .lineWidth(1)
+      .stroke();
+    doc.y += 10;
+    doc
+      .fontSize(8.5)
       .fillColor("#64748B")
       .text(identity.contactDetails || identity.brandName || "", 42, doc.y, {
         width: 511,
@@ -335,20 +373,20 @@ function row(
   green: string,
 ) {
   const y = doc.y;
-  doc.rect(42, y, 511, 27).fillAndStroke(strong ? green : "#FFFFFF", "#D8E0EA");
+  doc.rect(42, y, 511, 28).fillAndStroke(strong ? green : "#FFFFFF", "#D8E0EA");
   doc
     .fillColor(strong ? "#FFFFFF" : ink)
     .font(strong ? "Helvetica-Bold" : "Helvetica")
     .fontSize(10)
-    .text(label, 54, y + 8, { width: 330 });
+    .text(label, 54, y + 8.5, { width: 330 });
   doc
     .font(strong ? "Helvetica-Bold" : "Helvetica")
-    .text(`${negative ? "- " : ""}${euro(value)}`, 400, y + 8, {
+    .text(`${negative ? "- " : ""}${euro(value)}`, 400, y + 8.5, {
       width: 140,
       align: "right",
     });
   doc.x = 42;
-  doc.y = y + 27;
+  doc.y = y + 28;
 }
 function metric(
   doc: PDFKit.PDFDocument,
@@ -359,17 +397,17 @@ function metric(
   value: string,
   ink: string,
 ) {
-  doc.rect(x, y, width, 48).fillAndStroke("#FFFFFF", "#D8E0EA");
+  doc.rect(x, y, width, 54).fillAndStroke("#FFFFFF", "#D8E0EA");
   doc
     .font("Helvetica")
     .fontSize(8)
     .fillColor("#64748B")
-    .text(label, x + 8, y + 10, { width: width - 16, align: "center" });
+    .text(label, x + 8, y + 11, { width: width - 16, align: "center" });
   doc
     .font("Helvetica-Bold")
     .fontSize(12)
     .fillColor(ink)
-    .text(value, x + 8, y + 26, { width: width - 16, align: "center" });
+    .text(value, x + 8, y + 30, { width: width - 16, align: "center" });
 }
 function num(value: unknown) {
   return typeof value === "number" ? value : Number(value || 0);

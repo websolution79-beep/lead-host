@@ -94,6 +94,7 @@ export async function PATCH(request: NextRequest) {
     const pipelineId = crm.pipeline.id;
     let auditEntityType = "marketing_crm";
     let auditEntityId: string | null = null;
+    let createdContactId: string | null = null;
 
     if (payload.action === "create_stage") {
       const { error } = await supabase.from("marketing_crm_stages").insert({
@@ -191,7 +192,7 @@ export async function PATCH(request: NextRequest) {
 
     if (payload.action === "create_contact") {
       ensureStage(crm.stages, payload.contact.stageId);
-      const { error } = await supabase.from("marketing_crm_contacts").insert({
+      const { data: createdContact, error } = await supabase.from("marketing_crm_contacts").insert({
         profile_id: profile.id,
         pipeline_id: pipelineId,
         stage_id: payload.contact.stageId,
@@ -213,9 +214,11 @@ export async function PATCH(request: NextRequest) {
         notes: emptyToNull(payload.contact.notes),
         next_follow_up_at: payload.contact.nextFollowUpAt,
         position: nextContactPosition(crm.contacts, payload.contact.stageId),
-      });
+      }).select("id").single();
       if (error) throw error;
       auditEntityType = "marketing_crm_contact";
+      auditEntityId = createdContact.id;
+      createdContactId = createdContact.id;
     }
 
     if (payload.action === "update_contact") {
@@ -292,7 +295,10 @@ export async function PATCH(request: NextRequest) {
       after: { pipeline_id: pipelineId },
     });
 
-    return NextResponse.json(await getCrmPayload(supabase, profile.id));
+    return NextResponse.json({
+      ...(await getCrmPayload(supabase, profile.id)),
+      ...(createdContactId ? { createdContactId } : {}),
+    });
   } catch (error) {
     return adminApiErrorResponse(error);
   }

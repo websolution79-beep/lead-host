@@ -66,6 +66,7 @@ type CrmPayload = {
   pipeline: { id: string; name: string };
   stages: CrmStage[];
   contacts: CrmContact[];
+  createdContactId?: string;
   error?: string;
 };
 
@@ -117,6 +118,15 @@ const stageColors = [
   "#B91C1C",
 ] as const;
 
+const crmDocumentAccept = "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const maxCrmDocuments = 10;
+const maxCrmDocumentBytes = 10 * 1024 * 1024;
+const allowedCrmDocumentTypes = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
 export function MarketingCrmBoard() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [data, setData] = useState<CrmPayload | null>(null);
@@ -164,11 +174,11 @@ export function MarketingCrmBoard() {
     return () => window.clearTimeout(timer);
   }, [loadCrm]);
 
-  async function updateCrm(body: Record<string, unknown>, successMessage: string) {
+  async function updateCrm(body: Record<string, unknown>, successMessage: string): Promise<CrmPayload | null> {
     const token = await getToken();
     if (!token) {
       setError("Sessione non disponibile. Effettua nuovamente l'accesso.");
-      return false;
+      return null;
     }
 
     setSaving(true);
@@ -186,11 +196,11 @@ export function MarketingCrmBoard() {
       const payload = (await response.json()) as CrmPayload;
       if (!response.ok) {
         setError(payload.error ?? "Aggiornamento CRM non riuscito.");
-        return false;
+        return null;
       }
       setData(payload);
       setSuccess(successMessage);
-      return true;
+      return payload;
     } finally {
       setSaving(false);
     }
@@ -204,7 +214,7 @@ export function MarketingCrmBoard() {
     setContactEditor({ contact, draft: contactToDraft(contact) });
   }
 
-  async function saveContact() {
+  async function saveContact(pendingDocuments: File[] = []) {
     if (!contactEditor) return;
     const draft = contactEditor.draft;
     const contact = {
@@ -233,7 +243,24 @@ export function MarketingCrmBoard() {
         : { action: "create_contact", contact },
       contactEditor.contact ? "Scheda proprietario aggiornata." : "Proprietario aggiunto al CRM.",
     );
-    if (updated) setContactEditor(null);
+    if (!updated) return;
+
+    if (!contactEditor.contact && pendingDocuments.length) {
+      if (!updated.createdContactId) {
+        setError("Proprietario salvato, ma non riesco a collegare i documenti. Riapri la scheda e allegali.");
+      } else {
+        setSaving(true);
+        try {
+          await uploadCrmDocumentFiles(supabase, updated.createdContactId, pendingDocuments);
+          setSuccess(pendingDocuments.length === 1 ? "Proprietario e documento salvati." : "Proprietario e documenti salvati.");
+        } catch (uploadError) {
+          setError(uploadError instanceof Error ? `Proprietario salvato, ma ${uploadError.message}` : "Proprietario salvato, ma l'upload dei documenti non è riuscito.");
+        } finally {
+          setSaving(false);
+        }
+      }
+    }
+    setContactEditor(null);
   }
 
   async function deleteContact(contact: CrmContact) {
@@ -461,7 +488,7 @@ export function MarketingCrmBoard() {
           }
           onClose={() => setContactEditor(null)}
           onDelete={() => contactEditor.contact && void deleteContact(contactEditor.contact)}
-          onSave={() => void saveContact()}
+          onSave={(pendingDocuments) => void saveContact(pendingDocuments)}
         />
       ) : null}
 
@@ -559,9 +586,10 @@ function ContactEditor({
   saving: boolean;
   onChange: (update: Partial<ContactDraft>) => void;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (pendingDocuments: File[]) => void;
   onDelete: () => void;
 }) {
+  const [pendingDocuments, setPendingDocuments] = useState<File[]>([]);
   const regions = useMemo(
     () => mergeOptions(ITALY_GEO.map((item) => item.region), draft.region),
     [draft.region],
@@ -716,22 +744,45 @@ function ContactEditor({
           </div>
         </section>
 
-        {contact ? (
-          <CrmDocumentsPanel contactId={contact.id} />
-        ) : (
-          <section className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-muted sm:p-5">
-            Salva prima il proprietario per poter allegare documenti e contratti.
-          </section>
-        )}
+        {contact ? <CrmDocumentsPanel contactId={contact.id} /> : <PendingDocumentsPanel files={pendingDocuments} onChange={setPendingDocuments} />}
       </div>
       <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
         {contact ? <button className="btn border border-red-200 bg-red-50 text-red-700 sm:w-auto" type="button" disabled={saving} onClick={onDelete}><Trash2 size={16} />Elimina</button> : <span />}
         <div className="grid gap-2 sm:flex">
           <button className="btn btn-secondary" type="button" disabled={saving} onClick={onClose}>Annulla</button>
-          <button className="btn btn-primary" type="button" disabled={saving || draft.fullName.trim().length < 2} onClick={onSave}><Save size={16} />{saving ? "Salvataggio..." : "Salva proprietario"}</button>
+          <button className="btn btn-primary" type="button" disabled={saving || draft.fullName.trim().length < 2} onClick={() => onSave(pendingDocuments)}><Save size={16} />{saving ? "Salvataggio..." : "Salva proprietario"}</button>
         </div>
       </div>
     </Modal>
+  );
+}
+
+function PendingDocumentsPanel({ files, onChange }: { files: File[]; onChange: (files: File[]) => void }) {
+  function addFiles(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const candidates = [...files, ...Array.from(fileList)];
+    const validationError = validateCrmDocumentFiles(candidates);
+    if (validationError) {
+      window.alert(validationError);
+      return;
+    }
+    onChange(candidates);
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-2 text-green">
+          <FileText size={18} />
+          <div><h3 className="font-semibold text-ink">Documenti e contratti</h3><p className="mt-0.5 text-xs font-normal text-muted">Verranno caricati quando salvi il proprietario.</p></div>
+        </div>
+        <label className="btn btn-secondary cursor-pointer sm:w-auto"><Upload size={16} />Seleziona documenti<input accept={crmDocumentAccept} className="sr-only" multiple type="file" onChange={(event) => { addFiles(event.target.files); event.currentTarget.value = ""; }} /></label>
+      </div>
+      {!files.length ? <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-muted">PDF, DOC o DOCX, massimo 10 MB per file.</p> : null}
+      <div className="mt-4 grid gap-2">
+        {files.map((file, index) => <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3" key={`${file.name}-${file.lastModified}-${index}`}><div className="min-w-0"><p className="truncate text-sm font-semibold text-ink">{file.name}</p><p className="mt-0.5 text-xs text-muted">{formatFileSize(file.size)}</p></div><button aria-label={`Rimuovi ${file.name}`} className="grid size-9 shrink-0 place-items-center rounded-lg border border-red-200 bg-red-50 text-red-700" type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))}><X size={16} /></button></div>)}
+      </div>
+    </section>
   );
 }
 
@@ -786,17 +837,12 @@ function CrmDocumentsPanel({ contactId }: { contactId: string }) {
   async function uploadFiles(files: FileList | null) {
     if (!files?.length) return;
     const candidates = Array.from(files);
-    const allowedTypes = new Set([
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ]);
-    const invalid = candidates.find((file) => !allowedTypes.has(file.type) || file.size > 10 * 1024 * 1024);
-    if (invalid) {
-      setError("Sono ammessi solo PDF, DOC e DOCX fino a 10 MB per file.");
+    const validationError = validateCrmDocumentFiles(candidates);
+    if (validationError) {
+      setError(validationError);
       return;
     }
-    if (documents.length + candidates.length > 10) {
+    if (documents.length + candidates.length > maxCrmDocuments) {
       setError("Puoi allegare al massimo 10 documenti per proprietario.");
       return;
     }
@@ -862,7 +908,7 @@ function CrmDocumentsPanel({ contactId }: { contactId: string }) {
         <label className={`btn btn-secondary cursor-pointer sm:w-auto ${uploading ? "pointer-events-none opacity-60" : ""}`}>
           {uploading ? <LoaderCircle className="animate-spin" size={16} /> : <Upload size={16} />}
           {uploading ? "Caricamento..." : "Allega documenti"}
-          <input accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="sr-only" disabled={uploading} multiple type="file" onChange={(event) => { void uploadFiles(event.target.files); event.currentTarget.value = ""; }} />
+          <input accept={crmDocumentAccept} className="sr-only" disabled={uploading} multiple type="file" onChange={(event) => { void uploadFiles(event.target.files); event.currentTarget.value = ""; }} />
         </label>
       </div>
       {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
@@ -885,6 +931,61 @@ function CrmDocumentsPanel({ contactId }: { contactId: string }) {
       </div>
     </section>
   );
+}
+
+async function uploadCrmDocumentFiles(
+  supabase: ReturnType<typeof createPublicSupabaseClient>,
+  contactId: string,
+  files: File[],
+) {
+  const validationError = validateCrmDocumentFiles(files);
+  if (validationError) throw new Error(validationError);
+
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (!token) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+
+  async function request(body: Record<string, unknown>) {
+    const response = await fetch("/api/marketing/crm/documents", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = (await response.json()) as { error?: string; storagePath?: string; token?: string };
+    if (!response.ok) throw new Error(payload.error ?? "Operazione sui documenti non riuscita.");
+    return payload;
+  }
+
+  for (const file of files) {
+    const upload = await request({
+      action: "create_upload",
+      contactId,
+      fileName: file.name,
+      contentType: file.type,
+      byteSize: file.size,
+    });
+    if (!upload.storagePath || !upload.token) throw new Error("Upload documento non disponibile.");
+    const { error: uploadError } = await supabase.storage
+      .from("marketing-crm-documents")
+      .uploadToSignedUrl(upload.storagePath, upload.token, file, { contentType: file.type });
+    if (uploadError) throw uploadError;
+    await request({
+      action: "complete_upload",
+      contactId,
+      storagePath: upload.storagePath,
+      fileName: file.name,
+      contentType: file.type,
+      byteSize: file.size,
+    });
+  }
+}
+
+function validateCrmDocumentFiles(files: File[]) {
+  if (files.length > maxCrmDocuments) return "Puoi allegare al massimo 10 documenti per proprietario.";
+  if (files.some((file) => !allowedCrmDocumentTypes.has(file.type) || file.size > maxCrmDocumentBytes)) {
+    return "Sono ammessi solo PDF, DOC e DOCX fino a 10 MB per file.";
+  }
+  return "";
 }
 
 function StageEditor({ draft, saving, onChange, onClose, onSave, onDelete }: {

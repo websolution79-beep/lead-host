@@ -127,9 +127,11 @@ export function AppAreaChrome({
         <AppSidebarNav section={section} />
         <AccountSummary />
       </aside>
-      <section className="app-content flex min-h-screen min-w-0 flex-col">
+      <section className="app-content flex min-h-screen min-w-0 max-w-full flex-col overflow-x-clip">
         <div className="premium-header app-mobile-bar relative z-[90] items-center justify-between gap-4 border-b border-ink/10 px-5 py-4">
-          <BrandLogo href={homeHref} />
+          <div className="min-w-0 flex-1">
+            <BrandLogo href={homeHref} />
+          </div>
           <MobileMenu
             links={links}
             supportHref={section === "admin" ? "/admin/segnalazioni" : "/app/assistenza"}

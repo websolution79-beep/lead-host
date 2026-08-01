@@ -144,10 +144,10 @@ export function NotificationsCenter() {
   }
 
   return (
-    <div className="grid gap-6">
-      <section className="card p-5">
+    <div className="grid min-w-0 max-w-full gap-6 overflow-x-clip">
+      <section className="card min-w-0 max-w-full overflow-hidden p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="section-kicker">Centro notifiche</p>
             <h2 className="mt-2 text-2xl font-semibold text-ink">
               {payload?.unreadCount ? `${payload.unreadCount} notifiche da leggere` : "Tutto letto"}
@@ -157,13 +157,13 @@ export function NotificationsCenter() {
               ricariche wallet, verifica profilo e assistenza.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="btn btn-secondary" type="button" onClick={() => void loadNotifications()}>
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <button className="btn btn-secondary w-full sm:w-auto" type="button" onClick={() => void loadNotifications()}>
               <RefreshCw size={17} />
               Aggiorna
             </button>
             <button
-              className="btn btn-primary"
+              className="btn btn-primary w-full sm:w-auto"
               type="button"
               disabled={!payload?.unreadCount || saving === "all"}
               onClick={() => void updateReadState({ action: "mark_all_read" })}
@@ -174,7 +174,7 @@ export function NotificationsCenter() {
           </div>
         </div>
 
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-5 flex min-w-0 max-w-full gap-2 overflow-x-auto pb-2">
           {filters.map((filter) => (
             <button
               key={`${filter.status}-${filter.type}`}
@@ -201,7 +201,7 @@ export function NotificationsCenter() {
         </div>
       ) : null}
 
-      <section className="grid gap-3">
+      <section className="grid min-w-0 max-w-full gap-3">
         {payload?.notifications.length ? (
           payload.notifications.map((notification) => (
             <NotificationCard
@@ -252,12 +252,12 @@ function NotificationCard({
 
   return (
     <article
-      className={`card p-5 transition ${
+      className={`card min-w-0 max-w-full overflow-hidden p-5 transition ${
         isUnread ? "border-green/40 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.08)]" : "bg-white/80"
       }`}
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex gap-4">
+        <div className="flex min-w-0 gap-3 sm:gap-4">
           <span
             className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
               isUnread ? "bg-green text-white" : "bg-slate-100 text-muted"
@@ -265,9 +265,9 @@ function NotificationCard({
           >
             <NotificationIcon eventType={notification.eventType} />
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-semibold text-ink">{notification.title}</h3>
+              <h3 className="break-words text-lg font-semibold text-ink">{notification.title}</h3>
               {isUnread ? (
                 <span className="rounded-full bg-green/10 px-3 py-1 text-xs font-bold text-green">
                   Nuova
@@ -275,7 +275,7 @@ function NotificationCard({
               ) : null}
             </div>
             {notification.body ? (
-              <p className="mt-2 max-w-3xl leading-6 text-muted">{notification.body}</p>
+              <p className="mt-2 max-w-3xl break-words leading-6 text-muted">{notification.body}</p>
             ) : null}
             <p className="mt-3 text-sm font-semibold text-slate-500">
               {formatDateTime(notification.createdAt)}
@@ -283,7 +283,7 @@ function NotificationCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0 sm:justify-end">
           {notification.href ? (
             <Link className="btn btn-secondary" href={notification.href}>
               Apri

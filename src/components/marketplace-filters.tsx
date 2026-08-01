@@ -117,8 +117,8 @@ export function MarketplaceFilters({ leads }: MarketplaceFiltersProps) {
   }
 
   return (
-    <section>
-      <div className="card mb-5 p-4">
+    <section className="min-w-0 max-w-full overflow-x-clip">
+      <div className="card mb-5 min-w-0 max-w-full p-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-green">
@@ -130,7 +130,7 @@ export function MarketplaceFilters({ leads }: MarketplaceFiltersProps) {
             </p>
           </div>
 
-          <div className="filters-grid flex-1">
+          <div className="filters-grid w-full min-w-0 flex-1">
             <SelectFilter
               label="Regione"
               value={region}

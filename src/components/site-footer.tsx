@@ -18,8 +18,8 @@ const footerLinks = [
 
 export function SiteFooter() {
   return (
-    <footer id="site-footer" className="border-t border-slate-200 bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-5 py-9 text-center sm:px-8 md:grid-cols-[1.3fr_0.8fr_0.9fr] md:text-left">
+    <footer id="site-footer" className="w-full min-w-0 max-w-full overflow-hidden border-t border-slate-200 bg-white">
+      <div className="mx-auto grid w-full min-w-0 max-w-7xl gap-8 px-5 py-9 text-center sm:px-8 md:grid-cols-[1.3fr_0.8fr_0.9fr] md:text-left">
         <div>
           <Link
             href="/"

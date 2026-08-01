@@ -56,7 +56,7 @@ export function LeadCard({ lead }: LeadCardProps) {
 
   return (
     <article
-      className={`card flex min-h-[360px] flex-col p-4 ${statusStyle.cardBorder}`}
+      className={`card flex min-h-[360px] min-w-0 max-w-full flex-col overflow-hidden p-4 ${statusStyle.cardBorder}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 max-w-full flex-1">
@@ -71,7 +71,7 @@ export function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       <Link href={detailHref} className="mt-3 block">
-        <h3 className="text-xl font-semibold leading-tight text-ink hover:text-green">
+        <h3 className="break-words text-xl font-semibold leading-tight text-ink hover:text-green">
           {lead.title}
         </h3>
       </Link>
@@ -111,7 +111,7 @@ export function LeadCard({ lead }: LeadCardProps) {
       </div>
 
       <div className="mt-auto pt-5">
-        <div className="rounded-lg border border-ink/10 bg-paper p-3 text-sm">
+        <div className="min-w-0 rounded-lg border border-ink/10 bg-paper p-3 text-sm">
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 font-semibold text-ink">
               <Users size={16} />

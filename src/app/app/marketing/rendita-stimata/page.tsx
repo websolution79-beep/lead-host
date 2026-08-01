@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
+import { MarketingRevenueEstimates } from "@/components/marketing-revenue-estimates";
 import { MarketingRevenueTemplateSettings } from "@/components/marketing-revenue-template-settings";
 
 export default function MarketingRevenueEstimatePage() {
@@ -9,7 +10,10 @@ export default function MarketingRevenueEstimatePage() {
         <Link className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-ink" href="/app/marketing/crm">CRM</Link>
         <Link className="shrink-0 rounded-lg bg-green px-4 py-2.5 text-sm font-bold text-white" href="/app/marketing/rendita-stimata">Rendita Stimata</Link>
       </div>
-      <MarketingRevenueTemplateSettings />
+      <MarketingRevenueEstimates />
+      <div className="mt-10 scroll-mt-6" id="modello">
+        <MarketingRevenueTemplateSettings />
+      </div>
     </AppShell>
   );
 }

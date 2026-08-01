@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
@@ -8,6 +9,7 @@ import {
   duplicateCheckToJson,
 } from "@/lib/owner-requests/duplicate-check";
 import type { Json } from "@/lib/supabase/database.types";
+import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
 type RouteContext = {
   params: Promise<{
@@ -68,6 +70,14 @@ const updateSchema = z.object({
     })
     .optional(),
   qualificationNotes: nullableText(1200),
+  marketplace: z
+    .object({
+      ownerVerified: z.boolean().optional(),
+      title: nullableText(140),
+      sharedPriceCents: z.number().int().min(100).max(100000).optional(),
+      exclusivePriceCents: z.number().int().min(100).max(200000).optional(),
+    })
+    .optional(),
 });
 
 const editableStatuses = new Set([
@@ -100,11 +110,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { supabase, profile, isSuperAdmin } =
       await requireSuperAdmin(request);
-    const [requestResult, contactResult, propertyResult] = await Promise.all([
+    const [requestResult, contactResult, propertyResult, leadResult] = await Promise.all([
       supabase
         .from("owner_requests")
         .select(
-          "id,status,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,normalized_payload,qualification_notes",
+          "id,status,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,normalized_payload,qualification_notes,owner_verified",
         )
         .eq("id", ownerRequestId)
         .maybeSingle(),
@@ -120,11 +130,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         )
         .eq("owner_request_id", ownerRequestId)
         .maybeSingle(),
+      supabase
+        .from("leads")
+        .select("id,title,shared_price_cents,exclusive_price_cents,published_at")
+        .eq("owner_request_id", ownerRequestId)
+        .maybeSingle(),
     ]);
 
     if (requestResult.error) throw requestResult.error;
     if (contactResult.error) throw contactResult.error;
     if (propertyResult.error) throw propertyResult.error;
+    if (leadResult.error) throw leadResult.error;
     if (!requestResult.data) {
       return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
     }
@@ -306,6 +322,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           payload.data.qualificationNotes !== undefined
             ? payload.data.qualificationNotes
             : requestResult.data.qualification_notes,
+        owner_verified:
+          payload.data.marketplace?.ownerVerified ??
+          requestResult.data.owner_verified,
         normalized_payload: mergeNormalizedPayload(
           requestResult.data.normalized_payload,
           nextContact,
@@ -315,15 +334,38 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       })
       .eq("id", ownerRequestId);
 
-    const [contactWriteResult, propertyWriteResult, requestWriteResult] =
-      await Promise.all([contactWrite, propertyWrite, requestWrite]);
+    const leadWrite = leadResult.data && payload.data.marketplace
+      ? supabase
+          .from("leads")
+          .update({
+            title:
+              payload.data.marketplace.title ?? leadResult.data.title,
+            shared_price_cents:
+              payload.data.marketplace.sharedPriceCents ??
+              leadResult.data.shared_price_cents,
+            exclusive_price_cents:
+              payload.data.marketplace.exclusivePriceCents ??
+              leadResult.data.exclusive_price_cents,
+          })
+          .eq("id", leadResult.data.id)
+      : null;
+
+    const [contactWriteResult, propertyWriteResult, requestWriteResult, leadWriteResult] =
+      await Promise.all([
+        contactWrite,
+        propertyWrite,
+        requestWrite,
+        leadWrite ?? Promise.resolve({ error: null }),
+      ]);
 
     const writeError =
       contactWriteResult.error ||
       propertyWriteResult.error ||
       requestWriteResult.error;
 
-    if (writeError) throw writeError;
+    const finalWriteError = writeError || leadWriteResult.error;
+
+    if (finalWriteError) throw finalWriteError;
 
     await writeAdminAuditLog({
       supabase,
@@ -333,12 +375,35 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       entityType: "owner_request",
       entityId: ownerRequestId,
       action: "lead.information_updated",
-      before: { status: requestResult.data.status },
+      before: {
+        status: requestResult.data.status,
+        owner_verified: requestResult.data.owner_verified,
+        lead_title: leadResult.data?.title ?? null,
+        shared_price_cents: leadResult.data?.shared_price_cents ?? null,
+        exclusive_price_cents: leadResult.data?.exclusive_price_cents ?? null,
+      },
       after: {
         status: requestResult.data.status,
+        owner_verified:
+          payload.data.marketplace?.ownerVerified ??
+          requestResult.data.owner_verified,
+        lead_title:
+          payload.data.marketplace?.title ?? leadResult.data?.title ?? null,
+        shared_price_cents:
+          payload.data.marketplace?.sharedPriceCents ??
+          leadResult.data?.shared_price_cents ??
+          null,
+        exclusive_price_cents:
+          payload.data.marketplace?.exclusivePriceCents ??
+          leadResult.data?.exclusive_price_cents ??
+          null,
         missing_fields: missingFields.map((field) => field.key),
       },
     });
+
+    if (leadResult.data?.published_at && payload.data.marketplace) {
+      revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
+    }
 
     return NextResponse.json({
       ok: true,

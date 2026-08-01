@@ -67,7 +67,7 @@ export function LeadCard({
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green">
             {lead.propertyType}
           </p>
-          <VerifiedOwnerBadge />
+          {lead.ownerVerified ? <VerifiedOwnerBadge /> : null}
         </div>
         <span className={statusStyle.badgeClassName}>
           {formatPublicStatus(lead.publicStatus)}

@@ -3,6 +3,7 @@ import type { LeadInternalStatus, LeadPublicStatus } from "./lead-state";
 export type MarketplaceLead = {
   id: string;
   title: string;
+  ownerVerified: boolean;
   region: string;
   province: string;
   city: string;
@@ -30,6 +31,7 @@ export const demoLeads: MarketplaceLead[] = [
   {
     id: "palermo-centro-trilocale",
     title: "Trilocale a Palermo",
+    ownerVerified: true,
     region: "Sicilia",
     province: "Palermo",
     city: "Palermo",
@@ -54,6 +56,7 @@ export const demoLeads: MarketplaceLead[] = [
   {
     id: "roma-prati-bilocale",
     title: "Bilocale a Roma",
+    ownerVerified: true,
     region: "Lazio",
     province: "Roma",
     city: "Roma",
@@ -78,6 +81,7 @@ export const demoLeads: MarketplaceLead[] = [
   {
     id: "bari-murat-bb",
     title: "B&B a Bari",
+    ownerVerified: true,
     region: "Puglia",
     province: "Bari",
     city: "Bari",
@@ -102,6 +106,7 @@ export const demoLeads: MarketplaceLead[] = [
   {
     id: "milano-navigli-monolocale",
     title: "Monolocale sui Navigli",
+    ownerVerified: true,
     region: "Lombardia",
     province: "Milano",
     city: "Milano",
@@ -126,6 +131,7 @@ export const demoLeads: MarketplaceLead[] = [
   {
     id: "firenze-oltrarno-casa",
     title: "Casa indipendente a Firenze",
+    ownerVerified: true,
     region: "Toscana",
     province: "Firenze",
     city: "Firenze",
@@ -150,6 +156,7 @@ export const demoLeads: MarketplaceLead[] = [
   {
     id: "napoli-chiaia-villa",
     title: "Villa a Napoli",
+    ownerVerified: true,
     region: "Campania",
     province: "Napoli",
     city: "Napoli",

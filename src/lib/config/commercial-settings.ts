@@ -20,8 +20,10 @@ export type CommercialSettings = {
   minTopUpCents: number;
   quickTopUpCents: number[];
   leadAvailabilityDays: number;
-  defaultSharedLeadPriceCents: number;
-  defaultExclusiveLeadPriceCents: number;
+  inTargetSharedLeadPriceCents: number;
+  inTargetExclusiveLeadPriceCents: number;
+  verifiedSharedLeadPriceCents: number;
+  verifiedExclusiveLeadPriceCents: number;
   maxSharedBuyers: number;
   unavailableVisibilityDays: number;
   soldVisibilityDays: number;
@@ -41,8 +43,12 @@ const SETTINGS_KEYS = {
   minTopUpCents: "wallet.min_top_up_cents",
   quickTopUpCents: "wallet.quick_top_up_cents",
   leadAvailabilityDays: "lead.availability_days",
-  sharedPriceCents: "lead.shared_price_cents",
-  exclusivePriceCents: "lead.exclusive_price_cents",
+  legacySharedPriceCents: "lead.shared_price_cents",
+  legacyExclusivePriceCents: "lead.exclusive_price_cents",
+  inTargetSharedPriceCents: "lead.in_target_shared_price_cents",
+  inTargetExclusivePriceCents: "lead.in_target_exclusive_price_cents",
+  verifiedSharedPriceCents: "lead.verified_shared_price_cents",
+  verifiedExclusivePriceCents: "lead.verified_exclusive_price_cents",
   maxSharedBuyers: "lead.max_shared_buyers",
   unavailableVisibilityDays: "lead.unavailable_visibility_days",
   soldVisibilityDays: "lead.sold_visibility_days",
@@ -54,8 +60,10 @@ export const defaultCommercialSettings: CommercialSettings = {
   minTopUpCents: 1000,
   quickTopUpCents: [3000, 5000, 10000],
   leadAvailabilityDays: 7,
-  defaultSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
-  defaultExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
+  inTargetSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
+  inTargetExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
+  verifiedSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
+  verifiedExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
   maxSharedBuyers: commercialRules.maxSharedBuyers,
   unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
   soldVisibilityDays: commercialRules.soldVisibilityDays,
@@ -110,13 +118,33 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
       values.get(SETTINGS_KEYS.leadAvailabilityDays),
       defaultCommercialSettings.leadAvailabilityDays,
     ),
-    defaultSharedLeadPriceCents: parseCents(
-      values.get(SETTINGS_KEYS.sharedPriceCents),
-      defaultCommercialSettings.defaultSharedLeadPriceCents,
+    inTargetSharedLeadPriceCents: parseCents(
+      values.get(SETTINGS_KEYS.inTargetSharedPriceCents),
+      parseCents(
+        values.get(SETTINGS_KEYS.legacySharedPriceCents),
+        defaultCommercialSettings.inTargetSharedLeadPriceCents,
+      ),
     ),
-    defaultExclusiveLeadPriceCents: parseCents(
-      values.get(SETTINGS_KEYS.exclusivePriceCents),
-      defaultCommercialSettings.defaultExclusiveLeadPriceCents,
+    inTargetExclusiveLeadPriceCents: parseCents(
+      values.get(SETTINGS_KEYS.inTargetExclusivePriceCents),
+      parseCents(
+        values.get(SETTINGS_KEYS.legacyExclusivePriceCents),
+        defaultCommercialSettings.inTargetExclusiveLeadPriceCents,
+      ),
+    ),
+    verifiedSharedLeadPriceCents: parseCents(
+      values.get(SETTINGS_KEYS.verifiedSharedPriceCents),
+      parseCents(
+        values.get(SETTINGS_KEYS.legacySharedPriceCents),
+        defaultCommercialSettings.verifiedSharedLeadPriceCents,
+      ),
+    ),
+    verifiedExclusiveLeadPriceCents: parseCents(
+      values.get(SETTINGS_KEYS.verifiedExclusivePriceCents),
+      parseCents(
+        values.get(SETTINGS_KEYS.legacyExclusivePriceCents),
+        defaultCommercialSettings.verifiedExclusiveLeadPriceCents,
+      ),
     ),
     maxSharedBuyers: parsePositiveInteger(
       values.get(SETTINGS_KEYS.maxSharedBuyers),
@@ -170,13 +198,23 @@ export async function saveCommercialSettings({
       updated_by: profileId,
     },
     {
-      key: SETTINGS_KEYS.sharedPriceCents,
-      value: settings.defaultSharedLeadPriceCents,
+      key: SETTINGS_KEYS.inTargetSharedPriceCents,
+      value: settings.inTargetSharedLeadPriceCents,
       updated_by: profileId,
     },
     {
-      key: SETTINGS_KEYS.exclusivePriceCents,
-      value: settings.defaultExclusiveLeadPriceCents,
+      key: SETTINGS_KEYS.inTargetExclusivePriceCents,
+      value: settings.inTargetExclusiveLeadPriceCents,
+      updated_by: profileId,
+    },
+    {
+      key: SETTINGS_KEYS.verifiedSharedPriceCents,
+      value: settings.verifiedSharedLeadPriceCents,
+      updated_by: profileId,
+    },
+    {
+      key: SETTINGS_KEYS.verifiedExclusivePriceCents,
+      value: settings.verifiedExclusiveLeadPriceCents,
       updated_by: profileId,
     },
     {
@@ -219,6 +257,7 @@ export function resolveLeadPricing(
     province?: string | null;
     city?: string | null;
   },
+  ownerVerified = false,
 ): LeadPricingSuggestion {
   const orderedRules = settings.priceRules
     .filter((rule) => rule.active)
@@ -240,10 +279,16 @@ export function resolveLeadPricing(
   }
 
   return {
-    sharedPriceCents: settings.defaultSharedLeadPriceCents,
-    exclusivePriceCents: settings.defaultExclusiveLeadPriceCents,
+    sharedPriceCents: ownerVerified
+      ? settings.verifiedSharedLeadPriceCents
+      : settings.inTargetSharedLeadPriceCents,
+    exclusivePriceCents: ownerVerified
+      ? settings.verifiedExclusiveLeadPriceCents
+      : settings.inTargetExclusiveLeadPriceCents,
     source: "default",
-    label: "Prezzo default",
+    label: ownerVerified
+      ? "Prezzo default Lead verificato"
+      : "Prezzo default Lead in target",
     ruleId: null,
   };
 }

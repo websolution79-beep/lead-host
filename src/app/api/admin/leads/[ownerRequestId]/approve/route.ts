@@ -22,6 +22,7 @@ const approveSchema = z.object({
   notes: z.string().trim().max(600).optional(),
   sharedPriceCents: z.number().int().min(100).max(100000).optional(),
   exclusivePriceCents: z.number().int().min(100).max(200000).optional(),
+  ownerVerified: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { data: ownerRequest, error: requestError } = await supabase
       .from("owner_requests")
-      .select("id,status")
+      .select("id,status,owner_verified")
       .eq("id", ownerRequestId)
       .single();
 
@@ -90,7 +91,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const leadTitle = payload.data.title || buildLeadTitle(property);
     const { settings } = await fetchCommercialSettings(supabase);
-    const suggestedPricing = resolveLeadPricing(settings, property);
+    const ownerVerified = payload.data.ownerVerified ?? ownerRequest.owner_verified;
+    const suggestedPricing = resolveLeadPricing(settings, property, ownerVerified);
     const sharedPriceCents =
       payload.data.sharedPriceCents ?? suggestedPricing.sharedPriceCents;
     const exclusivePriceCents =
@@ -177,6 +179,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .from("owner_requests")
       .update({
         status: "published",
+        owner_verified: ownerVerified,
         qualification_notes: payload.data.notes || null,
         status_reason: null,
       })
@@ -190,6 +193,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .from("owner_requests")
         .update({
           status: "published",
+          owner_verified: ownerVerified,
           qualification_notes: payload.data.notes || null,
         })
         .eq("id", ownerRequestId);
@@ -215,6 +219,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         shared_price_cents: sharedPriceCents,
         exclusive_price_cents: exclusivePriceCents,
         pricing_source: suggestedPricing.label,
+        owner_verified: ownerVerified,
       },
     });
 

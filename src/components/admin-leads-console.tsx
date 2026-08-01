@@ -19,7 +19,9 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
+import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 import { formatCents } from "@/lib/config/commercial";
 import {
   getMissingLeadFields,
@@ -54,9 +56,15 @@ type FilterState =
 type ApprovalPriceDraft = {
   sharedPriceCents: number;
   exclusivePriceCents: number;
+  ownerVerified: boolean;
+  pricesCustomized: boolean;
 };
 
 export function AdminLeadsConsole() {
+  const session = useAppSession();
+  const canManageLeads =
+    Boolean(session.isSuperAdmin) ||
+    hasAdminPermission(session.adminPermissions ?? {}, "leads", "write");
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
@@ -205,6 +213,7 @@ export function AdminLeadsConsole() {
           title: record.lead?.title ?? buildDefaultTitle(record),
           sharedPriceCents: priceDraft.sharedPriceCents,
           exclusivePriceCents: priceDraft.exclusivePriceCents,
+          ownerVerified: priceDraft.ownerVerified,
         }),
       },
     );
@@ -239,6 +248,8 @@ export function AdminLeadsConsole() {
       [record.ownerRequestId]: current[record.ownerRequestId] ?? {
         sharedPriceCents: record.pricing.sharedPriceCents,
         exclusivePriceCents: record.pricing.exclusivePriceCents,
+        ownerVerified: record.ownerVerified,
+        pricesCustomized: Boolean(record.lead),
       },
     }));
   }
@@ -248,6 +259,8 @@ export function AdminLeadsConsole() {
       approvalDrafts[record.ownerRequestId] ?? {
         sharedPriceCents: record.pricing.sharedPriceCents,
         exclusivePriceCents: record.pricing.exclusivePriceCents,
+        ownerVerified: record.ownerVerified,
+        pricesCustomized: Boolean(record.lead),
       }
     );
   }
@@ -258,10 +271,11 @@ export function AdminLeadsConsole() {
   ) {
     setApprovalDrafts((current) => ({
       ...current,
-      [record.ownerRequestId]: {
-        ...getApprovalDraft(record),
-        ...update,
-      },
+      [record.ownerRequestId]: mergeApprovalDraft(
+        record,
+        current[record.ownerRequestId] ?? getApprovalDraft(record),
+        update,
+      ),
     }));
   }
 
@@ -546,6 +560,7 @@ export function AdminLeadsConsole() {
         {selectedRecord ? (
           <LeadDetailPanel
             record={selectedRecord}
+            canManage={canManageLeads}
             actionReason={actionReason}
             onActionReasonChange={setActionReason}
             onApprove={requestApproval}
@@ -588,6 +603,7 @@ export function AdminLeadsConsole() {
 
 function LeadDetailPanel({
   record,
+  canManage,
   actionReason,
   onActionReasonChange,
   onApprove,
@@ -600,6 +616,7 @@ function LeadDetailPanel({
   actionLoading,
 }: {
   record: AdminLeadRecord;
+  canManage: boolean;
   actionReason: string;
   onActionReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
@@ -615,9 +632,12 @@ function LeadDetailPanel({
   actionLoading: string | null;
 }) {
   const canApprove =
-    isNewLead(record) || isPendingLead(record) || record.requestStatus === "approved";
+    canManage &&
+    (isNewLead(record) ||
+      isPendingLead(record) ||
+      record.requestStatus === "approved");
   const isBusy = actionLoading === record.ownerRequestId;
-  const canEdit = canEditRequest(record);
+  const canEdit = canManage && canEditRequest(record);
   const missingFields = getMissingLeadFields(record);
 
   return (
@@ -725,6 +745,10 @@ function LeadDetailPanel({
         />
         <InfoRow label="Tempistica" value={record.property?.timing ?? "Non indicata"} />
         <InfoRow
+          label="Tipologia lead"
+          value={record.ownerVerified ? "Lead verificato" : "Lead in target"}
+        />
+        <InfoRow
           label="Consensi"
           value={[
             record.consents.privacy ? "Privacy" : null,
@@ -790,26 +814,60 @@ function LeadDetailPanel({
 
       {canApprove ? (
         <section className="mt-5 border-t border-slate-200 pt-5">
+          <label className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <input
+              className="mt-0.5 size-4 accent-blue-600"
+              type="checkbox"
+              checked={approvalDraft.ownerVerified}
+              onChange={(event) =>
+                onApprovalDraftChange({ ownerVerified: event.target.checked })
+              }
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-blue-900">
+                Proprietario verificato
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-blue-800">
+                Seleziona solo dopo la verifica telefonica. Il badge sarà visibile nel
+                Marketplace.
+              </span>
+            </span>
+          </label>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-bold text-ink">Prezzi pubblicazione</p>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              {record.pricing.label}
+              {approvalDraft.pricesCustomized
+                ? "Prezzo personalizzato"
+                : approvalDraft.ownerVerified
+                  ? record.pricingByType.verified.label
+                  : record.pricingByType.inTarget.label}
             </span>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <PriceInput
               label="Condiviso"
               valueCents={approvalDraft.sharedPriceCents}
-              onChange={(value) => onApprovalDraftChange({ sharedPriceCents: value })}
+              onChange={(value) =>
+                onApprovalDraftChange({
+                  sharedPriceCents: value,
+                  pricesCustomized: true,
+                })
+              }
             />
             <PriceInput
               label="Esclusivo"
               valueCents={approvalDraft.exclusivePriceCents}
-              onChange={(value) => onApprovalDraftChange({ exclusivePriceCents: value })}
+              onChange={(value) =>
+                onApprovalDraftChange({
+                  exclusivePriceCents: value,
+                  pricesCustomized: true,
+                })
+              }
             />
           </div>
           <p className="mt-2 text-xs leading-5 text-muted">
-            Puoi modificare questi prezzi solo per questo lead prima della pubblicazione.
+            La regola geografica prevale sul default della tipologia. Puoi comunque
+            personalizzare entrambi i prezzi per questo lead.
           </p>
         </section>
       ) : null}
@@ -873,7 +931,7 @@ function LeadDetailPanel({
           </button>
         ) : null}
 
-        {isNewLead(record) || isPendingLead(record) ? (
+        {canManage && (isNewLead(record) || isPendingLead(record)) ? (
           <div className="grid gap-2">
             <textarea
               className="min-h-24 rounded-lg border border-slate-200 bg-white p-3 text-sm text-ink outline-none focus:border-green/60 focus:ring-4 focus:ring-green/10"
@@ -1224,6 +1282,39 @@ function parseEuroCents(value: string) {
 
 function isNewLead(record: AdminLeadRecord) {
   return record.requestStatus === "to_verify";
+}
+
+function mergeApprovalDraft(
+  record: AdminLeadRecord,
+  current: ApprovalPriceDraft,
+  update: Partial<ApprovalPriceDraft>,
+): ApprovalPriceDraft {
+  const typeChanged =
+    typeof update.ownerVerified === "boolean" &&
+    update.ownerVerified !== current.ownerVerified;
+  const priceChanged =
+    update.sharedPriceCents !== undefined ||
+    update.exclusivePriceCents !== undefined;
+
+  if (typeChanged && !current.pricesCustomized && !priceChanged) {
+    const suggestion = update.ownerVerified
+      ? record.pricingByType.verified
+      : record.pricingByType.inTarget;
+
+    return {
+      ownerVerified: Boolean(update.ownerVerified),
+      sharedPriceCents: suggestion.sharedPriceCents,
+      exclusivePriceCents: suggestion.exclusivePriceCents,
+      pricesCustomized: false,
+    };
+  }
+
+  return {
+    ...current,
+    ...update,
+    pricesCustomized:
+      update.pricesCustomized ?? (current.pricesCustomized || priceChanged),
+  };
 }
 
 function isPendingLead(record: AdminLeadRecord) {

@@ -34,8 +34,10 @@ const emptySettings: CommercialSettings = {
   minTopUpCents: 1000,
   quickTopUpCents: [3000, 5000, 10000],
   leadAvailabilityDays: 7,
-  defaultSharedLeadPriceCents: 2900,
-  defaultExclusiveLeadPriceCents: 5000,
+  inTargetSharedLeadPriceCents: 2900,
+  inTargetExclusiveLeadPriceCents: 5000,
+  verifiedSharedLeadPriceCents: 2900,
+  verifiedExclusiveLeadPriceCents: 5000,
   maxSharedBuyers: 2,
   unavailableVisibilityDays: 7,
   soldVisibilityDays: 7,
@@ -210,13 +212,13 @@ export function AdminCommercialSettings() {
         <TabButton
           active={activeTab === "lead_prices"}
           icon={BadgeEuro}
-          label="Prezzi lead"
+          label="Prezzi default lead"
           onClick={() => setActiveTab("lead_prices")}
         />
         <TabButton
           active={activeTab === "geo_rules"}
           icon={MapPin}
-          label="Regole geografiche"
+          label="Regole prezzi"
           onClick={() => setActiveTab("geo_rules")}
         />
       </div>
@@ -315,6 +317,46 @@ function LeadPriceSettings({
         </div>
       </div>
 
+      <div className="mt-6 grid gap-5 xl:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+          <p className="text-sm font-bold text-ink">Lead in target</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Prezzi applicati ai lead pubblicati senza verifica telefonica.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <EuroField
+              label="Prezzo condiviso"
+              valueCents={settings.inTargetSharedLeadPriceCents}
+              onChange={(value) => onChange({ inTargetSharedLeadPriceCents: value })}
+            />
+            <EuroField
+              label="Prezzo esclusivo"
+              valueCents={settings.inTargetExclusiveLeadPriceCents}
+              onChange={(value) => onChange({ inTargetExclusiveLeadPriceCents: value })}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <p className="text-sm font-bold text-blue-900">Lead verificato</p>
+          <p className="mt-1 text-xs leading-5 text-blue-800">
+            Prezzi applicati quando il proprietario è stato verificato telefonicamente.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <EuroField
+              label="Prezzo condiviso"
+              valueCents={settings.verifiedSharedLeadPriceCents}
+              onChange={(value) => onChange({ verifiedSharedLeadPriceCents: value })}
+            />
+            <EuroField
+              label="Prezzo esclusivo"
+              valueCents={settings.verifiedExclusiveLeadPriceCents}
+              onChange={(value) => onChange({ verifiedExclusiveLeadPriceCents: value })}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         <label className="grid gap-2 text-sm font-semibold text-ink">
           Durata disponibilita lead
@@ -337,16 +379,6 @@ function LeadPriceSettings({
             Giorni dalla pubblicazione prima che il lead scada.
           </span>
         </label>
-        <EuroField
-          label="Lead condiviso default"
-          valueCents={settings.defaultSharedLeadPriceCents}
-          onChange={(value) => onChange({ defaultSharedLeadPriceCents: value })}
-        />
-        <EuroField
-          label="Lead esclusivo default"
-          valueCents={settings.defaultExclusiveLeadPriceCents}
-          onChange={(value) => onChange({ defaultExclusiveLeadPriceCents: value })}
-        />
         <label className="grid gap-2 text-sm font-semibold text-ink">
           Quote condivise default
           <input
@@ -407,8 +439,9 @@ function LeadPriceSettings({
       </div>
 
       <div className="mt-6 rounded-xl bg-slate-50 p-4 text-sm leading-6 text-muted">
-        In approvazione lead questi prezzi vengono precompilati, ma l&apos;admin puo
-        modificarli sul singolo lead prima della pubblicazione. Ogni lead resta
+        In approvazione i prezzi vengono scelti in base alla tipologia del lead. Le
+        regole geografiche prevalgono sui default e l&apos;admin può sempre impostare
+        un prezzo specifico per il singolo lead. Ogni lead resta
         acquistabile per {settings.leadAvailabilityDays} giorni dalla pubblicazione,
         salvo esaurimento anticipato delle quote o acquisto esclusivo.
       </div>
@@ -481,8 +514,8 @@ function GeoRulesSettings({
             <MapPin size={22} />
           </span>
           <div>
-            <p className="section-kicker">Regole</p>
-            <h2 className="text-xl font-semibold text-ink">Nuova regola geografica</h2>
+            <p className="section-kicker">Marketplace</p>
+            <h2 className="text-xl font-semibold text-ink">Regole prezzi</h2>
           </div>
         </div>
 
@@ -574,7 +607,8 @@ function GeoRulesSettings({
           <p className="section-kicker">Priorita automatica</p>
           <h2 className="mt-2 text-xl font-semibold text-ink">Regole attive</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            La citta prevale sulla provincia, la provincia prevale sulla regione.
+            Queste regole si applicano sia ai Lead in target sia ai Lead verificati.
+            La città prevale sulla provincia, la provincia prevale sulla regione.
           </p>
         </div>
 

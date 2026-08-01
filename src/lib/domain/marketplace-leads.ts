@@ -13,6 +13,10 @@ type OwnerPublicContactRow = Pick<
   Database["public"]["Tables"]["owner_contacts"]["Row"],
   "precise_address"
 >;
+type OwnerRequestVerificationRow = Pick<
+  Database["public"]["Tables"]["owner_requests"]["Row"],
+  "id" | "owner_verified"
+>;
 export async function getPublishedMarketplaceLeads() {
   return getCachedPublishedMarketplaceLeads();
 }
@@ -90,7 +94,7 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
     return [];
   }
 
-  const [propertiesResult, contactsResult] = await Promise.all([
+  const [propertiesResult, contactsResult, requestsResult] = await Promise.all([
     supabase
       .from("properties")
       .select(
@@ -101,10 +105,16 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
       .from("owner_contacts")
       .select("owner_request_id,precise_address")
       .in("owner_request_id", ownerRequestIds),
+    supabase
+      .from("owner_requests")
+      .select("id,owner_verified")
+      .in("id", ownerRequestIds),
   ]);
 
-  if (propertiesResult.error || contactsResult.error) {
-    console.error(propertiesResult.error ?? contactsResult.error);
+  if (propertiesResult.error || contactsResult.error || requestsResult.error) {
+    console.error(
+      propertiesResult.error ?? contactsResult.error ?? requestsResult.error,
+    );
     return [];
   }
 
@@ -113,6 +123,9 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
   );
   const contactsByRequestId = new Map(
     (contactsResult.data ?? []).map((item) => [item.owner_request_id, item]),
+  );
+  const requestsById = new Map(
+    (requestsResult.data ?? []).map((item) => [item.id, item]),
   );
   return leads
     .map((lead) => {
@@ -126,6 +139,7 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
         lead,
         property,
         contactsByRequestId.get(lead.owner_request_id) ?? null,
+        requestsById.get(lead.owner_request_id) ?? null,
       );
     })
     .filter((lead): lead is MarketplaceLead => Boolean(lead));
@@ -149,6 +163,7 @@ function mapDbLeadToMarketplaceLead(
     | "requested_services"
   >,
   contact: OwnerPublicContactRow | null,
+  ownerRequest: OwnerRequestVerificationRow | null,
 ): MarketplaceLead {
   const now = new Date();
   const expiresAt = lead.expires_at ?? lead.visible_until ?? lead.created_at;
@@ -163,6 +178,7 @@ function mapDbLeadToMarketplaceLead(
   return {
     id: lead.id,
     title: capitalizeLeadTitle(lead.title),
+    ownerVerified: ownerRequest?.owner_verified ?? false,
     region: property.region ?? "Italia",
     province: property.province ?? "Provincia non indicata",
     city: property.city ?? "Località non indicata",

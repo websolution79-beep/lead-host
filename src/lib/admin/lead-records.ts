@@ -32,6 +32,7 @@ export type AdminLeadRecord = {
   qualificationNotes: string | null;
   statusReason: string | null;
   statusChangedAt: string | null;
+  ownerVerified: boolean;
   consents: {
     privacy: boolean;
     dataSharing: boolean;
@@ -89,6 +90,10 @@ export type AdminLeadRecord = {
     soldVisibleUntil: string | null;
   } | null;
   pricing: LeadPricingSuggestion;
+  pricingByType: {
+    inTarget: LeadPricingSuggestion;
+    verified: LeadPricingSuggestion;
+  };
   purchases: AdminLeadPurchase[];
 };
 
@@ -97,7 +102,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at",
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified",
     )
     .order("created_at", { ascending: false })
     .limit(150);
@@ -166,11 +171,16 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     const property = propertiesByRequest.get(request.id) ?? null;
     const lead = leadsByRequest.get(request.id) ?? null;
     const statusMetadata = statusMetadataByRequest.get(request.id) ?? null;
-    const suggestedPricing = resolveLeadPricing(settings, {
+    const location = {
       region: property?.region,
       province: property?.province,
       city: property?.city,
-    });
+    };
+    const inTargetPricing = resolveLeadPricing(settings, location, false);
+    const verifiedPricing = resolveLeadPricing(settings, location, true);
+    const suggestedPricing = request.owner_verified
+      ? verifiedPricing
+      : inTargetPricing;
     const pricing = lead
       ? {
           sharedPriceCents: lead.shared_price_cents,
@@ -190,6 +200,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       qualificationNotes: request.qualification_notes,
       statusReason: statusMetadata?.status_reason ?? null,
       statusChangedAt: statusMetadata?.status_changed_at ?? null,
+      ownerVerified: request.owner_verified,
       consents: {
         privacy: Boolean(request.privacy_consent_at),
         dataSharing: Boolean(request.data_sharing_consent_at),
@@ -248,6 +259,10 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
           }
         : null,
       pricing,
+      pricingByType: {
+        inTarget: inTargetPricing,
+        verified: verifiedPricing,
+      },
       purchases: lead ? purchasesByLead.get(lead.id) ?? [] : [],
     } satisfies AdminLeadRecord;
   });

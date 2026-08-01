@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BadgeEuro,
   FileCheck2,
   Home,
   Save,
@@ -46,6 +47,10 @@ type LeadEditDraft = {
   dataSharingConsent: boolean;
   marketingConsent: boolean;
   qualificationNotes: string;
+  ownerVerified: boolean;
+  leadTitle: string;
+  sharedPrice: string;
+  exclusivePrice: string;
 };
 
 export function AdminLeadEditorModal({
@@ -149,6 +154,27 @@ export function AdminLeadEditorModal({
   }
 
   async function save() {
+    const sharedPriceCents = parseEuroCents(draft.sharedPrice);
+    const exclusivePriceCents = parseEuroCents(draft.exclusivePrice);
+
+    if (
+      record.lead &&
+      (sharedPriceCents < 100 || exclusivePriceCents < 100)
+    ) {
+      setError("I prezzi del lead devono essere di almeno 1,00 €.");
+      return;
+    }
+
+    if (
+      record.lead &&
+      hasMarketplaceChanges(record, draft) &&
+      !window.confirm(
+        "Confermi le modifiche al lead pubblicato? Titolo, badge e nuovi prezzi saranno aggiornati subito nel Marketplace. Gli acquisti già conclusi non cambieranno.",
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
     setError("");
     const { data } = await supabase.auth.getSession();
@@ -194,6 +220,16 @@ export function AdminLeadEditorModal({
           marketing: draft.marketingConsent,
         },
         qualificationNotes: draft.qualificationNotes,
+        marketplace: {
+          ownerVerified: draft.ownerVerified,
+          ...(record.lead
+            ? {
+                title: draft.leadTitle,
+                sharedPriceCents,
+                exclusivePriceCents,
+              }
+            : {}),
+        },
       }),
     });
     const payload = (await response.json()) as {
@@ -359,6 +395,59 @@ export function AdminLeadEditorModal({
                   onChange={(event) => update("description", event.target.value)}
                 />
               </label>
+            </EditorSection>
+
+            <EditorSection icon={BadgeEuro} title="Impostazioni Marketplace">
+              <label className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <input
+                  className="mt-0.5 size-4 accent-blue-600"
+                  type="checkbox"
+                  checked={draft.ownerVerified}
+                  onChange={(event) =>
+                    update("ownerVerified", event.target.checked)
+                  }
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-blue-900">
+                    Proprietario verificato
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-blue-800">
+                    Il badge sarà mostrato solo se la verifica telefonica è stata
+                    completata.
+                  </span>
+                </span>
+              </label>
+
+              {record.lead ? (
+                <div className="mt-5 grid gap-4">
+                  <TextField
+                    label="Titolo del lead"
+                    value={draft.leadTitle}
+                    onChange={(value) => update("leadTitle", value)}
+                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <EuroEditField
+                      label="Prezzo condiviso"
+                      value={draft.sharedPrice}
+                      onChange={(value) => update("sharedPrice", value)}
+                    />
+                    <EuroEditField
+                      label="Prezzo esclusivo"
+                      value={draft.exclusivePrice}
+                      onChange={(value) => update("exclusivePrice", value)}
+                    />
+                  </div>
+                  <p className="text-xs leading-5 text-muted">
+                    Le modifiche si applicano ai prossimi acquisti. Importi e transazioni
+                    già registrati restano invariati.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs leading-5 text-muted">
+                  Titolo e prezzi potranno essere personalizzati nel riquadro di
+                  pubblicazione.
+                </p>
+              )}
             </EditorSection>
 
             <EditorSection icon={FileCheck2} title="Consensi e note interne">
@@ -602,7 +691,60 @@ function buildDraft(record: AdminLeadRecord): LeadEditDraft {
     dataSharingConsent: record.consents.dataSharing,
     marketingConsent: record.consents.marketing,
     qualificationNotes: record.qualificationNotes ?? "",
+    ownerVerified: record.ownerVerified,
+    leadTitle: record.lead?.title ?? "",
+    sharedPrice: centsToEuroInput(record.lead?.sharedPriceCents ?? record.pricing.sharedPriceCents),
+    exclusivePrice: centsToEuroInput(
+      record.lead?.exclusivePriceCents ?? record.pricing.exclusivePriceCents,
+    ),
   };
+}
+
+function EuroEditField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-ink">
+      {label}
+      <div className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-green">
+        <span className="mr-2 text-sm font-bold text-muted">EUR</span>
+        <input
+          className="min-w-0 flex-1 border-0 bg-transparent outline-none"
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </label>
+  );
+}
+
+function hasMarketplaceChanges(record: AdminLeadRecord, draft: LeadEditDraft) {
+  if (!record.lead) return draft.ownerVerified !== record.ownerVerified;
+
+  return (
+    draft.ownerVerified !== record.ownerVerified ||
+    draft.leadTitle.trim() !== record.lead.title.trim() ||
+    parseEuroCents(draft.sharedPrice) !== record.lead.sharedPriceCents ||
+    parseEuroCents(draft.exclusivePrice) !== record.lead.exclusivePriceCents
+  );
+}
+
+function centsToEuroInput(value: number) {
+  return (value / 100).toFixed(2).replace(".", ",");
+}
+
+function parseEuroCents(value: string) {
+  const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
 }
 
 function numberToInput(value: number | null | undefined) {

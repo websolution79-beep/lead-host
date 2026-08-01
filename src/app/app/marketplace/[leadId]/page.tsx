@@ -85,7 +85,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               <h2 className="mt-3 text-3xl font-semibold text-ink">
                 {lead.propertyType} in zona {lead.district}
               </h2>
-              <VerifiedOwnerBadge />
+              {lead.ownerVerified ? <VerifiedOwnerBadge /> : null}
               <p className="mt-3 text-muted">
                 {lead.city}, {lead.province}
               </p>

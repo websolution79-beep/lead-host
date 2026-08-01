@@ -17,6 +17,7 @@ type AvailabilityFilter =
   | "exclusive_available"
   | "last_availability"
   | "unavailable";
+type LeadTypeFilter = "all" | "in_target" | "verified";
 
 type MarketplaceFiltersProps = {
   leads: MarketplaceLead[];
@@ -32,6 +33,7 @@ export function MarketplaceFilters({
   const [city, setCity] = useState("all");
   const [availability, setAvailability] =
     useState<AvailabilityFilter>("all");
+  const [leadType, setLeadType] = useState<LeadTypeFilter>("all");
 
   const regions = useMemo(
     () => ITALY_GEO.map((item) => item.region),
@@ -56,6 +58,14 @@ export function MarketplaceFilters({
     }
 
     if (city !== "all" && lead.city !== city) {
+      return false;
+    }
+
+    if (leadType === "verified" && !lead.ownerVerified) {
+      return false;
+    }
+
+    if (leadType === "in_target" && lead.ownerVerified) {
       return false;
     }
 
@@ -91,6 +101,7 @@ export function MarketplaceFilters({
     setProvince("all");
     setCity("all");
     setAvailability("all");
+    setLeadType("all");
   }
 
   function handleRegion(value: string) {
@@ -153,6 +164,21 @@ export function MarketplaceFilters({
               onChange={setCity}
               options={cities}
             />
+            <label className="filter-control grid gap-1 text-sm font-semibold text-ink">
+              Tipologia Lead
+              <select
+                aria-label="Tipologia Lead"
+                className="filter-select"
+                value={leadType}
+                onChange={(event) =>
+                  setLeadType(event.target.value as LeadTypeFilter)
+                }
+              >
+                <option value="all">Tutti i Lead</option>
+                <option value="in_target">Lead in target</option>
+                <option value="verified">Lead Verificato</option>
+              </select>
+            </label>
             <label className="filter-control grid gap-1 text-sm font-semibold text-ink">
               Disponibilita
               <select

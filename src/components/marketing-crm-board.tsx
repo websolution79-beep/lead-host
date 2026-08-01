@@ -6,13 +6,17 @@ import {
   ArrowRight,
   CalendarClock,
   Columns3,
+  Download,
+  FileText,
   GripVertical,
   Home,
+  LoaderCircle,
   MapPin,
   Pencil,
   Plus,
   Save,
   Trash2,
+  Upload,
   UserRound,
   X,
 } from "lucide-react";
@@ -84,6 +88,15 @@ type ContactDraft = {
   propertyDescription: string;
   notes: string;
   nextFollowUpAt: string;
+};
+
+type CrmDocument = {
+  id: string;
+  original_name: string;
+  content_type: string;
+  byte_size: number;
+  created_at: string;
+  download_url: string;
 };
 
 type StageDraft = {
@@ -702,6 +715,14 @@ function ContactEditor({
             </Field>
           </div>
         </section>
+
+        {contact ? (
+          <CrmDocumentsPanel contactId={contact.id} />
+        ) : (
+          <section className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-muted sm:p-5">
+            Salva prima il proprietario per poter allegare documenti e contratti.
+          </section>
+        )}
       </div>
       <div className="mt-6 flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
         {contact ? <button className="btn border border-red-200 bg-red-50 text-red-700 sm:w-auto" type="button" disabled={saving} onClick={onDelete}><Trash2 size={16} />Elimina</button> : <span />}
@@ -711,6 +732,158 @@ function ContactEditor({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function CrmDocumentsPanel({ contactId }: { contactId: string }) {
+  const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const [documents, setDocuments] = useState<CrmDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const getToken = useCallback(async () => {
+    const { data: session } = await supabase.auth.getSession();
+    return session.session?.access_token ?? null;
+  }, [supabase]);
+
+  const request = useCallback(async (body?: Record<string, unknown>) => {
+    const token = await getToken();
+    if (!token) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+    const response = await fetch(
+      body ? "/api/marketing/crm/documents" : `/api/marketing/crm/documents?contactId=${contactId}`,
+      {
+        method: body ? "POST" : "GET",
+        headers: body
+          ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+          : { Authorization: `Bearer ${token}` },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      },
+    );
+    const payload = (await response.json()) as { error?: string; documents?: CrmDocument[]; storagePath?: string; token?: string };
+    if (!response.ok) throw new Error(payload.error ?? "Operazione sui documenti non riuscita.");
+    return payload;
+  }, [contactId, getToken]);
+
+  const loadDocuments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const payload = await request();
+      setDocuments(payload.documents ?? []);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Non riesco a caricare i documenti.");
+    } finally {
+      setLoading(false);
+    }
+  }, [request]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadDocuments(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadDocuments]);
+
+  async function uploadFiles(files: FileList | null) {
+    if (!files?.length) return;
+    const candidates = Array.from(files);
+    const allowedTypes = new Set([
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ]);
+    const invalid = candidates.find((file) => !allowedTypes.has(file.type) || file.size > 10 * 1024 * 1024);
+    if (invalid) {
+      setError("Sono ammessi solo PDF, DOC e DOCX fino a 10 MB per file.");
+      return;
+    }
+    if (documents.length + candidates.length > 10) {
+      setError("Puoi allegare al massimo 10 documenti per proprietario.");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+    setMessage("");
+    try {
+      for (const file of candidates) {
+        const upload = await request({
+          action: "create_upload",
+          contactId,
+          fileName: file.name,
+          contentType: file.type,
+          byteSize: file.size,
+        });
+        if (!upload.storagePath || !upload.token) throw new Error("Upload documento non disponibile.");
+        const { error: uploadError } = await supabase.storage
+          .from("marketing-crm-documents")
+          .uploadToSignedUrl(upload.storagePath, upload.token, file, { contentType: file.type });
+        if (uploadError) throw uploadError;
+        await request({
+          action: "complete_upload",
+          contactId,
+          storagePath: upload.storagePath,
+          fileName: file.name,
+          contentType: file.type,
+          byteSize: file.size,
+        });
+      }
+      await loadDocuments();
+      setMessage(candidates.length === 1 ? "Documento allegato." : "Documenti allegati.");
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Upload documento non riuscito.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteDocument(document: CrmDocument) {
+    if (!window.confirm(`Eliminare definitivamente ${document.original_name}?`)) return;
+    setError("");
+    setMessage("");
+    try {
+      await request({ action: "delete_document", documentId: document.id });
+      await loadDocuments();
+      setMessage("Documento eliminato.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Eliminazione documento non riuscita.");
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-center gap-2 text-green">
+          <FileText size={18} />
+          <div>
+            <h3 className="font-semibold text-ink">Documenti e contratti</h3>
+            <p className="mt-0.5 text-xs font-normal text-muted">PDF, DOC o DOCX, massimo 10 MB per file.</p>
+          </div>
+        </div>
+        <label className={`btn btn-secondary cursor-pointer sm:w-auto ${uploading ? "pointer-events-none opacity-60" : ""}`}>
+          {uploading ? <LoaderCircle className="animate-spin" size={16} /> : <Upload size={16} />}
+          {uploading ? "Caricamento..." : "Allega documenti"}
+          <input accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="sr-only" disabled={uploading} multiple type="file" onChange={(event) => { void uploadFiles(event.target.files); event.currentTarget.value = ""; }} />
+        </label>
+      </div>
+      {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p> : null}
+      {message ? <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-green">{message}</p> : null}
+      {loading ? <p className="mt-4 text-sm text-muted">Carico i documenti...</p> : null}
+      {!loading && !documents.length ? <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-muted">Nessun documento allegato.</p> : null}
+      <div className="mt-4 grid gap-2">
+        {documents.map((document) => (
+          <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between" key={document.id}>
+            <div className="min-w-0 flex items-center gap-3">
+              <FileText className="shrink-0 text-slate-500" size={18} />
+              <div className="min-w-0"><p className="truncate text-sm font-semibold text-ink">{document.original_name}</p><p className="mt-0.5 text-xs text-muted">{formatFileSize(document.byte_size)} · {formatDocumentDate(document.created_at)}</p></div>
+            </div>
+            <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
+              <a className="btn btn-secondary min-h-9 px-3 text-xs" href={document.download_url} rel="noreferrer" target="_blank"><Download size={15} />Apri</a>
+              <button className="btn min-h-9 border border-red-200 bg-red-50 px-3 text-xs text-red-700" type="button" disabled={uploading} onClick={() => void deleteDocument(document)}><Trash2 size={15} />Elimina</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -802,6 +975,8 @@ function mergeOptions(values: readonly string[], ...selectedValues: string[]) {
 function nullableValue(value: string) { const trimmed = value.trim(); return trimmed || null; }
 function nullableIntegerValue(value: string) { const trimmed = value.trim(); return trimmed ? Number.parseInt(trimmed, 10) : null; }
 function formatPropertyLocation(contact: CrmContact) { return [contact.city, contact.property_address].filter(Boolean).join(", "); }
+function formatFileSize(bytes: number) { return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`; }
+function formatDocumentDate(value: string) { return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value)); }
 function inputToIso(value: string) { return value ? new Date(value).toISOString() : null; }
 function isoToInput(value: string | null) { if (!value) return ""; const date = new Date(value); const offset = date.getTimezoneOffset() * 60000; return new Date(date.getTime() - offset).toISOString().slice(0, 16); }
 function formatDate(value: string) { return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(value)); }

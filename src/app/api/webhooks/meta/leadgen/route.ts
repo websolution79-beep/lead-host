@@ -274,9 +274,9 @@ async function createOwnerRequestFromMetaLead({
     missing_fields: completion?.missingFields ?? [],
   });
   const { data: ownerRequest, error: ownerRequestError } =
-    await insertPendingOwnerRequest({
+    await insertNewOwnerRequest({
       acquisition_channel: "meta_lead_ads",
-      status: completion ? "waiting_for_completion" : "pending",
+      status: completion ? "waiting_for_completion" : "to_verify",
       completion_token_hash: completion?.tokenHash ?? null,
       completion_token_expires_at: completion?.expiresAt ?? null,
       privacy_consent_at: acquiredAt,
@@ -363,9 +363,9 @@ async function createOwnerRequestFromMetaLead({
   return ownerRequest;
 }
 
-async function insertPendingOwnerRequest(row: {
+async function insertNewOwnerRequest(row: {
   acquisition_channel: "meta_lead_ads";
-  status: "pending" | "waiting_for_completion";
+  status: "to_verify" | "waiting_for_completion";
   completion_token_hash: string | null;
   completion_token_expires_at: string | null;
   privacy_consent_at: string;
@@ -374,30 +374,16 @@ async function insertPendingOwnerRequest(row: {
   duplicate_check: Json;
 }) {
   const supabase = createServiceSupabaseClient();
-  const pendingInsert = await supabase
+  const newLeadInsert = await supabase
     .from("owner_requests")
     .insert({
       ...row,
+      status_changed_at: new Date().toISOString(),
     })
     .select("id,created_at,status")
     .single();
 
-  if (
-    row.status !== "pending" ||
-    !pendingInsert.error ||
-    !pendingInsert.error.message.includes("owner_request_status")
-  ) {
-    return pendingInsert;
-  }
-
-  return supabase
-    .from("owner_requests")
-    .insert({
-      ...row,
-      status: "to_verify",
-    })
-    .select("id,created_at,status")
-    .single();
+  return newLeadInsert;
 }
 
 function buildCompletionTokenIfRequired(normalized: NormalizedMetaLead) {

@@ -30,16 +30,20 @@ export async function GET(request: NextRequest) {
       customFrom: request.nextUrl.searchParams.get("from"),
       customTo: request.nextUrl.searchParams.get("to"),
     });
-    const { data, error } = await supabase.rpc(
-      "get_admin_business_analytics",
-      {
+    const [analyticsResult, newLeadCountResult] = await Promise.all([
+      supabase.rpc("get_admin_business_analytics", {
         p_from_date: range.fromDate,
         p_to_date: range.toDateExclusive,
         p_previous_from_date: range.previousFromDate,
         p_previous_to_date: range.previousToDate,
         p_bucket: range.bucket,
-      },
-    );
+      }),
+      supabase
+        .from("owner_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "to_verify"),
+    ]);
+    const { data, error } = analyticsResult;
 
     if (error) {
       if (
@@ -62,6 +66,10 @@ export async function GET(request: NextRequest) {
       BusinessAnalyticsPayload,
       "range"
     >;
+
+    if (newLeadCountResult.error) throw newLeadCountResult.error;
+
+    analytics.snapshot.pendingReview = newLeadCountResult.count ?? 0;
 
     return NextResponse.json(
       {

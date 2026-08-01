@@ -39,11 +39,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
     }
 
+    if (!["to_verify", "pending", "approved"].includes(ownerRequest.status)) {
+      return NextResponse.json(
+        { error: "Il lead non puo essere scartato nello stato attuale." },
+        { status: 409 },
+      );
+    }
+
     const { error: updateRequestError } = await supabase
       .from("owner_requests")
       .update({
         status: "not_publishable",
         qualification_notes: payload.data.reason,
+        status_reason: payload.data.reason,
+        status_changed_at: new Date().toISOString(),
       })
       .eq("id", ownerRequestId);
 

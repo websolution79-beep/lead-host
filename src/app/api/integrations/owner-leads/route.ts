@@ -302,7 +302,7 @@ async function createOwnerRequest({
       precise_address: data.address ?? null,
     },
   };
-  const ownerRequestInsert = await insertPendingOwnerRequest({
+  const ownerRequestInsert = await insertNewOwnerRequest({
     acquisition_channel: "api",
     privacy_consent_at: acquiredAt,
     data_sharing_consent_at: acquiredAt,
@@ -395,7 +395,7 @@ async function createOwnerRequest({
   };
 }
 
-async function insertPendingOwnerRequest(
+async function insertNewOwnerRequest(
   row: {
     acquisition_channel: "api";
     privacy_consent_at: string;
@@ -406,30 +406,17 @@ async function insertPendingOwnerRequest(
   },
 ) {
   const supabase = createServiceSupabaseClient();
-  const pendingInsert = await supabase
-    .from("owner_requests")
-    .insert({
-      ...row,
-      status: "pending",
-    })
-    .select("id,created_at")
-    .single();
-
-  if (
-    !pendingInsert.error ||
-    !pendingInsert.error.message.includes("owner_request_status")
-  ) {
-    return pendingInsert;
-  }
-
-  return supabase
+  const newLeadInsert = await supabase
     .from("owner_requests")
     .insert({
       ...row,
       status: "to_verify",
+      status_changed_at: new Date().toISOString(),
     })
     .select("id,created_at")
     .single();
+
+  return newLeadInsert;
 }
 
 function readBearerToken(request: NextRequest) {

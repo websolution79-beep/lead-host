@@ -17,7 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
-import { ADMIN_PENDING_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
+import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { formatCents } from "@/lib/config/commercial";
@@ -31,6 +31,7 @@ type AdminLeadsResponse = {
   stats: {
     waitingCompletion: number;
     duplicates: number;
+    newLeads: number;
     pending: number;
     published: number;
     sold: number;
@@ -43,6 +44,7 @@ type FilterState =
   | "all"
   | "completion"
   | "duplicates"
+  | "new"
   | "pending"
   | "published"
   | "sold"
@@ -60,6 +62,7 @@ export function AdminLeadsConsole() {
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
     waitingCompletion: 0,
     duplicates: 0,
+    newLeads: 0,
     pending: 0,
     published: 0,
     sold: 0,
@@ -69,12 +72,12 @@ export function AdminLeadsConsole() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [publishWarningId, setPublishWarningId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<FilterState>("pending");
+  const [filter, setFilter] = useState<FilterState>("new");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [actionReason, setActionReason] = useState("");
   const [approvalDrafts, setApprovalDrafts] = useState<Record<string, ApprovalPriceDraft>>(
     {},
   );
@@ -84,7 +87,8 @@ export function AdminLeadsConsole() {
       return false;
     }
     if (filter === "duplicates" && !hasDuplicateWarning(record)) return false;
-    if (filter === "pending" && !isPending(record)) return false;
+    if (filter === "new" && !isNewLead(record)) return false;
+    if (filter === "pending" && !isPendingLead(record)) return false;
     if (filter === "published" && record.requestStatus !== "published") return false;
     if (filter === "sold" && record.purchases.length === 0) return false;
     if (filter === "expired" && !isExpiredLead(record)) return false;
@@ -153,11 +157,12 @@ export function AdminLeadsConsole() {
       return;
     }
 
-      setRecords(payload.records ?? []);
+    setRecords(payload.records ?? []);
     const nextStats =
       payload.stats ?? {
         waitingCompletion: 0,
         duplicates: 0,
+        newLeads: 0,
         pending: 0,
         published: 0,
         sold: 0,
@@ -166,8 +171,8 @@ export function AdminLeadsConsole() {
       };
     setStats(nextStats);
     window.dispatchEvent(
-      new CustomEvent(ADMIN_PENDING_LEADS_COUNT_EVENT, {
-        detail: nextStats.pending,
+      new CustomEvent(ADMIN_NEW_LEADS_COUNT_EVENT, {
+        detail: nextStats.newLeads,
       }),
     );
     setLoading(false);
@@ -228,6 +233,7 @@ export function AdminLeadsConsole() {
 
   function selectRecord(record: AdminLeadRecord) {
     setSelectedId(record.ownerRequestId);
+    setActionReason("");
     setApprovalDrafts((current) => ({
       ...current,
       [record.ownerRequestId]: current[record.ownerRequestId] ?? {
@@ -260,7 +266,7 @@ export function AdminLeadsConsole() {
   }
 
   async function reject(record: AdminLeadRecord) {
-    const reason = rejectReason.trim();
+    const reason = actionReason.trim();
 
     if (!reason) {
       setError("Inserisci una motivazione prima di scartare il lead.");
@@ -284,9 +290,46 @@ export function AdminLeadsConsole() {
     if (!response.ok) {
       setError(payload.error ?? "Rifiuto non completato.");
     } else {
-      setRejectReason("");
+      setActionReason("");
       await loadRecords();
       setFilter("rejected");
+    }
+
+    setActionLoading(null);
+  }
+
+  async function moveToStatus(
+    record: AdminLeadRecord,
+    status: "pending" | "to_verify",
+  ) {
+    const reason = actionReason.trim();
+
+    if (status === "pending" && reason.length < 3) {
+      setError("Inserisci una motivazione prima di spostare il lead in Pending.");
+      return;
+    }
+
+    setActionLoading(record.ownerRequestId);
+    setError(null);
+
+    const token = await getAccessToken();
+    const response = await fetch(`/api/admin/leads/${record.ownerRequestId}/status`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status, reason: reason || undefined }),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setError(payload.error ?? "Cambio stato non completato.");
+    } else {
+      setActionReason("");
+      setSelectedId(null);
+      await loadRecords();
+      setFilter(status === "pending" ? "pending" : "new");
     }
 
     setActionLoading(null);
@@ -307,7 +350,8 @@ export function AdminLeadsConsole() {
           value={stats.duplicates}
           tone="red"
         />
-        <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="green" />
+        <StatCard icon={ListChecks} label="Nuovi Lead" value={stats.newLeads} tone="green" />
+        <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="amber" />
         <StatCard
           icon={BadgeCheck}
           label="Pubblicati"
@@ -345,6 +389,7 @@ export function AdminLeadsConsole() {
               {[
                 ["completion", "Da completare"],
                 ["duplicates", "Duplicati"],
+                ["new", "Nuovi Lead"],
                 ["pending", "Pending"],
                 ["published", "Marketplace"],
                 ["sold", "Venduti"],
@@ -501,10 +546,11 @@ export function AdminLeadsConsole() {
         {selectedRecord ? (
           <LeadDetailPanel
             record={selectedRecord}
-            rejectReason={rejectReason}
-            onRejectReasonChange={setRejectReason}
+            actionReason={actionReason}
+            onActionReasonChange={setActionReason}
             onApprove={requestApproval}
             onReject={reject}
+            onMoveToStatus={moveToStatus}
             onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
             onClose={() => setSelectedId(null)}
             approvalDraft={getApprovalDraft(selectedRecord)}
@@ -542,10 +588,11 @@ export function AdminLeadsConsole() {
 
 function LeadDetailPanel({
   record,
-  rejectReason,
-  onRejectReasonChange,
+  actionReason,
+  onActionReasonChange,
   onApprove,
   onReject,
+  onMoveToStatus,
   onEdit,
   onClose,
   approvalDraft,
@@ -553,17 +600,22 @@ function LeadDetailPanel({
   actionLoading,
 }: {
   record: AdminLeadRecord;
-  rejectReason: string;
-  onRejectReasonChange: (value: string) => void;
+  actionReason: string;
+  onActionReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
   onReject: (record: AdminLeadRecord) => void;
+  onMoveToStatus: (
+    record: AdminLeadRecord,
+    status: "pending" | "to_verify",
+  ) => void;
   onEdit: () => void;
   onClose: () => void;
   approvalDraft: ApprovalPriceDraft;
   onApprovalDraftChange: (update: Partial<ApprovalPriceDraft>) => void;
   actionLoading: string | null;
 }) {
-  const canApprove = isPending(record) || record.requestStatus === "approved";
+  const canApprove =
+    isNewLead(record) || isPendingLead(record) || record.requestStatus === "approved";
   const isBusy = actionLoading === record.ownerRequestId;
   const canEdit = canEditRequest(record);
   const missingFields = getMissingLeadFields(record);
@@ -794,6 +846,20 @@ function LeadDetailPanel({
         </p>
       </section>
 
+      {record.statusReason ? (
+        <section className="mt-5 border-t border-slate-200 pt-5">
+          <p className="text-sm font-bold text-ink">Motivazione stato</p>
+          <p className="mt-2 whitespace-pre-line rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+            {record.statusReason}
+          </p>
+          {record.statusChangedAt ? (
+            <p className="mt-2 text-xs text-muted">
+              Aggiornato il {formatDateTime(record.statusChangedAt)}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="mt-5 grid gap-3">
         {canApprove ? (
           <button
@@ -807,14 +873,36 @@ function LeadDetailPanel({
           </button>
         ) : null}
 
-        {record.requestStatus !== "not_publishable" ? (
+        {isNewLead(record) || isPendingLead(record) ? (
           <div className="grid gap-2">
             <textarea
               className="min-h-24 rounded-lg border border-slate-200 bg-white p-3 text-sm text-ink outline-none focus:border-green/60 focus:ring-4 focus:ring-green/10"
-              placeholder="Motivazione interna per scartare il lead"
-              value={rejectReason}
-              onChange={(event) => onRejectReasonChange(event.target.value)}
+              placeholder="Motivazione interna per Pending o scarto"
+              value={actionReason}
+              onChange={(event) => onActionReasonChange(event.target.value)}
             />
+            {isNewLead(record) ? (
+              <button
+                className="btn btn-secondary w-full"
+                type="button"
+                disabled={isBusy}
+                onClick={() => onMoveToStatus(record, "pending")}
+              >
+                <Clock3 size={18} />
+                Sposta in Pending
+              </button>
+            ) : null}
+            {isPendingLead(record) ? (
+              <button
+                className="btn btn-secondary w-full"
+                type="button"
+                disabled={isBusy}
+                onClick={() => onMoveToStatus(record, "to_verify")}
+              >
+                <ListChecks size={18} />
+                Sposta in Nuovi Lead
+              </button>
+            ) : null}
             <button
               className="btn btn-secondary w-full"
               type="button"
@@ -825,6 +913,18 @@ function LeadDetailPanel({
               Scarta lead
             </button>
           </div>
+        ) : null}
+
+        {record.requestStatus === "not_publishable" ? (
+          <button
+            className="btn btn-secondary w-full"
+            type="button"
+            disabled={isBusy}
+            onClick={() => onMoveToStatus(record, "to_verify")}
+          >
+            <ListChecks size={18} />
+            Ripristina in Nuovi Lead
+          </button>
         ) : null}
       </div>
     </aside>
@@ -978,9 +1078,18 @@ function StatusBadge({ record }: { record: AdminLeadRecord }) {
     );
   }
 
-  if (isPending(record)) {
+  if (isNewLead(record)) {
     return (
       <span className="inline-flex w-fit items-center gap-1 rounded-full bg-mint px-3 py-1 text-xs font-bold text-green">
+        <ListChecks size={14} />
+        Nuovo Lead
+      </span>
+    );
+  }
+
+  if (isPendingLead(record)) {
+    return (
+      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
         <Clock3 size={14} />
         Pending
       </span>
@@ -1113,8 +1222,12 @@ function parseEuroCents(value: string) {
   return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
 }
 
-function isPending(record: AdminLeadRecord) {
-  return ["pending", "to_verify"].includes(record.requestStatus);
+function isNewLead(record: AdminLeadRecord) {
+  return record.requestStatus === "to_verify";
+}
+
+function isPendingLead(record: AdminLeadRecord) {
+  return record.requestStatus === "pending";
 }
 
 function canEditRequest(record: AdminLeadRecord) {
@@ -1127,6 +1240,13 @@ function canEditRequest(record: AdminLeadRecord) {
     "approved",
     "published",
   ].includes(record.requestStatus);
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function groupMissingFields(fields: MissingLeadField[]) {

@@ -805,6 +805,8 @@ export type Database = {
           normalized_payload: Json;
           duplicate_check: Json;
           qualification_notes: string | null;
+          status_reason: string | null;
+          status_changed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -829,6 +831,8 @@ export type Database = {
           normalized_payload?: Json;
           duplicate_check?: Json;
           qualification_notes?: string | null;
+          status_reason?: string | null;
+          status_changed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -853,6 +857,8 @@ export type Database = {
           normalized_payload?: Json;
           duplicate_check?: Json;
           qualification_notes?: string | null;
+          status_reason?: string | null;
+          status_changed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

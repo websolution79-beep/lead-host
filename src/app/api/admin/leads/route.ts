@@ -14,9 +14,8 @@ export async function GET(request: NextRequest) {
           (item) => item.requestStatus === "waiting_for_completion",
         ).length,
         duplicates: records.filter((item) => hasDuplicateWarning(item)).length,
-        pending: records.filter((item) =>
-          ["pending", "to_verify"].includes(item.requestStatus),
-        ).length,
+        newLeads: records.filter((item) => item.requestStatus === "to_verify").length,
+        pending: records.filter((item) => item.requestStatus === "pending").length,
         published: records.filter((item) => item.requestStatus === "published")
           .length,
         sold: records.filter((item) => item.purchases.length > 0).length,

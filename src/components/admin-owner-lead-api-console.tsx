@@ -229,7 +229,7 @@ export function AdminOwnerLeadApiConsole() {
           </h2>
           <p className="mt-3 max-w-3xl leading-7 text-muted">
             Endpoint unico per Make, Zapier e sistemi esterni. Ogni richiesta
-            valida crea un lead proprietario in stato pending usando gli stessi
+            valida crea un nuovo lead proprietario da verificare usando gli stessi
             campi e controlli del modulo Lead Host.
           </p>
         </div>
@@ -314,7 +314,7 @@ export function AdminOwnerLeadApiConsole() {
           <div className="mt-2 flex flex-wrap gap-2">
             <Badge text="POST" />
             <Badge text="application/json" />
-            <Badge text="Stato finale: pending" />
+            <Badge text="Stato finale: Nuovi Lead" />
           </div>
           <p className="mt-3 text-xs leading-5 text-muted">
             Solo externalId è obbligatorio nel JSON. Make e Zapier possono

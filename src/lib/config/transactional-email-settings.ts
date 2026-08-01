@@ -85,11 +85,11 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
   {
     id: "admin.owner_request_pending",
     label: "Nuovo lead agli admin",
-    description: "Invio ai Super Admin quando arriva una richiesta proprietario pending.",
+    description: "Invio ai Super Admin quando arriva una nuova richiesta proprietario da verificare.",
     enabled: true,
     subject: "Nuovo lead proprietario da verificare: {{city}}",
     preview: "Un proprietario ha inviato una nuova richiesta.",
-    title: "Nuovo lead proprietario in pending.",
+    title: "Nuovo lead proprietario da verificare.",
     body:
       "{{property_type}} a {{city}}. Entra in area admin per verificare i dati e decidere se pubblicarlo nel marketplace.",
     extra: "Codice richiesta: {{reference}}",

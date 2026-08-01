@@ -46,6 +46,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
     }
 
+    if (!["to_verify", "pending", "approved"].includes(ownerRequest.status)) {
+      return NextResponse.json(
+        { error: "Il lead non puo essere pubblicato nello stato attuale." },
+        { status: 409 },
+      );
+    }
+
     const { data: existingProperty, error: propertyError } = await supabase
       .from("properties")
       .select("id,region,province,city,property_type")
@@ -162,6 +169,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .update({
         status: "published",
         qualification_notes: payload.data.notes || null,
+        status_reason: null,
+        status_changed_at: new Date().toISOString(),
       })
       .eq("id", ownerRequestId);
 

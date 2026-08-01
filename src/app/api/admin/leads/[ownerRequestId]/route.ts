@@ -332,7 +332,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       isSuperAdmin,
       entityType: "owner_request",
       entityId: ownerRequestId,
-      action: "lead.pending_information_updated",
+      action: "lead.information_updated",
       before: { status: requestResult.data.status },
       after: {
         status: requestResult.data.status,

@@ -46,7 +46,7 @@ export function renderAdminOwnerRequestEmail(reference: string, city: string, pr
   return emailLayout({
     subject: `Nuovo lead proprietario da verificare: ${city}`,
     preview: "Un proprietario ha inviato una nuova richiesta.",
-    title: "Nuovo lead proprietario in pending.",
+    title: "Nuovo lead proprietario da verificare.",
     body: `${propertyType} a ${city}. Entra in area admin per verificare i dati e decidere se pubblicarlo nel marketplace.`,
     extra: `Codice richiesta: ${reference}`,
     ctaLabel: "Apri lead admin",

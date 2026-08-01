@@ -191,7 +191,7 @@ export async function POST(request: Request) {
   };
 
   const { data: ownerRequest, error: ownerRequestError } =
-    await insertPendingOwnerRequest(supabase, {
+    await insertNewOwnerRequest(supabase, {
       acquisition_channel: "landing",
       privacy_consent_at: now,
       data_sharing_consent_at: now,
@@ -296,7 +296,7 @@ function isValidGeoSelection(region: string, province: string, city: string) {
   return Boolean((selectedProvince?.cities as string[] | undefined)?.includes(city));
 }
 
-async function insertPendingOwnerRequest(
+async function insertNewOwnerRequest(
   supabase: ReturnType<typeof createServiceSupabaseClient>,
   row: {
     acquisition_channel: "landing";
@@ -306,28 +306,15 @@ async function insertPendingOwnerRequest(
     duplicate_check: Json;
   },
 ) {
-  const pendingInsert = await supabase
-    .from("owner_requests")
-    .insert({
-      ...row,
-      status: "pending",
-    })
-    .select("id,created_at")
-    .single();
-
-  if (
-    !pendingInsert.error ||
-    !pendingInsert.error.message.includes("owner_request_status")
-  ) {
-    return pendingInsert;
-  }
-
-  return supabase
+  const newLeadInsert = await supabase
     .from("owner_requests")
     .insert({
       ...row,
       status: "to_verify",
+      status_changed_at: new Date().toISOString(),
     })
     .select("id,created_at")
     .single();
+
+  return newLeadInsert;
 }

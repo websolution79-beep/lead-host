@@ -18,7 +18,7 @@ type MobileMenuProps = {
   links: MobileMenuLink[];
   supportHref?: string;
   supportSection?: "pm" | "admin";
-  pendingLeadsHref?: string;
+  adminLeadBadgeHref?: string;
   roleSwitchSection?: "pm" | "admin";
   variant?: "light" | "dark";
   label?: string;
@@ -29,7 +29,7 @@ export function MobileMenu({
   links,
   supportHref,
   supportSection,
-  pendingLeadsHref,
+  adminLeadBadgeHref,
   roleSwitchSection,
   variant = "light",
   label = "Menu",
@@ -92,7 +92,7 @@ export function MobileMenu({
                     onClick={() => setIsOpen(false)}
                   >
                     {link.label}
-                    {link.href === pendingLeadsHref ? <AdminLeadNavBadge /> : null}
+                    {link.href === adminLeadBadgeHref ? <AdminLeadNavBadge /> : null}
                     {link.href === supportHref && supportSection ? (
                       <SupportNavBadge section={supportSection} />
                     ) : null}

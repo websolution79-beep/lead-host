@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
-export const ADMIN_PENDING_LEADS_COUNT_EVENT =
-  "lead-host:admin-pending-leads-count";
+export const ADMIN_NEW_LEADS_COUNT_EVENT = "lead-host:admin-new-leads-count";
 
 let badgeCache: { count: number; cachedAt: number } | null = null;
 const BADGE_CACHE_MS = 15_000;
@@ -73,7 +72,7 @@ export function AdminLeadNavBadge() {
     );
     window.addEventListener("focus", handleFocus);
     window.addEventListener(
-      ADMIN_PENDING_LEADS_COUNT_EVENT,
+      ADMIN_NEW_LEADS_COUNT_EVENT,
       handleCountUpdate,
     );
 
@@ -82,7 +81,7 @@ export function AdminLeadNavBadge() {
       window.clearInterval(refreshInterval);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener(
-        ADMIN_PENDING_LEADS_COUNT_EVENT,
+        ADMIN_NEW_LEADS_COUNT_EVENT,
         handleCountUpdate,
       );
     };

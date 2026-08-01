@@ -226,7 +226,7 @@ export function AdminLeadEditorModal({
       <div className="flex h-[100dvh] w-full min-w-0 flex-col overflow-hidden bg-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:max-w-5xl sm:rounded-lg">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
           <div className="min-w-0">
-            <p className="section-kicker">Lead Pending</p>
+            <p className="section-kicker">Gestione lead</p>
             <h2
               className="mt-1 text-xl font-semibold text-ink sm:text-2xl"
               id="lead-editor-title"

@@ -94,7 +94,7 @@ export function AcquisitionAdminConsole({
         <AcquisitionSummary
           icon={Route}
           label="Destinazione"
-          value="Lead pending"
+          value="Nuovi Lead"
           description="Ogni canale confluisce nella pagina Lead per verifica."
           tone="blue"
         />
@@ -144,7 +144,7 @@ function OverviewTab({
         </h2>
         <p className="mt-3 max-w-3xl leading-7 text-muted">
           Acquisizione serve per configurare e monitorare le fonti. La lavorazione
-          operativa resta in Lead: pending, approvazione, marketplace, slot,
+          operativa resta in Lead: Nuovi Lead, Pending, approvazione, marketplace, slot,
           esclusiva e acquirenti.
         </p>
 
@@ -203,13 +203,13 @@ window.addEventListener("message", function (event) {
         </h2>
         <p className="mt-3 max-w-3xl leading-7 text-muted">
           Il form proprietari salva richiesta, immobile, contatti, consenso privacy e
-          attribuzione marketing. I lead arrivano in stato pending nella pagina Lead.
+          attribuzione marketing. I lead arrivano in Nuovi Lead nella pagina Lead.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           <InfoTile title="Landing interna" text="/proprietari" />
           <InfoTile title="Embed iframe" text="/embed/richiesta-proprietario" />
           <InfoTile title="Destinazione" text="owner_requests + properties" />
-          <InfoTile title="Stato iniziale" text="Pending" />
+          <InfoTile title="Stato iniziale" text="Nuovi Lead" />
           <InfoTile title="Azioni admin" text="Approva, pubblica o scarta" />
         </div>
       </div>
@@ -280,7 +280,7 @@ function MetaTab({
             Questo endpoint riceve verifica webhook e notifiche leadgen. La GET
             gestisce la challenge di Meta; la POST valida la firma, salva l&apos;evento
             raw, recupera il lead dal Graph API e crea una richiesta proprietario
-            in stato pending.
+            nella sezione Nuovi Lead.
           </p>
         </div>
 
@@ -316,7 +316,7 @@ function MetaTab({
             <InfoTile title="Metodo GET" text="Verifica webhook Meta" />
             <InfoTile title="Metodo POST" text="Import leadgen firmato" />
             <InfoTile title="Verify token" text="META_VERIFY_TOKEN" />
-            <InfoTile title="Output" text="Lead pending in area admin" />
+            <InfoTile title="Output" text="Nuovo lead da verificare in area admin" />
           </div>
         </div>
 

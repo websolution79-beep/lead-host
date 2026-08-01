@@ -359,29 +359,12 @@ async function markRequestReadyForReview({
   completedAt: string;
 }) {
   const supabase = createServiceSupabaseClient();
-  const pendingUpdate = await supabase
-    .from("owner_requests")
-    .update({
-      status: "pending",
-      completion_token_invalidated_at: completedAt,
-      privacy_consent_at: completedAt,
-      data_sharing_consent_at: completedAt,
-      normalized_payload: normalizedPayload,
-      duplicate_check: duplicateCheck,
-    })
-    .eq("id", ownerRequestId);
-
-  if (
-    !pendingUpdate.error ||
-    !pendingUpdate.error.message.includes("owner_request_status")
-  ) {
-    return pendingUpdate;
-  }
-
-  return supabase
+  const reviewUpdate = await supabase
     .from("owner_requests")
     .update({
       status: "to_verify",
+      status_changed_at: completedAt,
+      status_reason: null,
       completion_token_invalidated_at: completedAt,
       privacy_consent_at: completedAt,
       data_sharing_consent_at: completedAt,
@@ -389,6 +372,8 @@ async function markRequestReadyForReview({
       duplicate_check: duplicateCheck,
     })
     .eq("id", ownerRequestId);
+
+  return reviewUpdate;
 }
 
 function isValidGeoSelection(region: string, province: string, city: string) {

@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { count, error } = await supabase
       .from("owner_requests")
       .select("id", { count: "exact", head: true })
-      .in("status", ["pending", "to_verify"]);
+      .eq("status", "to_verify");
 
     if (error) throw error;
 

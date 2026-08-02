@@ -98,7 +98,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (payload.checkoutEnabled) {
-      await ensureStripeAddonInfrastructure(getRequestAppUrl(request));
+      const infrastructure = await ensureStripeAddonInfrastructure(getRequestAppUrl(request));
+      if (!infrastructure.webhook.found) {
+        throw new Error(
+          "Webhook Stripe Lead Host non trovato. Verifica l’endpoint prima di abilitare il checkout.",
+        );
+      }
     }
 
     const { data: savedProduct, error } = await supabase

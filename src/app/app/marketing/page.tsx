@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
@@ -7,8 +8,10 @@ import {
   Check,
   Columns3,
   CreditCard,
+  FileDown,
   LockKeyhole,
   Sparkles,
+  UserRoundCheck,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { getMarketingAddonState } from "@/lib/addons/access";
@@ -83,6 +86,8 @@ export default async function MarketingPage() {
 
 function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketingAddonState>> }) {
   const product = addon.product;
+  const trialDays = product?.trialDays ?? 0;
+  const hasTrial = trialDays > 0;
   const features = product?.features.length
     ? product.features
     : [
@@ -94,81 +99,165 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
 
   return (
     <AppShell section="pm" eyebrow="Marketing" title={product?.name ?? "Modulo Marketing"}>
-      <div className="grid gap-6">
-        <section className="card overflow-hidden">
-          <div className="grid min-h-[390px] lg:grid-cols-[1.3fr_.7fr]">
-            <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-10">
-              <div className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
-                <Sparkles size={14} />
-                Strumenti premium per Property Manager
-              </div>
-              <h2 className="mt-5 max-w-2xl text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-                Più ordine nella trattativa. Più valore durante il sopralluogo.
-              </h2>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-muted sm:text-lg">
-                {product?.description || product?.shortDescription || "Gestisci i proprietari e crea valutazioni professionali della rendita degli immobili in un unico modulo."}
-              </p>
-              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <button className="btn btn-primary w-full sm:w-auto" type="button" disabled>
-                  <LockKeyhole size={17} />
-                  {product?.trialDays
-                    ? `Prova gratuita di ${product.trialDays} giorni`
-                    : "Attivazione disponibile a breve"}
-                </button>
-                <span className="text-sm text-muted">Nessun addebito disponibile in questa fase.</span>
-              </div>
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <section className="px-5 pb-8 pt-8 sm:px-8 sm:pb-10 sm:pt-10 lg:px-12 lg:pt-12">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+              <Sparkles size={14} />
+              CRM e strumenti di valutazione per Property Manager
             </div>
-            <div
-              className="relative min-h-64 bg-slate-950 bg-cover bg-center lg:min-h-full"
-              style={product?.coverImageUrl ? { backgroundImage: `linear-gradient(rgba(15,23,42,.22),rgba(15,23,42,.42)),url(${JSON.stringify(product.coverImageUrl)})` } : undefined}
-            >
-              {!product?.coverImageUrl ? (
-                <div className="absolute inset-0 grid place-items-center p-8 text-center">
-                  <div>
-                    <span className="mx-auto grid size-16 place-items-center rounded-lg bg-white/10 text-emerald-300 ring-1 ring-white/15">
-                      <Columns3 size={30} />
-                    </span>
-                    <p className="mt-5 font-semibold text-white">CRM e Rendita Stimata</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">Due strumenti, un unico flusso di lavoro.</p>
-                  </div>
-                </div>
-              ) : null}
+            <h2 className="mx-auto mt-5 max-w-3xl text-3xl font-semibold leading-tight text-ink sm:text-4xl lg:text-5xl">
+              Trasforma ogni contatto in una trattativa organizzata e professionale.
+            </h2>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted sm:text-lg">
+              {product?.description || product?.shortDescription || "Gestisci i proprietari, segui ogni trattativa e crea relazioni di rendita personalizzate in un unico spazio di lavoro."}
+            </p>
+            {hasTrial ? (
+              <p className="mt-5 text-base font-bold text-emerald-800">
+                Accesso gratuito per {trialDays} giorni.
+              </p>
+            ) : null}
+            <OfferButton trialDays={trialDays} />
+          </div>
+
+          <div className="relative mx-auto mt-9 max-w-6xl overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-xl shadow-slate-200/70">
+            <Image
+              alt="Anteprima della pipeline CRM del Modulo Marketing Lead Host"
+              className="h-auto w-full"
+              height={900}
+              priority
+              sizes="(max-width: 1024px) 100vw, 1200px"
+              src="/images/marketing-crm-preview.webp"
+              width={1440}
+            />
+          </div>
+        </section>
+
+        <section className="border-y border-slate-200 bg-slate-50 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase text-emerald-700">CRM proprietari</p>
+              <h2 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">Sai sempre chi contattare e cosa fare dopo.</h2>
+              <p className="mt-4 leading-7 text-muted">
+                Porta ogni proprietario nella tua pipeline, aggiorna lo stato con il drag and drop e conserva immobili, appuntamenti, documenti e immagini nella stessa scheda.
+              </p>
+              <FeatureList items={["Pipeline e fasi personalizzabili", "Promemoria per i prossimi contatti", "Documenti e foto organizzati per proprietario"]} />
+            </div>
+            <ProductPreview alt="Esempio della pipeline CRM per la gestione dei proprietari" src="/images/marketing-crm-preview.webp" />
+          </div>
+        </section>
+
+        <section className="px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.18fr_.82fr] lg:items-center">
+            <div className="lg:order-2">
+              <p className="text-xs font-bold uppercase text-blue-700">Rendita Stimata</p>
+              <h2 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">Presenta numeri chiari, con la tua identità.</h2>
+              <p className="mt-4 leading-7 text-muted">
+                Calcola la possibile rendita dell’immobile, personalizza parametri e commissioni e consegna al proprietario un PDF professionale con logo e contatti.
+              </p>
+              <FeatureList items={["Parametri modificabili per ogni immobile", "Relazione personalizzata con il tuo brand", "PDF pronto da scaricare o allegare al CRM"]} />
+            </div>
+            <div className="lg:order-1">
+              <ProductPreview alt="Esempio di una relazione professionale di rendita stimata" src="/images/marketing-revenue-preview.webp" />
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1fr_340px]">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-semibold text-ink">Cosa include</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {features.map((feature) => (
-                <div className="flex min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4" key={feature}>
-                  <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700">
-                    <Check size={15} />
-                  </span>
-                  <p className="min-w-0 text-sm font-semibold leading-6 text-ink">{feature}</p>
-                </div>
-              ))}
+        <section className="border-y border-slate-200 bg-slate-950 px-5 py-10 text-white sm:px-8 lg:px-12 lg:py-14">
+          <div className="mx-auto max-w-6xl">
+            <div className="max-w-2xl">
+              <p className="text-xs font-bold uppercase text-emerald-300">Un flusso completo</p>
+              <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Dall’interesse del proprietario alla proposta.</h2>
+            </div>
+            <div className="mt-8 grid gap-px overflow-hidden rounded-lg border border-white/15 bg-white/15 md:grid-cols-3">
+              <ProcessStep number="01" title="Organizza" text="Inserisci il proprietario e raccogli tutte le informazioni dell’immobile." />
+              <ProcessStep number="02" title="Segui" text="Gestisci contatti, appuntamenti e avanzamento direttamente dalla pipeline." />
+              <ProcessStep number="03" title="Presenta" text="Crea la stima, genera il PDF e collegalo alla scheda CRM." />
             </div>
           </div>
-          <aside className="rounded-lg border border-slate-200 bg-white p-5 sm:p-6">
-            <p className="text-xs font-bold uppercase text-emerald-700">Offerta mensile</p>
-            <div className="mt-4 flex flex-wrap items-baseline gap-2">
-              {product?.listPriceCents ? (
-                <span className="text-sm font-semibold text-muted line-through">{formatCurrency(product.listPriceCents, product.currency)}</span>
-              ) : null}
-              <span className="text-3xl font-semibold text-ink">
-                {product?.salePriceCents ? formatCurrency(product.salePriceCents, product.currency) : "Da configurare"}
-              </span>
+        </section>
+
+        <section className="px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+            <div>
+              <p className="text-xs font-bold uppercase text-emerald-700">Tutto nel modulo</p>
+              <h2 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">Gli strumenti che servono per acquisire nuovi immobili.</h2>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {features.map((feature) => (
+                  <div className="flex min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4" key={feature}>
+                    <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700">
+                      <Check size={15} />
+                    </span>
+                    <p className="min-w-0 text-sm font-semibold leading-6 text-ink">{feature}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            {product?.salePriceCents ? <p className="mt-1 text-sm text-muted">al mese</p> : null}
-            <div className="mt-5 border-t border-slate-200 pt-5 text-sm leading-6 text-muted">
-              <p className="flex items-start gap-2"><CreditCard className="mt-1 shrink-0" size={16} /> Il pagamento ricorrente sarà gestito in sicurezza tramite Stripe.</p>
-            </div>
-          </aside>
+            <aside className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-5 sm:p-6">
+              <p className="text-xs font-bold uppercase text-emerald-800">Offerta mensile</p>
+              {hasTrial ? <p className="mt-3 text-lg font-semibold text-ink">Primi {trialDays} giorni gratuiti</p> : null}
+              <div className="mt-4 flex flex-wrap items-baseline gap-2">
+                {product?.listPriceCents ? (
+                  <span className="text-sm font-semibold text-muted line-through">{formatCurrency(product.listPriceCents, product.currency)}</span>
+                ) : null}
+                <span className="text-3xl font-semibold text-ink">
+                  {product?.salePriceCents ? formatCurrency(product.salePriceCents, product.currency) : "Da configurare"}
+                </span>
+              </div>
+              {product?.salePriceCents ? <p className="mt-1 text-sm text-muted">al mese dopo la prova</p> : null}
+              <div className="mt-5 border-t border-emerald-200 pt-5 text-sm leading-6 text-muted">
+                <p className="flex items-start gap-2"><CreditCard className="mt-1 shrink-0" size={16} /> Pagamento ricorrente gestito in sicurezza tramite Stripe.</p>
+              </div>
+              <OfferButton compact trialDays={trialDays} />
+            </aside>
+          </div>
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function ProductPreview({ alt, src }: { alt: string; src: string }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-200/60">
+      <Image alt={alt} className="h-auto w-full" height={900} sizes="(max-width: 1024px) 100vw, 680px" src={src} width={1440} />
+    </div>
+  );
+}
+
+function OfferButton({ trialDays, compact = false }: { trialDays: number; compact?: boolean }) {
+  return (
+    <div className={compact ? "mt-6" : "mt-7"}>
+      <button className="btn btn-primary w-full sm:w-auto" type="button" disabled>
+        <LockKeyhole size={17} />
+        {trialDays > 0 ? `Prova gratis per ${trialDays} giorni` : "Attivazione disponibile a breve"}
+      </button>
+      <p className="mt-3 text-sm text-muted">L’attivazione online sarà disponibile a breve.</p>
+    </div>
+  );
+}
+
+function FeatureList({ items }: { items: string[] }) {
+  return (
+    <div className="mt-6 grid gap-3">
+      {items.map((item) => (
+        <p className="flex items-start gap-3 text-sm font-semibold leading-6 text-ink" key={item}>
+          <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700"><Check size={14} /></span>
+          {item}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+function ProcessStep({ number, title, text }: { number: string; title: string; text: string }) {
+  return (
+    <article className="bg-slate-950 p-5 sm:p-6">
+      <span className="text-sm font-bold text-emerald-300">{number}</span>
+      <h3 className="mt-4 flex items-center gap-2 text-lg font-semibold"><UserRoundCheck size={18} />{title}</h3>
+      <p className="mt-3 text-sm leading-6 text-slate-300">{text}</p>
+      {number === "03" ? <FileDown className="mt-5 text-emerald-300" size={20} /> : null}
+    </article>
   );
 }
 

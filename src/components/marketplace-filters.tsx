@@ -175,8 +175,8 @@ export function MarketplaceFilters({
                 }
               >
                 <option value="all">Tutti i Lead</option>
-                <option value="in_target">Lead in target</option>
-                <option value="verified">Lead Verificato</option>
+                <option value="in_target">Lead Standard</option>
+                <option value="verified">Lead Premium</option>
               </select>
             </label>
             <label className="filter-control grid gap-1 text-sm font-semibold text-ink">

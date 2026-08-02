@@ -20,7 +20,10 @@ import {
   parseLeadDate,
 } from "@/lib/domain/lead-state";
 import { formatCents } from "@/lib/config/commercial";
-import { VerifiedOwnerBadge } from "@/components/verified-owner-badge";
+import {
+  StandardLeadBadge,
+  VerifiedOwnerBadge,
+} from "@/components/verified-owner-badge";
 
 type LeadCardProps = {
   lead: MarketplaceLead;
@@ -67,7 +70,7 @@ export function LeadCard({
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green">
             {lead.propertyType}
           </p>
-          {lead.ownerVerified ? <VerifiedOwnerBadge /> : null}
+          {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
         </div>
         <span className={statusStyle.badgeClassName}>
           {formatPublicStatus(lead.publicStatus)}

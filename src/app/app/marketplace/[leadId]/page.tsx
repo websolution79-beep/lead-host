@@ -22,7 +22,10 @@ import {
 import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { hasAdminPermission } from "@/lib/admin/permissions";
-import { VerifiedOwnerBadge } from "@/components/verified-owner-badge";
+import {
+  StandardLeadBadge,
+  VerifiedOwnerBadge,
+} from "@/components/verified-owner-badge";
 import { MarketplaceBackLink } from "@/components/marketplace-back-link";
 
 type LeadDetailPageProps = {
@@ -85,7 +88,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               <h2 className="mt-3 text-3xl font-semibold text-ink">
                 {lead.propertyType} in zona {lead.district}
               </h2>
-              {lead.ownerVerified ? <VerifiedOwnerBadge /> : null}
+              {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
               <p className="mt-3 text-muted">
                 {lead.city}, {lead.province}
               </p>

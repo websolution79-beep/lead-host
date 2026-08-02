@@ -8,6 +8,7 @@ import {
   RefreshCcw,
   Search,
   ShoppingBag,
+  Sparkles,
   WalletCards,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
@@ -57,6 +58,21 @@ type LeadPurchaseRecord = {
   createdAt: string;
 };
 
+type AddonPaymentRecord = {
+  id: string;
+  productName: string;
+  propertyManagerName: string;
+  propertyManagerEmail: string | null;
+  paymentKind: "initial" | "renewal" | "adjustment";
+  providerInvoiceId: string | null;
+  providerPaymentIntentId: string | null;
+  amountCents: number;
+  currency: string;
+  status: string;
+  paidAt: string | null;
+  createdAt: string;
+};
+
 type PaymentsResponse = {
   stats: {
     topUpsCents: number;
@@ -64,15 +80,18 @@ type PaymentsResponse = {
     refundsCents: number;
     failedPayments: number;
     pendingTopUps: number;
+    addonSalesCents: number;
+    addonFailedPayments: number;
   };
   payments: PaymentRecord[];
   walletTransactions: WalletTransactionRecord[];
   leadPurchases: LeadPurchaseRecord[];
+  addonPayments: AddonPaymentRecord[];
   pagination: PaginationState;
   error?: string;
 };
 
-type ActiveTab = "payments" | "wallet" | "lead_purchases";
+type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments";
 
 const emptyStats: PaymentsResponse["stats"] = {
   topUpsCents: 0,
@@ -80,6 +99,8 @@ const emptyStats: PaymentsResponse["stats"] = {
   refundsCents: 0,
   failedPayments: 0,
   pendingTopUps: 0,
+  addonSalesCents: 0,
+  addonFailedPayments: 0,
 };
 
 const emptyPagination: PaginationState = {
@@ -95,6 +116,7 @@ export function AdminPaymentsConsole() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionRecord[]>([]);
   const [leadPurchases, setLeadPurchases] = useState<LeadPurchaseRecord[]>([]);
+  const [addonPayments, setAddonPayments] = useState<AddonPaymentRecord[]>([]);
   const [stats, setStats] = useState(emptyStats);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -103,6 +125,7 @@ export function AdminPaymentsConsole() {
     payments: 1,
     wallet: 1,
     lead_purchases: 1,
+    addon_payments: 1,
   });
   const [paginationByTab, setPaginationByTab] = useState<
     Record<ActiveTab, PaginationState>
@@ -110,6 +133,7 @@ export function AdminPaymentsConsole() {
     payments: emptyPagination,
     wallet: emptyPagination,
     lead_purchases: emptyPagination,
+    addon_payments: emptyPagination,
   });
   const loadedPageByTab = useRef(new Map<ActiveTab, number>());
 
@@ -159,8 +183,10 @@ export function AdminPaymentsConsole() {
       setPayments(payload.payments ?? []);
     } else if (tab === "wallet") {
       setWalletTransactions(payload.walletTransactions ?? []);
-    } else {
+    } else if (tab === "lead_purchases") {
       setLeadPurchases(payload.leadPurchases ?? []);
+    } else {
+      setAddonPayments(payload.addonPayments ?? []);
     }
     setPaginationByTab((current) => ({
       ...current,
@@ -210,6 +236,17 @@ export function AdminPaymentsConsole() {
       purchase.status,
     ]),
   );
+  const filteredAddonPayments = addonPayments.filter((payment) =>
+    matchesQuery(query, [
+      payment.productName,
+      payment.propertyManagerName,
+      payment.propertyManagerEmail,
+      payment.paymentKind,
+      payment.status,
+      payment.providerInvoiceId,
+      payment.providerPaymentIntentId,
+    ]),
+  );
 
   return (
     <div className="grid gap-5">
@@ -219,6 +256,8 @@ export function AdminPaymentsConsole() {
         <StatCard label="Riaccrediti Wallet" value={formatCents(stats.refundsCents)} tone="amber" />
         <StatCard label="Falliti/annullati" value={String(stats.failedPayments)} tone="red" />
         <StatCard label="Ricariche pending" value={String(stats.pendingTopUps)} tone="slate" />
+        <StatCard label="Modulo Marketing" value={formatCents(stats.addonSalesCents)} tone="blue" />
+        <StatCard label="Insoluti Marketing" value={String(stats.addonFailedPayments)} tone="red" />
       </div>
 
       <section className="card p-4">
@@ -260,6 +299,11 @@ export function AdminPaymentsConsole() {
               active={activeTab === "lead_purchases"}
               label="Acquisti lead"
               onClick={() => setActiveTab("lead_purchases")}
+            />
+            <TabButton
+              active={activeTab === "addon_payments"}
+              label="Modulo Marketing"
+              onClick={() => setActiveTab("addon_payments")}
             />
           </div>
           <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 focus-within:border-green">
@@ -345,6 +389,32 @@ export function AdminPaymentsConsole() {
               .join(" · "),
             meta: formatDateTime(purchase.createdAt),
             tone: purchase.status === "refunded" ? "amber" : "green",
+          }))}
+        />
+      ) : null}
+
+      {!loading && activeTab === "addon_payments" ? (
+        <RecordList
+          emptyText="Nessun pagamento del Modulo Marketing trovato."
+          records={filteredAddonPayments.map((payment) => ({
+            id: payment.id,
+            icon: Sparkles,
+            title: `${payment.productName} · ${formatCents(payment.amountCents)}`,
+            subtitle: [
+              payment.paymentKind === "initial"
+                ? "Prima attivazione"
+                : payment.paymentKind === "renewal"
+                  ? "Rinnovo"
+                  : "Rettifica",
+              payment.propertyManagerName,
+              payment.propertyManagerEmail,
+              statusLabel(payment.status),
+              payment.providerInvoiceId,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+            meta: formatDateTime(payment.paidAt ?? payment.createdAt),
+            tone: payment.status === "paid" ? "green" : "slate",
           }))}
         />
       ) : null}

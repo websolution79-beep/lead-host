@@ -8,6 +8,11 @@ import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { generateWalletTopUpInvoiceSafely } from "@/lib/billing/invoices";
 import { cancelWalletTopUpCouponReservation } from "@/lib/wallet/coupons";
+import {
+  getInvoiceSubscriptionId,
+  syncAddonInvoiceFromStripe,
+  syncAddonSubscriptionFromStripe,
+} from "@/lib/addons/stripe-subscriptions";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -142,6 +147,57 @@ export async function POST(request: NextRequest) {
         event,
         event.type === "checkout.session.expired" ? "cancelled" : "failed",
       );
+    }
+
+    if (
+      event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted" ||
+      event.type === "customer.subscription.paused" ||
+      event.type === "customer.subscription.resumed"
+    ) {
+      const subscription = event.data.object as Stripe.Subscription;
+      const result = await syncAddonSubscriptionFromStripe(subscription, {
+        reason: `Webhook Stripe: ${event.type}`,
+      });
+      return NextResponse.json({ received: true, result });
+    }
+
+    if (
+      event.type === "invoice.paid" ||
+      event.type === "invoice.payment_failed" ||
+      event.type === "invoice.payment_action_required" ||
+      event.type === "invoice.voided" ||
+      event.type === "invoice.marked_uncollectible"
+    ) {
+      const eventInvoice = event.data.object as Stripe.Invoice;
+      if (!eventInvoice.id) return NextResponse.json({ received: true });
+
+      const invoice = await stripe.invoices.retrieve(eventInvoice.id, {
+        expand: ["payments.data.payment.payment_intent"],
+      });
+      const paymentStatus = event.type === "invoice.paid"
+        ? "paid"
+        : event.type === "invoice.payment_action_required"
+          ? "pending"
+        : event.type === "invoice.voided"
+          ? "void"
+          : event.type === "invoice.marked_uncollectible"
+            ? "uncollectible"
+            : "failed";
+      const result = await syncAddonInvoiceFromStripe(invoice, paymentStatus);
+
+      if (!result.ignored) {
+        const stripeSubscriptionId = getInvoiceSubscriptionId(invoice);
+        if (stripeSubscriptionId) {
+          const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+          await syncAddonSubscriptionFromStripe(subscription, {
+            reason: `Webhook Stripe: ${event.type}`,
+          });
+        }
+      }
+
+      return NextResponse.json({ received: true, result });
     }
 
     return NextResponse.json({ received: true });
@@ -318,68 +374,15 @@ async function completeAddonSubscription(
   }
 
   const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-  const supabase = createServiceSupabaseClient();
-  const { data: current, error: currentError } = await supabase
-    .from("addon_subscriptions")
-    .select("id,addon_product_id,profile_id,status,metadata")
-    .eq("id", localSubscriptionId)
-    .single();
-  if (currentError || !current) throw currentError;
-
-  const status = mapStripeSubscriptionStatus(stripeSubscription.status);
-  const customerId = typeof stripeSubscription.customer === "string"
-    ? stripeSubscription.customer
-    : stripeSubscription.customer.id;
-  const priceId = stripeSubscription.items.data[0]?.price.id ?? null;
-  const subscriptionItem = stripeSubscription.items.data[0];
-  const { error: updateError } = await supabase
-    .from("addon_subscriptions")
-    .update({
-      status,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: stripeSubscription.id,
-      stripe_price_id: priceId,
-      trial_started_at: toIsoDate(stripeSubscription.trial_start),
-      trial_ends_at: toIsoDate(stripeSubscription.trial_end),
-      current_period_started_at: toIsoDate(subscriptionItem?.current_period_start ?? null),
-      current_period_ends_at: toIsoDate(subscriptionItem?.current_period_end ?? null),
-      cancel_at_period_end: stripeSubscription.cancel_at_period_end,
-      canceled_at: toIsoDate(stripeSubscription.canceled_at),
-      metadata: {
-        ...toJsonRecord(current.metadata),
-        stripe_checkout_session_id: session.id,
-        stripe_subscription_status: stripeSubscription.status,
-      },
-    })
-    .eq("id", current.id);
-  if (updateError) throw updateError;
-
-  if (stripeSubscription.trial_end) {
-    const { error: trialError } = await supabase.from("addon_trial_usage").upsert(
-      {
-        addon_product_id: current.addon_product_id,
-        profile_id: current.profile_id,
-        subscription_id: current.id,
-        source: "stripe",
-        used_at: new Date().toISOString(),
-      },
-      { onConflict: "addon_product_id,profile_id", ignoreDuplicates: true },
-    );
-    if (trialError) throw trialError;
+  const result = await syncAddonSubscriptionFromStripe(stripeSubscription, {
+    reason: "Stripe Checkout completato",
+    checkoutSessionId: session.id,
+  });
+  if (result.ignored) {
+    throw new Error(`Abbonamento Addon non sincronizzato: ${result.reason}`);
   }
 
-  if (current.status !== status) {
-    await supabase.from("addon_access_events").insert({
-      addon_product_id: current.addon_product_id,
-      subscription_id: current.id,
-      profile_id: current.profile_id,
-      action: status === "trialing" ? "addon.trial_started" : "addon.subscription_started",
-      reason: "Stripe Checkout completato",
-      metadata: { stripe_checkout_session_id: session.id },
-    });
-  }
-
-  return { status, subscriptionId: current.id };
+  return { status: result.status, subscriptionId: result.id };
 }
 
 async function expireAddonCheckout(session: Stripe.Checkout.Session) {
@@ -397,18 +400,4 @@ async function expireAddonCheckout(session: Stripe.Checkout.Session) {
     .eq("id", subscriptionId)
     .eq("status", "incomplete");
   if (error) throw error;
-}
-
-function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status) {
-  if (status === "incomplete_expired") return "expired" as const;
-  if (status === "canceled") return "canceled" as const;
-  return status;
-}
-
-function toIsoDate(value: number | null) {
-  return value ? new Date(value * 1000).toISOString() : null;
-}
-
-function toJsonRecord(value: Json) {
-  return value && !Array.isArray(value) && typeof value === "object" ? value : {};
 }

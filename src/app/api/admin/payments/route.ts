@@ -39,6 +39,19 @@ type LeadPurchaseRow = {
   created_at: string;
 };
 
+type AddonPaymentRow = {
+  id: string;
+  profile_id: string;
+  payment_kind: "initial" | "renewal" | "adjustment";
+  provider_invoice_id: string | null;
+  provider_payment_intent_id: string | null;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+};
+
 type PaymentQueryResult<T> = {
   data: T[] | null;
   error: { message?: string } | null;
@@ -60,7 +73,7 @@ type PaymentsTable = {
   };
 };
 
-type ActiveTab = "payments" | "wallet" | "lead_purchases";
+type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments";
 
 export async function GET(request: NextRequest) {
   try {
@@ -68,7 +81,9 @@ export async function GET(request: NextRequest) {
     const pagination = readPagination(request.nextUrl.searchParams);
     const requestedTab = request.nextUrl.searchParams.get("tab");
     const activeTab: ActiveTab =
-      requestedTab === "wallet" || requestedTab === "lead_purchases"
+      requestedTab === "wallet" ||
+      requestedTab === "lead_purchases" ||
+      requestedTab === "addon_payments"
         ? requestedTab
         : "payments";
     const paymentsTable = supabase.from("payments" as never) as unknown as PaymentsTable;
@@ -77,6 +92,7 @@ export async function GET(request: NextRequest) {
       paymentStatsResult,
       walletStatsResult,
       purchaseStatsResult,
+      addonStatsResult,
       activeResult,
     ] = await Promise.all([
       paymentsTable.select("status").limit(1000),
@@ -86,6 +102,10 @@ export async function GET(request: NextRequest) {
         .limit(1000),
       supabase
         .from("lead_purchases")
+        .select("status,amount_cents")
+        .limit(1000),
+      supabase
+        .from("addon_payments")
         .select("status,amount_cents")
         .limit(1000),
       fetchActiveRows(
@@ -100,6 +120,7 @@ export async function GET(request: NextRequest) {
     if (paymentStatsResult.error) throw paymentStatsResult.error;
     if (walletStatsResult.error) throw walletStatsResult.error;
     if (purchaseStatsResult.error) throw purchaseStatsResult.error;
+    if (addonStatsResult.error) throw addonStatsResult.error;
     if (activeResult.error) throw activeResult.error;
 
     const walletStats = walletStatsResult.data ?? [];
@@ -113,6 +134,7 @@ export async function GET(request: NextRequest) {
     const activeLeadPurchases = purchaseStats.filter((item) =>
       ["paid", "contact_unlocked"].includes(item.status),
     );
+    const addonStats = addonStatsResult.data ?? [];
     const payments =
       activeTab === "payments" ? (activeResult.data as PaymentRow[]) : [];
     const walletTransactions =
@@ -123,6 +145,10 @@ export async function GET(request: NextRequest) {
       activeTab === "lead_purchases"
         ? (activeResult.data as LeadPurchaseRow[])
         : [];
+    const addonPayments =
+      activeTab === "addon_payments"
+        ? (activeResult.data as AddonPaymentRow[])
+        : [];
 
     const paymentTransactionByReference =
       activeTab === "payments"
@@ -132,6 +158,7 @@ export async function GET(request: NextRequest) {
       new Set(
         [
           ...walletTransactions.map((item) => item.profile_id),
+          ...addonPayments.map((item) => item.profile_id),
           ...Array.from(paymentTransactionByReference.values()).map(
             (item) => item.profile_id,
           ),
@@ -210,6 +237,14 @@ export async function GET(request: NextRequest) {
           pendingTopUps: walletStats.filter(
             (item) => item.type === "top_up" && item.status === "pending",
           ).length,
+          addonSalesCents: sumCents(
+            addonStats
+              .filter((item) => item.status === "paid")
+              .map((item) => item.amount_cents),
+          ),
+          addonFailedPayments: addonStats.filter((item) =>
+            ["failed", "uncollectible"].includes(item.status),
+          ).length,
         },
         pagination: buildPagination(
           pagination.page,
@@ -283,6 +318,23 @@ export async function GET(request: NextRequest) {
             createdAt: purchase.created_at,
           };
         }),
+        addonPayments: addonPayments.map((payment) => {
+          const profile = profilesById.get(payment.profile_id);
+          return {
+            id: payment.id,
+            productName: "Modulo Marketing",
+            propertyManagerName: formatProfileName(profile, "Property Manager"),
+            propertyManagerEmail: profile?.email ?? null,
+            paymentKind: payment.payment_kind,
+            providerInvoiceId: payment.provider_invoice_id,
+            providerPaymentIntentId: payment.provider_payment_intent_id,
+            amountCents: payment.amount_cents,
+            currency: payment.currency,
+            status: payment.status,
+            paidAt: payment.paid_at,
+            createdAt: payment.created_at,
+          };
+        }),
       },
       {
         headers: {
@@ -317,6 +369,17 @@ async function fetchActiveRows(
       .from("wallet_transactions")
       .select(
         "id,profile_id,type,status,amount_cents,balance_after_cents,description,provider,provider_reference,lead_purchase_id,created_at,completed_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .range(from, to);
+  }
+
+  if (activeTab === "addon_payments") {
+    return supabase
+      .from("addon_payments")
+      .select(
+        "id,profile_id,payment_kind,provider_invoice_id,provider_payment_intent_id,amount_cents,currency,status,paid_at,created_at",
         { count: "exact" },
       )
       .order("created_at", { ascending: false })

@@ -4,12 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CreditCard,
+  ExternalLink,
   ReceiptText,
   RefreshCcw,
   Search,
   ShoppingBag,
   Sparkles,
+  UserRound,
   WalletCards,
+  X,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCents } from "@/lib/config/commercial";
@@ -58,19 +61,94 @@ type LeadPurchaseRecord = {
   createdAt: string;
 };
 
-type AddonPaymentRecord = {
+type AddonCustomerRecord = {
   id: string;
+  profileId: string;
   productName: string;
   propertyManagerName: string;
   propertyManagerEmail: string | null;
+  status: string;
+  source: "stripe" | "manual";
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  stripePriceId: string | null;
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
+  currentPeriodStartedAt: string | null;
+  currentPeriodEndsAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  canceledAt: string | null;
+  accessExpiresAt: string | null;
+  nextChargeAt: string | null;
+  nextChargeCents: number | null;
+  currency: string;
+  paymentCount: number;
+  totalPaidCents: number;
+  lastPaymentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AddonPaymentDetail = {
+  id: string;
   paymentKind: "initial" | "renewal" | "adjustment";
+  provider: string;
   providerInvoiceId: string | null;
   providerPaymentIntentId: string | null;
   amountCents: number;
   currency: string;
   status: string;
+  billingPeriodStartedAt: string | null;
+  billingPeriodEndsAt: string | null;
   paidAt: string | null;
   createdAt: string;
+  invoiceNumber: string | null;
+  hostedInvoiceUrl: string | null;
+  invoicePdfUrl: string | null;
+};
+
+type AddonCustomerDetail = {
+  customer: {
+    profileId: string;
+    name: string;
+    companyName: string | null;
+    email: string;
+    phone: string | null;
+    accountStatus: string;
+    registeredAt: string;
+  };
+  product: {
+    name: string;
+    salePriceCents: number | null;
+    currency: string;
+    billingInterval: string;
+    billingIntervalCount: number;
+  };
+  subscription: {
+    id: string;
+    status: string;
+    source: "stripe" | "manual";
+    stripeCustomerId: string | null;
+    stripeSubscriptionId: string | null;
+    stripePriceId: string | null;
+    trialStartedAt: string | null;
+    trialEndsAt: string | null;
+    currentPeriodStartedAt: string | null;
+    currentPeriodEndsAt: string | null;
+    cancelAtPeriodEnd: boolean;
+    canceledAt: string | null;
+    accessExpiresAt: string | null;
+    nextChargeAt: string | null;
+    nextChargeCents: number | null;
+    manualReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  summary: {
+    paymentCount: number;
+    totalPaidCents: number;
+  };
+  payments: AddonPaymentDetail[];
 };
 
 type PaymentsResponse = {
@@ -86,7 +164,7 @@ type PaymentsResponse = {
   payments: PaymentRecord[];
   walletTransactions: WalletTransactionRecord[];
   leadPurchases: LeadPurchaseRecord[];
-  addonPayments: AddonPaymentRecord[];
+  addonCustomers: AddonCustomerRecord[];
   pagination: PaginationState;
   error?: string;
 };
@@ -116,7 +194,11 @@ export function AdminPaymentsConsole() {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionRecord[]>([]);
   const [leadPurchases, setLeadPurchases] = useState<LeadPurchaseRecord[]>([]);
-  const [addonPayments, setAddonPayments] = useState<AddonPaymentRecord[]>([]);
+  const [addonCustomers, setAddonCustomers] = useState<AddonCustomerRecord[]>([]);
+  const [selectedAddonCustomer, setSelectedAddonCustomer] =
+    useState<AddonCustomerDetail | null>(null);
+  const [addonDetailLoading, setAddonDetailLoading] = useState(false);
+  const [addonDetailError, setAddonDetailError] = useState("");
   const [stats, setStats] = useState(emptyStats);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -186,7 +268,7 @@ export function AdminPaymentsConsole() {
     } else if (tab === "lead_purchases") {
       setLeadPurchases(payload.leadPurchases ?? []);
     } else {
-      setAddonPayments(payload.addonPayments ?? []);
+      setAddonCustomers(payload.addonCustomers ?? []);
     }
     setPaginationByTab((current) => ({
       ...current,
@@ -236,17 +318,53 @@ export function AdminPaymentsConsole() {
       purchase.status,
     ]),
   );
-  const filteredAddonPayments = addonPayments.filter((payment) =>
+  const filteredAddonCustomers = addonCustomers.filter((customer) =>
     matchesQuery(query, [
-      payment.productName,
-      payment.propertyManagerName,
-      payment.propertyManagerEmail,
-      payment.paymentKind,
-      payment.status,
-      payment.providerInvoiceId,
-      payment.providerPaymentIntentId,
+      customer.productName,
+      customer.propertyManagerName,
+      customer.propertyManagerEmail,
+      customer.status,
+      customer.stripeCustomerId,
+      customer.stripeSubscriptionId,
     ]),
   );
+
+  const openAddonCustomer = useCallback(async (subscriptionId: string) => {
+    const token = await getAccessToken();
+    setSelectedAddonCustomer(null);
+    setAddonDetailError("");
+    setAddonDetailLoading(true);
+
+    if (!token) {
+      setAddonDetailError("Sessione admin non trovata.");
+      setAddonDetailLoading(false);
+      return;
+    }
+
+    const response = await fetch(
+      `/api/admin/payments/addons/${subscriptionId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      },
+    ).catch(() => null);
+    const payload = response
+      ? ((await response.json().catch(() => ({}))) as AddonCustomerDetail & {
+          error?: string;
+        })
+      : null;
+
+    if (!response?.ok || !payload) {
+      setAddonDetailError(
+        payload?.error ?? "Non riesco a caricare il dettaglio dell'abbonamento.",
+      );
+      setAddonDetailLoading(false);
+      return;
+    }
+
+    setSelectedAddonCustomer(payload);
+    setAddonDetailLoading(false);
+  }, [getAccessToken]);
 
   return (
     <div className="grid gap-5">
@@ -394,29 +512,7 @@ export function AdminPaymentsConsole() {
       ) : null}
 
       {!loading && activeTab === "addon_payments" ? (
-        <RecordList
-          emptyText="Nessun pagamento del Modulo Marketing trovato."
-          records={filteredAddonPayments.map((payment) => ({
-            id: payment.id,
-            icon: Sparkles,
-            title: `${payment.productName} · ${formatCents(payment.amountCents)}`,
-            subtitle: [
-              payment.paymentKind === "initial"
-                ? "Prima attivazione"
-                : payment.paymentKind === "renewal"
-                  ? "Rinnovo"
-                  : "Rettifica",
-              payment.propertyManagerName,
-              payment.propertyManagerEmail,
-              statusLabel(payment.status),
-              payment.providerInvoiceId,
-            ]
-              .filter(Boolean)
-              .join(" · "),
-            meta: formatDateTime(payment.paidAt ?? payment.createdAt),
-            tone: payment.status === "paid" ? "green" : "slate",
-          }))}
-        />
+        <AddonCustomerList customers={filteredAddonCustomers} onOpen={openAddonCustomer} />
       ) : null}
 
       {!loading && paginationByTab[activeTab].totalPages > 1 ? (
@@ -433,6 +529,252 @@ export function AdminPaymentsConsole() {
           />
         </section>
       ) : null}
+
+      {selectedAddonCustomer || addonDetailLoading || addonDetailError ? (
+        <AddonCustomerDrawer
+          detail={selectedAddonCustomer}
+          loading={addonDetailLoading}
+          error={addonDetailError}
+          onClose={() => {
+            setSelectedAddonCustomer(null);
+            setAddonDetailError("");
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function AddonCustomerList({
+  customers,
+  onOpen,
+}: {
+  customers: AddonCustomerRecord[];
+  onOpen: (subscriptionId: string) => void;
+}) {
+  if (!customers.length) {
+    return (
+      <section className="card p-8 text-center text-muted">
+        Nessun cliente del Modulo Marketing trovato.
+      </section>
+    );
+  }
+
+  return (
+    <section className="grid gap-3">
+      {customers.map((customer) => {
+        const isTrial = customer.status === "trialing";
+        const nextChargeLabel = isTrial ? "Primo pagamento" : "Prossimo rinnovo";
+
+        return (
+          <article
+            key={customer.id}
+            className="card grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+          >
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="mt-0.5 rounded-lg bg-green/10 p-2 text-green">
+                <Sparkles size={18} />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="break-words font-semibold text-ink">
+                    {customer.propertyManagerName}
+                  </h3>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${addonStatusClassName(customer.status)}`}>
+                    {addonStatusLabel(customer.status)}
+                  </span>
+                  {customer.cancelAtPeriodEnd ? (
+                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700">
+                      Disdetta programmata
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 break-all text-sm text-muted">
+                  {customer.propertyManagerEmail ?? "Email non disponibile"}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                  {customer.nextChargeAt && customer.nextChargeCents !== null ? (
+                    <p className={isTrial ? "font-bold text-blue-700" : "font-semibold text-ink"}>
+                      {nextChargeLabel}: {formatDate(customer.nextChargeAt)} · {formatCents(customer.nextChargeCents)}
+                    </p>
+                  ) : (
+                    <p className="font-semibold text-muted">
+                      Nessun addebito futuro programmato
+                    </p>
+                  )}
+                  <p className="text-muted">
+                    Incassato: <strong className="text-ink">{formatCents(customer.totalPaidCents)}</strong>
+                  </p>
+                  <p className="text-muted">
+                    Transazioni: <strong className="text-ink">{customer.paymentCount}</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button className="btn btn-secondary w-full lg:w-auto" type="button" onClick={() => onOpen(customer.id)}>
+              <UserRound size={16} />
+              Dettaglio e transazioni
+            </button>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
+function AddonCustomerDrawer({
+  detail,
+  loading,
+  error,
+  onClose,
+}: {
+  detail: AddonCustomerDetail | null;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-label="Dettaglio abbonamento Modulo Marketing">
+      <button className="absolute inset-0 cursor-default" type="button" aria-label="Chiudi dettaglio" onClick={onClose} />
+      <section className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl sm:max-w-4xl sm:rounded-xl">
+        <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
+          <div>
+            <p className="section-kicker">Modulo Marketing</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">
+              {detail?.customer.name ?? "Dettaglio cliente"}
+            </h2>
+            {detail?.customer.email ? <p className="mt-1 break-all text-sm text-muted">{detail.customer.email}</p> : null}
+          </div>
+          <button className="btn btn-secondary h-10 w-10 shrink-0 p-0" type="button" onClick={onClose} aria-label="Chiudi">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="overflow-y-auto p-4 sm:p-5">
+          {loading ? <div className="py-12 text-center text-muted">Carico il dettaglio...</div> : null}
+          {!loading && error ? (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              <AlertTriangle size={17} className="mt-0.5 shrink-0" />
+              {error}
+            </div>
+          ) : null}
+          {!loading && detail ? <AddonCustomerDetailContent detail={detail} /> : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AddonCustomerDetailContent({ detail }: { detail: AddonCustomerDetail }) {
+  const { customer, product, subscription, summary, payments } = detail;
+  const isTrial = subscription.status === "trialing";
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <DetailMetric label="Stato" value={addonStatusLabel(subscription.status)} />
+        <DetailMetric
+          label={isTrial ? "Fine prova gratuita" : "Scadenza periodo"}
+          value={formatDate(subscription.trialEndsAt ?? subscription.currentPeriodEndsAt ?? subscription.accessExpiresAt)}
+        />
+        <DetailMetric
+          label={isTrial ? "Primo pagamento" : "Prossimo addebito"}
+          value={subscription.nextChargeAt && subscription.nextChargeCents !== null
+            ? `${formatDate(subscription.nextChargeAt)} · ${formatCents(subscription.nextChargeCents)}`
+            : "Non programmato"}
+        />
+        <DetailMetric label="Totale incassato" value={formatCents(summary.totalPaidCents)} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-lg border border-slate-200 p-4">
+          <h3 className="font-semibold text-ink">Cliente</h3>
+          <dl className="mt-3 grid gap-3 text-sm">
+            <DetailRow label="Nome" value={customer.name} />
+            <DetailRow label="Società" value={customer.companyName} />
+            <DetailRow label="Email" value={customer.email} />
+            <DetailRow label="Telefono" value={customer.phone} />
+            <DetailRow label="Stato account" value={statusLabel(customer.accountStatus)} />
+            <DetailRow label="Registrato il" value={formatDateTime(customer.registeredAt)} />
+          </dl>
+        </section>
+        <section className="rounded-lg border border-slate-200 p-4">
+          <h3 className="font-semibold text-ink">Abbonamento</h3>
+          <dl className="mt-3 grid gap-3 text-sm">
+            <DetailRow label="Prodotto" value={product.name} />
+            <DetailRow label="Prezzo mensile" value={formatCents(product.salePriceCents ?? 0)} />
+            <DetailRow label="Origine" value={subscription.source === "stripe" ? "Stripe" : "Assegnazione manuale"} />
+            <DetailRow label="Cliente Stripe" value={subscription.stripeCustomerId} />
+            <DetailRow label="Abbonamento Stripe" value={subscription.stripeSubscriptionId} />
+            <DetailRow label="Price Stripe" value={subscription.stripePriceId} />
+            {subscription.manualReason ? <DetailRow label="Nota accesso" value={subscription.manualReason} /> : null}
+          </dl>
+        </section>
+      </div>
+
+      <section>
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="section-kicker">Storico economico</p>
+            <h3 className="mt-1 text-lg font-semibold text-ink">Transazioni Modulo Marketing</h3>
+          </div>
+          <span className="text-sm font-semibold text-muted">{summary.paymentCount} transazioni</span>
+        </div>
+        {payments.length ? (
+          <div className="mt-3 grid gap-3">
+            {payments.map((payment) => (
+              <article key={payment.id} className="rounded-lg border border-slate-200 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-ink">{paymentKindLabel(payment.paymentKind)}</p>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${paymentStatusClassName(payment.status)}`}>
+                        {statusLabel(payment.status)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted">{formatDateTime(payment.paidAt ?? payment.createdAt)}</p>
+                  </div>
+                  <p className="text-lg font-semibold text-ink">{formatCents(payment.amountCents)}</p>
+                </div>
+                <div className="mt-3 grid gap-1 text-sm text-muted sm:grid-cols-2">
+                  <p>Fattura: <span className="break-all font-medium text-ink">{payment.invoiceNumber ?? payment.providerInvoiceId ?? "Non disponibile"}</span></p>
+                  <p>Periodo: <span className="font-medium text-ink">{formatBillingPeriod(payment.billingPeriodStartedAt, payment.billingPeriodEndsAt)}</span></p>
+                </div>
+                {payment.hostedInvoiceUrl || payment.invoicePdfUrl ? (
+                  <a className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-green hover:underline" href={payment.hostedInvoiceUrl ?? payment.invoicePdfUrl ?? "#"} target="_blank" rel="noreferrer">
+                    <ExternalLink size={15} />
+                    Apri documento Stripe
+                  </a>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-muted">
+            {isTrial
+              ? `Nessun pagamento ancora registrato. Il primo addebito è previsto il ${formatDate(subscription.nextChargeAt)}.`
+              : "Nessuna transazione registrata per questo abbonamento."}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-4">
+      <p className="text-xs font-bold uppercase text-muted">{label}</p>
+      <p className="mt-2 break-words font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="grid gap-1 sm:grid-cols-[130px_minmax(0,1fr)]">
+      <dt className="font-semibold text-muted">{label}</dt>
+      <dd className="break-all text-ink">{value || "Non disponibile"}</dd>
     </div>
   );
 }
@@ -557,9 +899,56 @@ function statusLabel(status: string) {
     paid: "Pagato",
     contact_unlocked: "Contatto sbloccato",
     refunded: "Riaccreditato",
+    active: "Attivo",
+    suspended: "Sospeso",
+    trialing: "Prova gratuita",
+    past_due: "Pagamento in ritardo",
+    unpaid: "Non pagato",
+    incomplete: "Incompleto",
+    incomplete_expired: "Attivazione scaduta",
   };
 
   return labels[status] ?? status;
+}
+
+function addonStatusLabel(status: string) {
+  return statusLabel(status);
+}
+
+function addonStatusClassName(status: string) {
+  if (["active", "trialing"].includes(status)) return "bg-green/10 text-green";
+  if (["past_due", "incomplete"].includes(status)) return "bg-amber-50 text-amber-700";
+  if (["unpaid", "incomplete_expired"].includes(status)) return "bg-red-50 text-red-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function paymentStatusClassName(status: string) {
+  if (status === "paid") return "bg-green/10 text-green";
+  if (["failed", "uncollectible"].includes(status)) return "bg-red-50 text-red-700";
+  return "bg-slate-100 text-slate-700";
+}
+
+function paymentKindLabel(kind: AddonPaymentDetail["paymentKind"]) {
+  if (kind === "initial") return "Prima attivazione";
+  if (kind === "renewal") return "Rinnovo";
+  return "Rettifica";
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Non disponibile";
+
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatBillingPeriod(start: string | null, end: string | null) {
+  if (!start && !end) return "Non disponibile";
+  if (!start) return `fino al ${formatDate(end)}`;
+  if (!end) return `dal ${formatDate(start)}`;
+  return `${formatDate(start)} - ${formatDate(end)}`;
 }
 
 function formatSignedCents(value: number) {

@@ -41,6 +41,7 @@ type LeadPurchaseRow = {
 
 type AddonPaymentRow = {
   id: string;
+  subscription_id: string | null;
   profile_id: string;
   payment_kind: "initial" | "renewal" | "adjustment";
   provider_invoice_id: string | null;
@@ -50,6 +51,33 @@ type AddonPaymentRow = {
   status: string;
   paid_at: string | null;
   created_at: string;
+};
+
+type AddonSubscriptionRow = {
+  id: string;
+  addon_product_id: string;
+  profile_id: string;
+  status: string;
+  source: "stripe" | "manual";
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_price_id: string | null;
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+  current_period_started_at: string | null;
+  current_period_ends_at: string | null;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
+  access_expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type AddonProductRow = {
+  id: string;
+  name: string;
+  sale_price_cents: number | null;
+  currency: string;
 };
 
 type PaymentQueryResult<T> = {
@@ -145,9 +173,9 @@ export async function GET(request: NextRequest) {
       activeTab === "lead_purchases"
         ? (activeResult.data as LeadPurchaseRow[])
         : [];
-    const addonPayments =
+    const addonSubscriptions =
       activeTab === "addon_payments"
-        ? (activeResult.data as AddonPaymentRow[])
+        ? (activeResult.data as AddonSubscriptionRow[])
         : [];
 
     const paymentTransactionByReference =
@@ -158,7 +186,7 @@ export async function GET(request: NextRequest) {
       new Set(
         [
           ...walletTransactions.map((item) => item.profile_id),
-          ...addonPayments.map((item) => item.profile_id),
+          ...addonSubscriptions.map((item) => item.profile_id),
           ...Array.from(paymentTransactionByReference.values()).map(
             (item) => item.profile_id,
           ),
@@ -171,8 +199,18 @@ export async function GET(request: NextRequest) {
     const leadIds = Array.from(
       new Set(leadPurchases.map((item) => item.lead_id)),
     );
+    const addonProductIds = Array.from(
+      new Set(addonSubscriptions.map((item) => item.addon_product_id)),
+    );
+    const addonSubscriptionIds = addonSubscriptions.map((item) => item.id);
 
-    const [profilesResult, managersResult, leadsResult] = await Promise.all([
+    const [
+      profilesResult,
+      managersResult,
+      leadsResult,
+      addonProductsResult,
+      addonPagePaymentsResult,
+    ] = await Promise.all([
       profileIds.length
         ? supabase
             .from("profiles")
@@ -188,11 +226,27 @@ export async function GET(request: NextRequest) {
       leadIds.length
         ? supabase.from("leads").select("id,title").in("id", leadIds)
         : Promise.resolve({ data: [], error: null }),
+      addonProductIds.length
+        ? supabase
+            .from("addon_products")
+            .select("id,name,sale_price_cents,currency")
+            .in("id", addonProductIds)
+        : Promise.resolve({ data: [], error: null }),
+      addonSubscriptionIds.length
+        ? supabase
+            .from("addon_payments")
+            .select(
+              "id,subscription_id,profile_id,payment_kind,provider_invoice_id,provider_payment_intent_id,amount_cents,currency,status,paid_at,created_at",
+            )
+            .in("subscription_id", addonSubscriptionIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     if (profilesResult.error) throw profilesResult.error;
     if (managersResult.error) throw managersResult.error;
     if (leadsResult.error) throw leadsResult.error;
+    if (addonProductsResult.error) throw addonProductsResult.error;
+    if (addonPagePaymentsResult.error) throw addonPagePaymentsResult.error;
 
     const managerProfileIds = Array.from(
       new Set((managersResult.data ?? []).map((item) => item.profile_id)),
@@ -218,6 +272,19 @@ export async function GET(request: NextRequest) {
     const leadTitleById = new Map(
       (leadsResult.data ?? []).map((item) => [item.id, item.title]),
     );
+    const addonProductsById = new Map(
+      ((addonProductsResult.data ?? []) as AddonProductRow[]).map((item) => [
+        item.id,
+        item,
+      ]),
+    );
+    const addonPaymentsBySubscription = new Map<string, AddonPaymentRow[]>();
+    for (const payment of (addonPagePaymentsResult.data ?? []) as AddonPaymentRow[]) {
+      if (!payment.subscription_id) continue;
+      const current = addonPaymentsBySubscription.get(payment.subscription_id) ?? [];
+      current.push(payment);
+      addonPaymentsBySubscription.set(payment.subscription_id, current);
+    }
 
     return NextResponse.json(
       {
@@ -318,21 +385,58 @@ export async function GET(request: NextRequest) {
             createdAt: purchase.created_at,
           };
         }),
-        addonPayments: addonPayments.map((payment) => {
-          const profile = profilesById.get(payment.profile_id);
+        addonCustomers: addonSubscriptions.map((subscription) => {
+          const profile = profilesById.get(subscription.profile_id);
+          const product = addonProductsById.get(subscription.addon_product_id);
+          const subscriptionPayments =
+            addonPaymentsBySubscription.get(subscription.id) ?? [];
+          const paidPayments = subscriptionPayments.filter(
+            (payment) => payment.status === "paid",
+          );
+          const lastPayment = [...paidPayments].sort((left, right) =>
+            (right.paid_at ?? right.created_at).localeCompare(
+              left.paid_at ?? left.created_at,
+            ),
+          )[0];
+          const hasNextCharge =
+            subscription.source === "stripe" &&
+            !subscription.cancel_at_period_end &&
+            ["trialing", "active", "past_due"].includes(subscription.status);
+
           return {
-            id: payment.id,
-            productName: "Modulo Marketing",
+            id: subscription.id,
+            profileId: subscription.profile_id,
+            productName: product?.name ?? "Modulo Marketing",
             propertyManagerName: formatProfileName(profile, "Property Manager"),
             propertyManagerEmail: profile?.email ?? null,
-            paymentKind: payment.payment_kind,
-            providerInvoiceId: payment.provider_invoice_id,
-            providerPaymentIntentId: payment.provider_payment_intent_id,
-            amountCents: payment.amount_cents,
-            currency: payment.currency,
-            status: payment.status,
-            paidAt: payment.paid_at,
-            createdAt: payment.created_at,
+            status: subscription.status,
+            source: subscription.source,
+            stripeCustomerId: subscription.stripe_customer_id,
+            stripeSubscriptionId: subscription.stripe_subscription_id,
+            stripePriceId: subscription.stripe_price_id,
+            trialStartedAt: subscription.trial_started_at,
+            trialEndsAt: subscription.trial_ends_at,
+            currentPeriodStartedAt: subscription.current_period_started_at,
+            currentPeriodEndsAt: subscription.current_period_ends_at,
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+            canceledAt: subscription.canceled_at,
+            accessExpiresAt: subscription.access_expires_at,
+            nextChargeAt: hasNextCharge
+              ? subscription.status === "trialing"
+                ? subscription.trial_ends_at
+                : subscription.current_period_ends_at
+              : null,
+            nextChargeCents: hasNextCharge
+              ? product?.sale_price_cents ?? null
+              : null,
+            currency: product?.currency ?? "eur",
+            paymentCount: paidPayments.length,
+            totalPaidCents: sumCents(
+              paidPayments.map((payment) => payment.amount_cents),
+            ),
+            lastPaymentAt: lastPayment?.paid_at ?? lastPayment?.created_at ?? null,
+            createdAt: subscription.created_at,
+            updatedAt: subscription.updated_at,
           };
         }),
       },
@@ -377,12 +481,12 @@ async function fetchActiveRows(
 
   if (activeTab === "addon_payments") {
     return supabase
-      .from("addon_payments")
+      .from("addon_subscriptions")
       .select(
-        "id,profile_id,payment_kind,provider_invoice_id,provider_payment_intent_id,amount_cents,currency,status,paid_at,created_at",
+        "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,created_at,updated_at",
         { count: "exact" },
       )
-      .order("created_at", { ascending: false })
+      .order("updated_at", { ascending: false })
       .range(from, to);
   }
 

@@ -147,6 +147,15 @@ function getSampleVariables(
     property_hint: "un appartamento a Roma",
     completion_url: "https://www.leadhost.it/completa-richiesta/token-di-test",
     expires_at: "05 agosto 2026",
+    trial_days: 14,
+    trial_end_date: "19 agosto 2026",
+    first_payment_date: "19 agosto 2026",
+    first_payment_amount: "19,90 €",
+    addon_name: "Modulo Marketing",
+    subscription_status: "In prova",
+    customer_name: "Luca Card",
+    customer_email: "businesspronto.it@gmail.com",
+    subscription_id: "sub_test_marketing_001",
     template_id: templateId,
   };
 }

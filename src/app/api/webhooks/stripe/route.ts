@@ -1,7 +1,10 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getEnv } from "@/lib/env";
-import { sendWalletTopUpEmail } from "@/lib/email/notifications";
+import {
+  sendMarketingAddonActivationEmails,
+  sendWalletTopUpEmail,
+} from "@/lib/email/notifications";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
@@ -12,6 +15,7 @@ import {
   getInvoiceSubscriptionId,
   syncAddonInvoiceFromStripe,
   syncAddonSubscriptionFromStripe,
+  toIsoDate,
 } from "@/lib/addons/stripe-subscriptions";
 
 type TopUpCompletionResult = {
@@ -99,6 +103,17 @@ export async function POST(request: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.metadata?.kind === "addon_subscription") {
         const result = await completeAddonSubscription(stripe, session);
+        after(async () => {
+          await sendMarketingAddonActivationEmails({
+            profileId: result.profileId,
+            subscriptionId: result.subscriptionId,
+            addonProductId: result.addonProductId,
+            status: result.status,
+            trialDays: Number(session.metadata?.trial_days_requested ?? 0),
+            trialEndsAt: result.trialEndsAt,
+            occurredAt: new Date(event.created * 1000).toISOString(),
+          });
+        });
         return NextResponse.json({ received: true, result });
       }
 
@@ -382,7 +397,13 @@ async function completeAddonSubscription(
     throw new Error(`Abbonamento Addon non sincronizzato: ${result.reason}`);
   }
 
-  return { status: result.status, subscriptionId: result.id };
+  return {
+    status: result.status,
+    subscriptionId: result.id,
+    profileId: result.profileId,
+    addonProductId: result.addonProductId,
+    trialEndsAt: toIsoDate(stripeSubscription.trial_end),
+  };
 }
 
 async function expireAddonCheckout(session: Stripe.Checkout.Session) {

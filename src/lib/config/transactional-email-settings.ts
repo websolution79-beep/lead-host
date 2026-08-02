@@ -16,6 +16,8 @@ export const transactionalEmailTemplateIds = [
   "admin.support_request_pending",
   "admin.support_request_reply",
   "support.reply",
+  "addon.marketing_activated",
+  "admin.addon_marketing_activated",
 ] as const;
 
 export type TransactionalEmailTemplateId =
@@ -234,6 +236,57 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
       "request_subject",
       "reply",
       "lead_context",
+    ],
+  },
+  {
+    id: "addon.marketing_activated",
+    label: "Modulo Marketing attivato",
+    description: "Invio al PM quando il trial o l'abbonamento del Modulo Marketing viene attivato.",
+    enabled: true,
+    subject: "Modulo Marketing attivato su Lead Host",
+    preview: "La tua prova gratuita del Modulo Marketing è iniziata.",
+    title: "Modulo Marketing attivato{{first_name_suffix}}.",
+    body:
+      "Il Modulo Marketing è ora disponibile nel tuo account Lead Host. Puoi utilizzare CRM e Rendita Stimata durante il periodo di prova.",
+    extra:
+      "Prova gratuita: {{trial_days}} giorni. Scadenza prova: {{trial_end_date}}. Primo pagamento: {{first_payment_amount}} il {{first_payment_date}}.",
+    ctaLabel: "Apri il Modulo Marketing",
+    ctaUrl: "/app/marketing",
+    variables: [
+      "first_name",
+      "first_name_suffix",
+      "addon_name",
+      "trial_days",
+      "trial_end_date",
+      "first_payment_date",
+      "first_payment_amount",
+      "subscription_status",
+    ],
+  },
+  {
+    id: "admin.addon_marketing_activated",
+    label: "Nuovo cliente Modulo Marketing",
+    description: "Invio ai Super Admin quando un PM attiva il trial o l'abbonamento del Modulo Marketing.",
+    enabled: true,
+    subject: "Nuovo cliente Modulo Marketing: {{customer_name}}",
+    preview: "Un Property Manager ha attivato il Modulo Marketing.",
+    title: "Nuova attivazione Modulo Marketing.",
+    body:
+      "{{customer_name}} ({{customer_email}}) ha attivato il Modulo Marketing con stato {{subscription_status}}.",
+    extra:
+      "Prova: {{trial_days}} giorni. Scadenza prova: {{trial_end_date}}. Primo pagamento: {{first_payment_amount}} il {{first_payment_date}}. ID abbonamento: {{subscription_id}}.",
+    ctaLabel: "Apri pagamenti admin",
+    ctaUrl: "/admin/pagamenti",
+    variables: [
+      "customer_name",
+      "customer_email",
+      "addon_name",
+      "trial_days",
+      "trial_end_date",
+      "first_payment_date",
+      "first_payment_amount",
+      "subscription_status",
+      "subscription_id",
     ],
   },
 ];

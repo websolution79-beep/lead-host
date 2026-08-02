@@ -364,6 +364,106 @@ export async function sendWalletTopUpEmail({
   });
 }
 
+export async function sendMarketingAddonActivationEmails({
+  profileId,
+  subscriptionId,
+  addonProductId,
+  status,
+  trialDays,
+  trialEndsAt,
+  occurredAt,
+}: {
+  profileId: string;
+  subscriptionId: string;
+  addonProductId: string;
+  status: string;
+  trialDays: number;
+  trialEndsAt: string | null;
+  occurredAt: string;
+}) {
+  const supabase = createServiceSupabaseClient();
+  const [{ data: profile, error: profileError }, { data: product, error: productError }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id,email,first_name,last_name,status")
+        .eq("id", profileId)
+        .maybeSingle(),
+      supabase
+        .from("addon_products")
+        .select("name,sale_price_cents,currency")
+        .eq("id", addonProductId)
+        .maybeSingle(),
+    ]);
+
+  if (profileError || productError) {
+    throw new Error(profileError?.message ?? productError?.message ?? "Dati Modulo Marketing non disponibili.");
+  }
+  if (!profile || profile.status !== "active" || !product) {
+    return { status: "skipped" as const, reason: "profile_or_product_not_found" as const };
+  }
+
+  const firstName = profile.first_name?.trim() ?? "";
+  const addonName = product.name ?? "Modulo Marketing";
+  const trialEndDate = trialEndsAt ? formatEmailDate(trialEndsAt) : "non prevista";
+  const firstPaymentDate = trialEndsAt ? formatEmailDate(trialEndsAt) : formatEmailDate(occurredAt);
+  const firstPaymentAmount = formatCurrencyCents(product.sale_price_cents ?? 0);
+  const subscriptionStatus = status === "trialing" ? "in prova gratuita" : "attivo";
+  const metadata = {
+    addon_subscription_id: subscriptionId,
+    addon_product_id: addonProductId,
+  };
+  const variables = {
+    first_name: firstName,
+    first_name_suffix: firstName ? `, ${firstName}` : "",
+    addon_name: addonName,
+    trial_days: trialDays,
+    trial_end_date: trialEndDate,
+    first_payment_date: firstPaymentDate,
+    first_payment_amount: firstPaymentAmount,
+    subscription_status: subscriptionStatus,
+  };
+
+  const customerEmailSent = await hasSentAddonActivationEmail(
+    "addon.marketing_activated",
+    subscriptionId,
+  );
+  const customerResult = customerEmailSent
+    ? { status: "skipped" as const, reason: "already_sent" as const }
+    : await sendTransactionalEmail({
+        to: profile.email,
+        profileId: profile.id,
+        eventType: "addon.marketing_activated",
+        metadata,
+        templateVariables: variables,
+        subject: "",
+        html: "",
+        text: "",
+      });
+
+  const adminEmailSent = await hasSentAddonActivationEmail(
+    "admin.addon_marketing_activated",
+    subscriptionId,
+  );
+  const adminResult = adminEmailSent
+    ? { status: "skipped" as const, reason: "already_sent" as const }
+    : await sendTransactionalEmailToInternalRecipients({
+        eventType: "admin.addon_marketing_activated",
+        metadata,
+        templateVariables: {
+          ...variables,
+          customer_name: [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() || profile.email,
+          customer_email: profile.email,
+          subscription_id: subscriptionId,
+        },
+        subject: "",
+        html: "",
+        text: "",
+      });
+
+  return { status: "processed" as const, customerResult, adminResult };
+}
+
 export async function notifyImmediateNewLead(lead: LeadSummary) {
   const supabase = createServiceSupabaseClient();
   await createNewLeadInternalNotifications({
@@ -575,6 +675,54 @@ async function hasSentWalletTopUpEmail(profileId: string, walletTransactionId: s
       (metadata as Record<string, unknown>).wallet_transaction_id === walletTransactionId
     );
   });
+}
+
+async function hasSentAddonActivationEmail(
+  eventType: "addon.marketing_activated" | "admin.addon_marketing_activated",
+  subscriptionId: string,
+) {
+  type EmailLogsQuery = {
+    eq: (column: string, value: string) => EmailLogsQuery;
+    limit: (
+      count: number,
+    ) => Promise<{
+      data: { metadata: unknown }[] | null;
+      error: { message?: string } | null;
+    }>;
+  };
+  const supabase = createServiceSupabaseClient();
+  const logsTable = supabase.from("email_delivery_logs" as never) as unknown as {
+    select: (columns: string) => EmailLogsQuery;
+  };
+  const { data, error } = await logsTable
+    .select("metadata")
+    .eq("event_type", eventType)
+    .eq("status", "sent")
+    .limit(100);
+
+  if (error) {
+    console.warn("Addon email duplicate check failed:", error.message);
+    return false;
+  }
+
+  return (data ?? []).some((item) => {
+    const metadata = item.metadata;
+
+    return (
+      Boolean(metadata) &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      (metadata as Record<string, unknown>).addon_subscription_id === subscriptionId
+    );
+  });
+}
+
+function formatEmailDate(value: string) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 export async function sendLeadDigest({

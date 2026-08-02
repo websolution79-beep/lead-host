@@ -230,7 +230,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
         pmLinks[1],
         {
           ...marketingPreviewLink,
-          highlighted: session.marketingAddon.hasAccess,
+          highlighted: true,
         },
         ...pmLinks.slice(2),
       ]
@@ -323,9 +323,9 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                 <Icon size={17} />
               </span>
               {link.label}
-              {link.href === "/app/marketing" && session.marketingAddon?.hasAccess ? (
+              {link.href === "/app/marketing" && session.marketingAddon?.menuVisible ? (
                 <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isActive ? "bg-white/15 text-white" : "bg-emerald-100 text-emerald-800"}`}>
-                  Attivo
+                  {session.marketingAddon.hasAccess ? "Attivo" : "Prova gratis"}
                 </span>
               ) : null}
               {section === "admin" && link.href === "/admin/leads" ? (

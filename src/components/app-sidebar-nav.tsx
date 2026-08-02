@@ -56,19 +56,26 @@ const pmLinks: AppNavLink[] = [
     label: "Marketplace",
     href: "/app/marketplace",
     icon: Map,
+    category: "Operatività",
     permission: "marketplace",
   },
-  { label: "I miei lead", href: "/app/i-miei-lead", icon: Inbox },
-  { label: "Wallet", href: "/app/acquisti", icon: CreditCard },
-  { label: "Notifiche", href: "/app/notifiche", icon: Bell },
-  { label: "Profilo", href: "/app/profilo", icon: UserCircle },
-  { label: "Assistenza", href: "/app/assistenza", icon: LifeBuoy },
+  {
+    label: "I miei lead",
+    href: "/app/i-miei-lead",
+    icon: Inbox,
+    category: "Operatività",
+  },
+  { label: "Wallet", href: "/app/acquisti", icon: CreditCard, category: "Finanza" },
+  { label: "Notifiche", href: "/app/notifiche", icon: Bell, category: "Comunicazioni" },
+  { label: "Assistenza", href: "/app/assistenza", icon: LifeBuoy, category: "Comunicazioni" },
+  { label: "Profilo", href: "/app/profilo", icon: UserCircle, category: "Account" },
 ];
 
 const marketingPreviewLink: AppNavLink = {
   label: "Marketing",
   href: "/app/marketing",
   icon: Columns3,
+  category: "Operatività",
 };
 
 const adminLinks: AppNavLink[] = [

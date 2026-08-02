@@ -100,36 +100,28 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
   return (
     <AppShell section="pm" eyebrow="Marketing" title={product?.name ?? "Modulo Marketing"}>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <section className="px-5 pb-8 pt-8 sm:px-8 sm:pb-10 sm:pt-10 lg:px-12 lg:pt-12">
-          <div className="mx-auto max-w-4xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
-              <Sparkles size={14} />
-              CRM e strumenti di valutazione per Property Manager
-            </div>
-            <h2 className="mx-auto mt-5 max-w-3xl text-3xl font-semibold leading-tight text-ink sm:text-4xl lg:text-5xl">
-              Trasforma ogni contatto in una trattativa organizzata e professionale.
-            </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted sm:text-lg">
-              {product?.description || product?.shortDescription || "Gestisci i proprietari, segui ogni trattativa e crea relazioni di rendita personalizzate in un unico spazio di lavoro."}
-            </p>
-            {hasTrial ? (
-              <p className="mt-5 text-base font-bold text-emerald-800">
-                Accesso gratuito per {trialDays} giorni.
+        <section className="px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-14">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center lg:gap-10">
+            <div className="text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
+                <Sparkles size={14} />
+                CRM e strumenti di valutazione per Property Manager
+              </div>
+              <h2 className="mt-5 text-3xl font-semibold leading-tight text-ink sm:text-4xl lg:text-[2.65rem]">
+                Trasforma ogni contatto in una trattativa organizzata e professionale.
+              </h2>
+              <p className="mt-5 text-base leading-7 text-muted sm:text-lg">
+                {product?.description || product?.shortDescription || "Gestisci i proprietari, segui ogni trattativa e crea relazioni di rendita personalizzate in un unico spazio di lavoro."}
               </p>
-            ) : null}
-            <OfferButton trialDays={trialDays} />
-          </div>
+              {hasTrial ? (
+                <p className="mt-5 text-base font-bold text-emerald-800">
+                  Accesso gratuito per {trialDays} giorni.
+                </p>
+              ) : null}
+              <OfferButton trialDays={trialDays} />
+            </div>
 
-          <div className="relative mx-auto mt-9 max-w-6xl overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-xl shadow-slate-200/70">
-            <Image
-              alt="Anteprima della pipeline CRM del Modulo Marketing Lead Host"
-              className="h-auto w-full"
-              height={900}
-              priority
-              sizes="(max-width: 1024px) 100vw, 1200px"
-              src="/images/marketing-crm-preview.webp"
-              width={1440}
-            />
+            <MarketingHeroPreview />
           </div>
         </section>
 
@@ -221,6 +213,35 @@ function ProductPreview({ alt, src }: { alt: string; src: string }) {
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-200/60">
       <Image alt={alt} className="h-auto w-full" height={900} sizes="(max-width: 1024px) 100vw, 680px" src={src} width={1440} />
+    </div>
+  );
+}
+
+function MarketingHeroPreview() {
+  return (
+    <div className="relative min-h-[310px] w-full sm:min-h-[430px] lg:min-h-[470px]">
+      <div className="absolute left-0 top-0 w-[92%] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+        <Image
+          alt="Pipeline CRM del Modulo Marketing Lead Host"
+          className="h-auto w-full"
+          height={900}
+          priority
+          sizes="(max-width: 1024px) 92vw, 650px"
+          src="/images/marketing-crm-preview.webp"
+          width={1440}
+        />
+      </div>
+      <div className="absolute bottom-0 right-0 h-[61%] w-[68%] overflow-hidden rounded-lg border-2 border-white bg-slate-100 shadow-2xl shadow-slate-400/40 sm:h-[64%] sm:w-[66%]">
+        <Image
+          alt="Anteprima della relazione Rendita Stimata sovrapposta alla pipeline CRM"
+          className="h-full w-full object-cover object-[72%_center]"
+          height={900}
+          priority
+          sizes="(max-width: 1024px) 68vw, 430px"
+          src="/images/marketing-revenue-preview.webp"
+          width={1440}
+        />
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
 import { syncAddonSubscriptionFromStripe } from "@/lib/addons/stripe-subscriptions";
+import { getOrCreateStripePortalConfiguration } from "@/lib/addons/stripe-infrastructure";
 import { getEnv, getRequestAppUrl } from "@/lib/env";
 
 const actionSchema = z.object({
@@ -62,9 +63,12 @@ export async function POST(request: NextRequest) {
       if (!subscription.stripeCustomerId) {
         throw new PropertyManagerApiError(409, "Cliente Stripe non associato.");
       }
+      const appUrl = getRequestAppUrl(request);
+      const configuration = await getOrCreateStripePortalConfiguration(stripe, appUrl);
       const portal = await stripe.billingPortal.sessions.create({
         customer: subscription.stripeCustomerId,
-        return_url: `${getRequestAppUrl(request)}/app/profilo#abbonamento-marketing`,
+        configuration,
+        return_url: `${appUrl}/app/profilo#abbonamento-marketing`,
       });
       return NextResponse.json({ ok: true, portalUrl: portal.url });
     }

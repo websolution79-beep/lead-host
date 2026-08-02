@@ -2,8 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getMarketingAddonAdminOverview } from "@/lib/addons/admin";
 import { syncStripeAddonCatalog } from "@/lib/addons/stripe-catalog";
+import { ensureStripeAddonInfrastructure } from "@/lib/addons/stripe-infrastructure";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { getRequestAppUrl } from "@/lib/env";
 
 const nullableUrl = z.union([z.literal(""), z.string().trim().url().max(1000)]);
 const addonProductSchema = z
@@ -93,6 +95,10 @@ export async function PATCH(request: NextRequest) {
       });
       stripeProductId = stripeCatalog.productId;
       stripePriceId = stripeCatalog.priceId;
+    }
+
+    if (payload.checkoutEnabled) {
+      await ensureStripeAddonInfrastructure(getRequestAppUrl(request));
     }
 
     const { data: savedProduct, error } = await supabase

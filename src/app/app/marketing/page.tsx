@@ -9,11 +9,11 @@ import {
   Columns3,
   CreditCard,
   FileDown,
-  LockKeyhole,
   Sparkles,
   UserRoundCheck,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { MarketingCheckoutButton } from "@/components/marketing-checkout-button";
 import { getMarketingAddonState } from "@/lib/addons/access";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 
@@ -118,7 +118,13 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
                   Accesso gratuito per {trialDays} giorni.
                 </p>
               ) : null}
-              <OfferButton trialDays={trialDays} />
+            <OfferButton
+              checkoutEnabled={Boolean(product?.checkoutEnabled)}
+              currency={product?.currency ?? "eur"}
+              priceCents={product?.salePriceCents ?? null}
+              termsUrl={product?.termsUrl ?? "/termini"}
+              trialDays={trialDays}
+            />
             </div>
 
             <MarketingHeroPreview />
@@ -200,7 +206,14 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
               <div className="mt-5 border-t border-emerald-200 pt-5 text-sm leading-6 text-muted">
                 <p className="flex items-start gap-2"><CreditCard className="mt-1 shrink-0" size={16} /> Pagamento ricorrente gestito in sicurezza tramite Stripe.</p>
               </div>
-              <OfferButton compact trialDays={trialDays} />
+              <OfferButton
+                checkoutEnabled={Boolean(product?.checkoutEnabled)}
+                compact
+                currency={product?.currency ?? "eur"}
+                priceCents={product?.salePriceCents ?? null}
+                termsUrl={product?.termsUrl ?? "/termini"}
+                trialDays={trialDays}
+              />
             </aside>
           </div>
         </section>
@@ -246,15 +259,29 @@ function MarketingHeroPreview() {
   );
 }
 
-function OfferButton({ trialDays, compact = false }: { trialDays: number; compact?: boolean }) {
+function OfferButton({
+  checkoutEnabled,
+  compact = false,
+  currency,
+  priceCents,
+  termsUrl,
+  trialDays,
+}: {
+  checkoutEnabled: boolean;
+  compact?: boolean;
+  currency: string;
+  priceCents: number | null;
+  termsUrl: string;
+  trialDays: number;
+}) {
   return (
-    <div className={compact ? "mt-6" : "mt-7"}>
-      <button className="btn btn-primary w-full sm:w-auto" type="button" disabled>
-        <LockKeyhole size={17} />
-        {trialDays > 0 ? `Prova gratis per ${trialDays} giorni` : "Attivazione disponibile a breve"}
-      </button>
-      <p className="mt-3 text-sm text-muted">L’attivazione online sarà disponibile a breve.</p>
-    </div>
+    <MarketingCheckoutButton
+      checkoutEnabled={checkoutEnabled && Boolean(priceCents)}
+      compact={compact}
+      priceLabel={priceCents ? formatCurrency(priceCents, currency) : "Prezzo da configurare"}
+      termsUrl={termsUrl}
+      trialDays={trialDays}
+    />
   );
 }
 

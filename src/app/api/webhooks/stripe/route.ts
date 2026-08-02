@@ -92,6 +92,11 @@ export async function POST(request: NextRequest) {
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "addon_subscription") {
+        const result = await completeAddonSubscription(stripe, session);
+        return NextResponse.json({ received: true, result });
+      }
+
       const result = await completeWalletTopUp(session, event);
       const trackingResult =
         "ignored" in result
@@ -128,6 +133,10 @@ export async function POST(request: NextRequest) {
       event.type === "checkout.session.async_payment_failed"
     ) {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "addon_subscription") {
+        await expireAddonCheckout(session);
+        return NextResponse.json({ received: true });
+      }
       await failWalletTopUp(
         session,
         event,
@@ -295,4 +304,111 @@ async function failWalletTopUp(
   }).catch((couponError) => {
     console.warn("Coupon reservation cancellation failed:", couponError);
   });
+}
+
+async function completeAddonSubscription(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+) {
+  const localSubscriptionId = session.metadata?.addon_subscription_id;
+  const stripeSubscriptionId =
+    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+  if (!localSubscriptionId || !stripeSubscriptionId) {
+    throw new Error("Riferimenti abbonamento Addon mancanti nel checkout Stripe.");
+  }
+
+  const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const supabase = createServiceSupabaseClient();
+  const { data: current, error: currentError } = await supabase
+    .from("addon_subscriptions")
+    .select("id,addon_product_id,profile_id,status,metadata")
+    .eq("id", localSubscriptionId)
+    .single();
+  if (currentError || !current) throw currentError;
+
+  const status = mapStripeSubscriptionStatus(stripeSubscription.status);
+  const customerId = typeof stripeSubscription.customer === "string"
+    ? stripeSubscription.customer
+    : stripeSubscription.customer.id;
+  const priceId = stripeSubscription.items.data[0]?.price.id ?? null;
+  const subscriptionItem = stripeSubscription.items.data[0];
+  const { error: updateError } = await supabase
+    .from("addon_subscriptions")
+    .update({
+      status,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: stripeSubscription.id,
+      stripe_price_id: priceId,
+      trial_started_at: toIsoDate(stripeSubscription.trial_start),
+      trial_ends_at: toIsoDate(stripeSubscription.trial_end),
+      current_period_started_at: toIsoDate(subscriptionItem?.current_period_start ?? null),
+      current_period_ends_at: toIsoDate(subscriptionItem?.current_period_end ?? null),
+      cancel_at_period_end: stripeSubscription.cancel_at_period_end,
+      canceled_at: toIsoDate(stripeSubscription.canceled_at),
+      metadata: {
+        ...toJsonRecord(current.metadata),
+        stripe_checkout_session_id: session.id,
+        stripe_subscription_status: stripeSubscription.status,
+      },
+    })
+    .eq("id", current.id);
+  if (updateError) throw updateError;
+
+  if (stripeSubscription.trial_end) {
+    const { error: trialError } = await supabase.from("addon_trial_usage").upsert(
+      {
+        addon_product_id: current.addon_product_id,
+        profile_id: current.profile_id,
+        subscription_id: current.id,
+        source: "stripe",
+        used_at: new Date().toISOString(),
+      },
+      { onConflict: "addon_product_id,profile_id", ignoreDuplicates: true },
+    );
+    if (trialError) throw trialError;
+  }
+
+  if (current.status !== status) {
+    await supabase.from("addon_access_events").insert({
+      addon_product_id: current.addon_product_id,
+      subscription_id: current.id,
+      profile_id: current.profile_id,
+      action: status === "trialing" ? "addon.trial_started" : "addon.subscription_started",
+      reason: "Stripe Checkout completato",
+      metadata: { stripe_checkout_session_id: session.id },
+    });
+  }
+
+  return { status, subscriptionId: current.id };
+}
+
+async function expireAddonCheckout(session: Stripe.Checkout.Session) {
+  const subscriptionId = session.metadata?.addon_subscription_id;
+  if (!subscriptionId) return;
+
+  const supabase = createServiceSupabaseClient();
+  const { error } = await supabase
+    .from("addon_subscriptions")
+    .update({
+      status: "expired",
+      canceled_at: new Date().toISOString(),
+      metadata: { stripe_checkout_session_id: session.id, checkout_status: session.status },
+    })
+    .eq("id", subscriptionId)
+    .eq("status", "incomplete");
+  if (error) throw error;
+}
+
+function mapStripeSubscriptionStatus(status: Stripe.Subscription.Status) {
+  if (status === "incomplete_expired") return "expired" as const;
+  if (status === "canceled") return "canceled" as const;
+  return status;
+}
+
+function toIsoDate(value: number | null) {
+  return value ? new Date(value * 1000).toISOString() : null;
+}
+
+function toJsonRecord(value: Json) {
+  return value && !Array.isArray(value) && typeof value === "object" ? value : {};
 }

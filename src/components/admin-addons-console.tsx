@@ -148,8 +148,6 @@ export function AdminAddonsConsole() {
         salePriceCents,
         gracePeriodDays: draft.gracePeriodDays,
         cancellationMode: draft.cancellationMode,
-        stripeProductId: draft.stripeProductId,
-        stripePriceId: draft.stripePriceId,
         coverImageUrl: draft.coverImageUrl,
         videoUrl: draft.videoUrl,
         features,
@@ -266,7 +264,7 @@ export function AdminAddonsConsole() {
           />
           <ToggleField
             checked={draft.checkoutEnabled}
-            disabled={!stripeReady || draft.status !== "active" || !draft.salePrice.trim()}
+            disabled={draft.status !== "active" || !draft.salePrice.trim()}
             label="Checkout abilitato"
             onChange={(checked) => updateDraft({ checkoutEnabled: checked })}
           />
@@ -356,18 +354,18 @@ export function AdminAddonsConsole() {
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           <Field label="Stripe Product ID">
             <input
-              className="input font-mono text-sm"
+              className="input bg-slate-50 font-mono text-sm text-muted"
               placeholder="prod_..."
+              readOnly
               value={draft.stripeProductId}
-              onChange={(event) => updateDraft({ stripeProductId: event.target.value })}
             />
           </Field>
           <Field label="Stripe Price ID">
             <input
-              className="input font-mono text-sm"
+              className="input bg-slate-50 font-mono text-sm text-muted"
               placeholder="price_..."
+              readOnly
               value={draft.stripePriceId}
-              onChange={(event) => updateDraft({ stripePriceId: event.target.value })}
             />
           </Field>
         </div>
@@ -379,8 +377,13 @@ export function AdminAddonsConsole() {
           }`}
         >
           <CreditCard size={18} className="shrink-0" />
-          {stripeReady ? "Identificativi Stripe configurati" : "Collegamento Stripe non configurato"}
+          {stripeReady
+            ? "Catalogo Stripe sincronizzato automaticamente"
+            : "Salva la configurazione per creare prodotto e prezzo su Stripe"}
         </div>
+        <p className="mt-3 text-sm leading-6 text-muted">
+          Se modifichi il prezzo di vendita, Lead Host crea un nuovo prezzo ricorrente su Stripe e archivia quello precedente. Gli abbonamenti giÃ  attivi non vengono modificati.
+        </p>
       </section>
 
       <section className="card p-5 sm:p-6">

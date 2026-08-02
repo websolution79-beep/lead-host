@@ -1,16 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getMarketingAddonAdminOverview } from "@/lib/addons/admin";
+import { syncStripeAddonCatalog } from "@/lib/addons/stripe-catalog";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 
 const nullableUrl = z.union([z.literal(""), z.string().trim().url().max(1000)]);
-const nullableStripeId = (prefix: string) =>
-  z.union([
-    z.literal(""),
-    z.string().trim().regex(new RegExp(`^${prefix}_[A-Za-z0-9]+$`)).max(255),
-  ]);
-
 const addonProductSchema = z
   .object({
     name: z.string().trim().min(2).max(120),
@@ -24,8 +19,6 @@ const addonProductSchema = z
     salePriceCents: z.number().int().min(1).max(1000000).nullable(),
     gracePeriodDays: z.number().int().min(0).max(30),
     cancellationMode: z.enum(["period_end", "immediate"]),
-    stripeProductId: nullableStripeId("prod"),
-    stripePriceId: nullableStripeId("price"),
     coverImageUrl: nullableUrl,
     videoUrl: nullableUrl,
     features: z.array(z.string().trim().min(2).max(180)).max(20),
@@ -54,15 +47,13 @@ const addonProductSchema = z
     if (
       value.checkoutEnabled &&
       (value.status !== "active" ||
-        !value.salePriceCents ||
-        !value.stripeProductId ||
-        !value.stripePriceId)
+        !value.salePriceCents)
     ) {
       context.addIssue({
         code: "custom",
         path: ["checkoutEnabled"],
         message:
-          "Per attivare il checkout servono stato attivo, prezzo di vendita e ID Stripe.",
+          "Per attivare il checkout servono stato attivo e prezzo di vendita.",
       });
     }
   });
@@ -85,6 +76,24 @@ export async function PATCH(request: NextRequest) {
     const { supabase, profile, isSuperAdmin } = await requireSuperAdmin(request);
     const previous = await getMarketingAddonAdminOverview(supabase);
     const payload = addonProductSchema.parse(await request.json());
+    let stripeProductId = previous.product.stripeProductId || null;
+    let stripePriceId = previous.product.stripePriceId || null;
+
+    if (payload.salePriceCents) {
+      const stripeCatalog = await syncStripeAddonCatalog({
+        slug: previous.product.slug,
+        name: payload.name,
+        shortDescription: payload.shortDescription,
+        salePriceCents: payload.salePriceCents,
+        currency: previous.product.currency,
+        billingInterval: previous.product.billingInterval,
+        billingIntervalCount: previous.product.billingIntervalCount,
+        existingProductId: stripeProductId,
+        existingPriceId: stripePriceId,
+      });
+      stripeProductId = stripeCatalog.productId;
+      stripePriceId = stripeCatalog.priceId;
+    }
 
     const { data: savedProduct, error } = await supabase
       .from("addon_products")
@@ -100,8 +109,8 @@ export async function PATCH(request: NextRequest) {
         sale_price_cents: payload.salePriceCents,
         grace_period_days: payload.gracePeriodDays,
         cancellation_mode: payload.cancellationMode,
-        stripe_product_id: payload.stripeProductId || null,
-        stripe_price_id: payload.stripePriceId || null,
+        stripe_product_id: stripeProductId,
+        stripe_price_id: stripePriceId,
         cover_image_url: payload.coverImageUrl || null,
         video_url: payload.videoUrl || null,
         features: payload.features,

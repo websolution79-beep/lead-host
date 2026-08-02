@@ -12,7 +12,7 @@ export type MarketplaceLead = {
   propertyType: string;
   bedrooms: number;
   bathrooms: number;
-  beds: number;
+  beds: number | null;
   areaSqm: number;
   timing: string;
   services: string[];

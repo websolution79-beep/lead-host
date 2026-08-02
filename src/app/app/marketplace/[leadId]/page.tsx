@@ -102,7 +102,9 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Detail label="Camere" value={String(lead.bedrooms)} />
             <Detail label="Bagni" value={String(lead.bathrooms)} />
-            <Detail label="Posti letto" value={String(lead.beds)} />
+            {lead.beds !== null ? (
+              <Detail label="Posti letto" value={String(lead.beds)} />
+            ) : null}
             <Detail label="Metratura" value={`${lead.areaSqm} mq`} />
             <Detail label="Tempistica" value={lead.timing} />
           </dl>

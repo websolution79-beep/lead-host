@@ -126,7 +126,9 @@ export function MyLeadDetail({ leadId }: MyLeadDetailProps) {
         <dl className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Detail icon={<BedDouble size={18} />} label="Camere" value={String(lead.bedrooms)} />
           <Detail icon={<Bath size={18} />} label="Bagni" value={String(lead.bathrooms)} />
-          <Detail label="Posti letto" value={String(lead.beds)} />
+          {lead.beds !== null ? (
+            <Detail label="Posti letto" value={String(lead.beds)} />
+          ) : null}
           <Detail icon={<Ruler size={18} />} label="Metratura" value={`${lead.areaSqm} mq`} />
           <Detail
             icon={<CalendarClock size={18} />}

@@ -191,7 +191,7 @@ function mapDbLeadToMarketplaceLead(
     propertyType: property.property_type ?? "Tipologia non indicata",
     bedrooms: property.bedrooms ?? 0,
     bathrooms: property.bathrooms ?? 0,
-    beds: property.beds ?? property.bedrooms ?? 0,
+    beds: property.beds ?? null,
     areaSqm: property.approximate_area_sqm ?? 0,
     timing: property.timing ?? "Da definire",
     services: property.requested_services ?? [],

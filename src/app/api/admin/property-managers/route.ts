@@ -197,6 +197,18 @@ export async function GET(request: NextRequest) {
       if (pmProfilesError) throw pmProfilesError;
       if (walletsError) throw walletsError;
 
+      // The registration flow already stores these values in Auth metadata.
+      // Keep a single-page fallback for older PM records until the profile
+      // columns are populated, without issuing one Auth request per row.
+      const { data: authUsersData, error: authUsersError } =
+        await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      const metadataByAuthUserId = new Map(
+        (authUsersError ? [] : authUsersData?.users ?? []).map((user) => [
+          user.id,
+          (user.user_metadata ?? {}) as AuthMetadata,
+        ]),
+      );
+
       const pmProfilesByProfileId = new Map(
         ((pmProfiles ?? []) as PropertyManagerProfileRow[]).map((item) => [
           item.profile_id,
@@ -212,8 +224,14 @@ export async function GET(request: NextRequest) {
       const propertyManagers = profileRows.map((profile) => {
         const pmProfile = pmProfilesByProfileId.get(profile.id);
         const wallet = walletsByProfileId.get(profile.id);
+        const metadata = profile.auth_user_id
+          ? metadataByAuthUserId.get(profile.auth_user_id)
+          : undefined;
         const managedPropertiesRange =
-          pmProfile?.managed_properties_range ?? null;
+          pmProfile?.managed_properties_range ??
+          metadata?.managed_properties_range ??
+          null;
+        const primaryCity = pmProfile?.primary_city ?? metadata?.primary_city ?? null;
 
         return {
           profileId: profile.id,
@@ -230,7 +248,7 @@ export async function GET(request: NextRequest) {
             managedPropertiesRange,
             pmProfile?.managed_properties_count,
           ),
-          primaryCity: pmProfile?.primary_city || "Non indicata",
+          primaryCity: primaryCity || "Non indicata",
           walletBalanceCents: wallet?.balance_cents ?? 0,
           walletCurrency: wallet?.currency ?? "eur",
           createdAt: profile.created_at,

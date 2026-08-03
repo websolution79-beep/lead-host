@@ -28,11 +28,13 @@ import {
 type LeadCardProps = {
   lead: MarketplaceLead;
   detailBasePath?: string;
+  sharedPurchasesEnabled?: boolean;
 };
 
 export function LeadCard({
   lead,
   detailBasePath = "/app/marketplace",
+  sharedPurchasesEnabled = true,
 }: LeadCardProps) {
   const detailHref = `${detailBasePath}/${lead.id}`;
   const statusStyle = getStatusStyle(lead.publicStatus);
@@ -119,19 +121,23 @@ export function LeadCard({
 
       <div className="mt-auto pt-5">
         <div className="min-w-0 rounded-lg border border-ink/10 bg-paper p-3 text-sm">
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 font-semibold text-ink">
-              <Users size={16} />
-              Quote disponibili
-            </span>
-            <span className="font-bold text-ink">{slotsAvailable}/2</span>
-          </div>
+          {sharedPurchasesEnabled ? (
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2 font-semibold text-ink">
+                <Users size={16} />
+                Quote disponibili
+              </span>
+              <span className="font-bold text-ink">{slotsAvailable}/2</span>
+            </div>
+          ) : null}
           {isExclusiveSold ? <ExclusiveSoldBadge /> : null}
-          <p className="mt-2 text-muted">
-            {sharedAvailable
-              ? `Condiviso ${formatCents(sharedPriceCents)}`
-              : "Condivisione non disponibile"}
-          </p>
+          {sharedPurchasesEnabled ? (
+            <p className="mt-2 text-muted">
+              {sharedAvailable
+                ? `Condiviso ${formatCents(sharedPriceCents)}`
+                : "Condivisione non disponibile"}
+            </p>
+          ) : null}
           <p className="mt-1 text-muted">
             {exclusiveAvailable
               ? `Esclusiva ${formatCents(exclusivePriceCents)} disponibile`

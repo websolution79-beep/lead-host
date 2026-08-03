@@ -26,6 +26,7 @@ const commercialSettingsSchema = z.object({
   inTargetExclusiveLeadPriceCents: z.number().int().min(100).max(200000),
   verifiedSharedLeadPriceCents: z.number().int().min(100).max(100000),
   verifiedExclusiveLeadPriceCents: z.number().int().min(100).max(200000),
+  sharedPurchasesEnabled: z.boolean(),
   maxSharedBuyers: z.number().int().min(1).max(5),
   unavailableVisibilityDays: z.number().int().min(0).max(90),
   soldVisibilityDays: z.number().int().min(0).max(90),

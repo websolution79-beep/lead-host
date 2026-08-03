@@ -9,6 +9,7 @@ import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
+import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
@@ -74,6 +75,20 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsedPayload.data;
+
+    if (payload.mode === "shared") {
+      const { settings } = await fetchCommercialSettings(supabase);
+
+      if (!settings.sharedPurchasesEnabled) {
+        return NextResponse.json(
+          {
+            error: "L'acquisto condiviso non è attualmente disponibile.",
+            code: "SHARED_PURCHASES_DISABLED",
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     if (payload.termsVersion !== CURRENT_TERMS_VERSION) {
       return NextResponse.json(

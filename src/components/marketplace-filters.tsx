@@ -22,11 +22,13 @@ type LeadTypeFilter = "all" | "in_target" | "verified";
 type MarketplaceFiltersProps = {
   leads: MarketplaceLead[];
   detailBasePath?: string;
+  sharedPurchasesEnabled?: boolean;
 };
 
 export function MarketplaceFilters({
   leads,
   detailBasePath = "/app/marketplace",
+  sharedPurchasesEnabled = true,
 }: MarketplaceFiltersProps) {
   const [region, setRegion] = useState("all");
   const [province, setProvince] = useState("all");
@@ -190,7 +192,9 @@ export function MarketplaceFilters({
                 }
               >
                 <option value="all">Tutti</option>
-                <option value="shared_available">Condiviso disponibile</option>
+                {sharedPurchasesEnabled ? (
+                  <option value="shared_available">Condiviso disponibile</option>
+                ) : null}
                 <option value="exclusive_available">Esclusiva disponibile</option>
                 <option value="last_availability">Ultima disponibilita</option>
                 <option value="unavailable">Non piu disponibile</option>
@@ -211,7 +215,12 @@ export function MarketplaceFilters({
       {filteredLeads.length > 0 ? (
         <div className="marketplace-grid">
           {filteredLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} detailBasePath={detailBasePath} />
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              detailBasePath={detailBasePath}
+              sharedPurchasesEnabled={sharedPurchasesEnabled}
+            />
           ))}
         </div>
       ) : (

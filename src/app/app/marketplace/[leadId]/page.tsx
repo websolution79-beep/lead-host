@@ -27,20 +27,29 @@ import {
   VerifiedOwnerBadge,
 } from "@/components/verified-owner-badge";
 import { MarketplaceBackLink } from "@/components/marketplace-back-link";
+import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 type LeadDetailPageProps = {
   params: Promise<{
     leadId: string;
   }>;
+  adminMarketplaceView?: boolean;
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
+export default async function LeadDetailPage({
+  params,
+  adminMarketplaceView = false,
+}: LeadDetailPageProps) {
   const { leadId } = await params;
-  const session = await getServerSessionProfile();
-
-  const lead = await getPublishedMarketplaceLeadById(leadId);
+  const supabase = createServiceSupabaseClient();
+  const [session, lead, { settings }] = await Promise.all([
+    getServerSessionProfile(),
+    getPublishedMarketplaceLeadById(leadId),
+    fetchCommercialSettings(supabase),
+  ]);
 
   if (!lead) {
     notFound();
@@ -71,9 +80,15 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
     Boolean(session?.roles.includes("team_member")) &&
     !session?.isSuperAdmin &&
     hasAdminPermission(session?.teamAccess?.permissions ?? {}, "marketplace");
+  const sharedPurchasesVisible =
+    adminMarketplaceView || settings.sharedPurchasesEnabled;
 
   return (
-    <AppShell section="pm" eyebrow="Dettaglio lead" title={lead.title}>
+    <AppShell
+      section={adminMarketplaceView ? "admin" : "pm"}
+      eyebrow="Dettaglio lead"
+      title={lead.title}
+    >
       <div className="mb-5">
         <MarketplaceBackLink />
       </div>
@@ -161,23 +176,27 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
           </h3>
 
           <div className="mt-5 grid gap-3">
-            <div className="rounded-lg border border-ink/10 bg-paper p-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2 font-semibold text-ink">
-                  <Users size={18} />
-                  Quote disponibili
-                </span>
-                <span className="text-xl font-bold text-ink">
-                  {sharedSlotsAvailable}/2
-                </span>
+            {sharedPurchasesVisible ? (
+              <div className="rounded-lg border border-ink/10 bg-paper p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 font-semibold text-ink">
+                    <Users size={18} />
+                    Quote disponibili
+                  </span>
+                  <span className="text-xl font-bold text-ink">
+                    {sharedSlotsAvailable}/2
+                  </span>
+                </div>
+                {isExclusiveSold ? <ExclusiveSoldBadge /> : null}
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  {sharedAvailable
+                    ? "Ogni lead condiviso puo essere acquistato da massimo 2 Property Manager."
+                    : "Le quote condivise non sono piu acquistabili."}
+                </p>
               </div>
-              {isExclusiveSold ? <ExclusiveSoldBadge /> : null}
-              <p className="mt-2 text-sm leading-6 text-muted">
-                {sharedAvailable
-                  ? "Ogni lead condiviso puo essere acquistato da massimo 2 Property Manager."
-                  : "Le quote condivise non sono piu acquistabili."}
-              </p>
-            </div>
+            ) : isExclusiveSold ? (
+              <ExclusiveSoldBadge />
+            ) : null}
 
             <div className="rounded-lg border border-ink/10 bg-paper p-4">
               <div className="flex items-center gap-2 font-semibold text-ink">
@@ -205,7 +224,7 @@ export default async function LeadDetailPage({ params }: LeadDetailPageProps) {
               <LeadPurchaseActions
                 leadId={lead.id}
                 leadTitle={lead.title}
-                sharedAvailable={sharedAvailable}
+                sharedAvailable={sharedPurchasesVisible && sharedAvailable}
                 exclusiveAvailable={exclusiveAvailable}
                 sharedPriceCents={lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS}
                 exclusivePriceCents={

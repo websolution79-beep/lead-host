@@ -24,6 +24,7 @@ export type CommercialSettings = {
   inTargetExclusiveLeadPriceCents: number;
   verifiedSharedLeadPriceCents: number;
   verifiedExclusiveLeadPriceCents: number;
+  sharedPurchasesEnabled: boolean;
   maxSharedBuyers: number;
   unavailableVisibilityDays: number;
   soldVisibilityDays: number;
@@ -49,6 +50,7 @@ const SETTINGS_KEYS = {
   inTargetExclusivePriceCents: "lead.in_target_exclusive_price_cents",
   verifiedSharedPriceCents: "lead.verified_shared_price_cents",
   verifiedExclusivePriceCents: "lead.verified_exclusive_price_cents",
+  sharedPurchasesEnabled: "lead.shared_purchases_enabled",
   maxSharedBuyers: "lead.max_shared_buyers",
   unavailableVisibilityDays: "lead.unavailable_visibility_days",
   soldVisibilityDays: "lead.sold_visibility_days",
@@ -64,6 +66,7 @@ export const defaultCommercialSettings: CommercialSettings = {
   inTargetExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
   verifiedSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
   verifiedExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
+  sharedPurchasesEnabled: true,
   maxSharedBuyers: commercialRules.maxSharedBuyers,
   unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
   soldVisibilityDays: commercialRules.soldVisibilityDays,
@@ -146,6 +149,10 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
         defaultCommercialSettings.verifiedExclusiveLeadPriceCents,
       ),
     ),
+    sharedPurchasesEnabled: parseBoolean(
+      values.get(SETTINGS_KEYS.sharedPurchasesEnabled),
+      defaultCommercialSettings.sharedPurchasesEnabled,
+    ),
     maxSharedBuyers: parsePositiveInteger(
       values.get(SETTINGS_KEYS.maxSharedBuyers),
       defaultCommercialSettings.maxSharedBuyers,
@@ -215,6 +222,11 @@ export async function saveCommercialSettings({
     {
       key: SETTINGS_KEYS.verifiedExclusivePriceCents,
       value: settings.verifiedExclusiveLeadPriceCents,
+      updated_by: profileId,
+    },
+    {
+      key: SETTINGS_KEYS.sharedPurchasesEnabled,
+      value: settings.sharedPurchasesEnabled,
       updated_by: profileId,
     },
     {
@@ -318,6 +330,10 @@ function parseCentsArray(value: Json | undefined, fallback: number[]) {
     .filter((item) => item > 0);
 
   return parsed.length > 0 ? parsed : fallback;
+}
+
+function parseBoolean(value: Json | undefined, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function parsePositiveInteger(value: Json | undefined, fallback: number) {

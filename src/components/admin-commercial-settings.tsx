@@ -38,6 +38,7 @@ const emptySettings: CommercialSettings = {
   inTargetExclusiveLeadPriceCents: 5000,
   verifiedSharedLeadPriceCents: 2900,
   verifiedExclusiveLeadPriceCents: 5000,
+  sharedPurchasesEnabled: true,
   maxSharedBuyers: 2,
   unavailableVisibilityDays: 7,
   soldVisibilityDays: 7,
@@ -315,6 +316,27 @@ function LeadPriceSettings({
           <p className="section-kicker">Marketplace</p>
           <h2 className="text-xl font-semibold text-ink">Prezzi default lead</h2>
         </div>
+      </div>
+
+      <div className="mt-6 flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-bold text-ink">Vendita lead in condivisione</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">
+            Se disattivata, i Property Manager vedranno esclusivamente l&apos;acquisto
+            in esclusiva. Prezzi, storico e dati condivisi resteranno conservati.
+          </p>
+        </div>
+        <label className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-ink">
+          <input
+            className="size-5 accent-green"
+            type="checkbox"
+            checked={settings.sharedPurchasesEnabled}
+            onChange={(event) =>
+              onChange({ sharedPurchasesEnabled: event.target.checked })
+            }
+          />
+          {settings.sharedPurchasesEnabled ? "Attiva" : "Disattivata"}
+        </label>
       </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-2">

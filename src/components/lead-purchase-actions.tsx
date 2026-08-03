@@ -222,7 +222,7 @@ export function LeadPurchaseActions({
 
       {exclusiveAvailable ? (
         <button
-          className="btn btn-secondary w-full"
+          className="btn btn-primary w-full"
           type="button"
           disabled={Boolean(loadingMode)}
           onClick={() => openConfirmation("exclusive")}

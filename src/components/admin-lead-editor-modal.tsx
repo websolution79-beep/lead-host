@@ -21,6 +21,16 @@ import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 type AdminLeadEditorModalProps = {
   record: AdminLeadRecord;
+  approvalDraft?: {
+    sharedPriceCents: number;
+    exclusivePriceCents: number;
+  };
+  onApprovalDraftChange?: (update: {
+    sharedPriceCents: number;
+    exclusivePriceCents: number;
+    ownerVerified: boolean;
+    pricesCustomized: boolean;
+  }) => void;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 };
@@ -55,11 +65,15 @@ type LeadEditDraft = {
 
 export function AdminLeadEditorModal({
   record,
+  approvalDraft,
+  onApprovalDraftChange,
   onClose,
   onSaved,
 }: AdminLeadEditorModalProps) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
-  const [draft, setDraft] = useState<LeadEditDraft>(() => buildDraft(record));
+  const [draft, setDraft] = useState<LeadEditDraft>(() =>
+    buildDraft(record, approvalDraft),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const regions = useMemo(
@@ -157,10 +171,7 @@ export function AdminLeadEditorModal({
     const sharedPriceCents = parseEuroCents(draft.sharedPrice);
     const exclusivePriceCents = parseEuroCents(draft.exclusivePrice);
 
-    if (
-      record.lead &&
-      (sharedPriceCents < 100 || exclusivePriceCents < 100)
-    ) {
+    if (sharedPriceCents < 100 || exclusivePriceCents < 100) {
       setError("I prezzi del lead devono essere di almeno 1,00 €.");
       return;
     }
@@ -245,6 +256,15 @@ export function AdminLeadEditorModal({
       );
       setSaving(false);
       return;
+    }
+
+    if (!record.lead) {
+      onApprovalDraftChange?.({
+        sharedPriceCents,
+        exclusivePriceCents,
+        ownerVerified: draft.ownerVerified,
+        pricesCustomized: true,
+      });
     }
 
     await onSaved();
@@ -418,36 +438,32 @@ export function AdminLeadEditorModal({
                 </span>
               </label>
 
-              {record.lead ? (
-                <div className="mt-5 grid gap-4">
+              <div className="mt-5 grid gap-4">
+                {record.lead ? (
                   <TextField
                     label="Titolo del lead"
                     value={draft.leadTitle}
                     onChange={(value) => update("leadTitle", value)}
                   />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <EuroEditField
-                      label="Prezzo condiviso"
-                      value={draft.sharedPrice}
-                      onChange={(value) => update("sharedPrice", value)}
-                    />
-                    <EuroEditField
-                      label="Prezzo esclusivo"
-                      value={draft.exclusivePrice}
-                      onChange={(value) => update("exclusivePrice", value)}
-                    />
-                  </div>
-                  <p className="text-xs leading-5 text-muted">
-                    Le modifiche si applicano ai prossimi acquisti. Importi e transazioni
-                    già registrati restano invariati.
-                  </p>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <EuroEditField
+                    label="Prezzo condiviso"
+                    value={draft.sharedPrice}
+                    onChange={(value) => update("sharedPrice", value)}
+                  />
+                  <EuroEditField
+                    label="Prezzo esclusivo"
+                    value={draft.exclusivePrice}
+                    onChange={(value) => update("exclusivePrice", value)}
+                  />
                 </div>
-              ) : (
-                <p className="mt-3 text-xs leading-5 text-muted">
-                  Titolo e prezzi potranno essere personalizzati nel riquadro di
-                  pubblicazione.
+                <p className="text-xs leading-5 text-muted">
+                  {record.lead
+                    ? "Le modifiche si applicano ai prossimi acquisti. Importi e transazioni già registrati restano invariati."
+                    : "Questi importi saranno utilizzati quando il lead verrà approvato e pubblicato nel Marketplace."}
                 </p>
-              )}
+              </div>
             </EditorSection>
 
             <EditorSection icon={FileCheck2} title="Consensi e note interne">
@@ -668,7 +684,13 @@ function ConsentField({
   );
 }
 
-function buildDraft(record: AdminLeadRecord): LeadEditDraft {
+function buildDraft(
+  record: AdminLeadRecord,
+  approvalDraft?: {
+    sharedPriceCents: number;
+    exclusivePriceCents: number;
+  },
+): LeadEditDraft {
   return {
     firstName: record.contact?.firstName ?? "",
     lastName: record.contact?.lastName ?? "",
@@ -693,9 +715,15 @@ function buildDraft(record: AdminLeadRecord): LeadEditDraft {
     qualificationNotes: record.qualificationNotes ?? "",
     ownerVerified: record.ownerVerified,
     leadTitle: record.lead?.title ?? "",
-    sharedPrice: centsToEuroInput(record.lead?.sharedPriceCents ?? record.pricing.sharedPriceCents),
+    sharedPrice: centsToEuroInput(
+      record.lead?.sharedPriceCents ??
+        approvalDraft?.sharedPriceCents ??
+        record.pricing.sharedPriceCents,
+    ),
     exclusivePrice: centsToEuroInput(
-      record.lead?.exclusivePriceCents ?? record.pricing.exclusivePriceCents,
+      record.lead?.exclusivePriceCents ??
+        approvalDraft?.exclusivePriceCents ??
+        record.pricing.exclusivePriceCents,
     ),
   };
 }

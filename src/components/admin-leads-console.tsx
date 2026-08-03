@@ -583,6 +583,10 @@ export function AdminLeadsConsole() {
       {editingRecord ? (
         <AdminLeadEditorModal
           record={editingRecord}
+          approvalDraft={getApprovalDraft(editingRecord)}
+          onApprovalDraftChange={(update) =>
+            updateApprovalDraft(editingRecord, update)
+          }
           onClose={() => setEditingId(null)}
           onSaved={loadRecords}
         />

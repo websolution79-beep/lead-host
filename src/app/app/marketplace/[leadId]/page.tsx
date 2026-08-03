@@ -80,8 +80,7 @@ export default async function LeadDetailPage({
     Boolean(session?.roles.includes("team_member")) &&
     !session?.isSuperAdmin &&
     hasAdminPermission(session?.teamAccess?.permissions ?? {}, "marketplace");
-  const sharedPurchasesVisible =
-    adminMarketplaceView || settings.sharedPurchasesEnabled;
+  const sharedPurchasesVisible = settings.sharedPurchasesEnabled;
 
   return (
     <AppShell

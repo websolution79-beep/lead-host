@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
@@ -71,6 +72,9 @@ export async function PATCH(request: NextRequest) {
       profileId: profile.id,
       settings,
     });
+
+    revalidatePath("/app/marketplace", "layout");
+    revalidatePath("/admin/marketplace", "layout");
 
     await writeAdminAuditLog({
       supabase,

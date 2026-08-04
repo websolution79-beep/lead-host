@@ -52,6 +52,8 @@ type AppNavLink = {
   highlighted?: boolean;
   exact?: boolean;
   subitem?: boolean;
+  subitemLast?: boolean;
+  grouped?: boolean;
 };
 
 const pmLinks: AppNavLink[] = [
@@ -79,6 +81,7 @@ const marketingPreviewLink: AppNavLink = {
   href: "/app/marketing",
   icon: Columns3,
   exact: true,
+  grouped: true,
 };
 
 const marketingToolLinks: AppNavLink[] = [
@@ -93,6 +96,7 @@ const marketingToolLinks: AppNavLink[] = [
     href: "/app/marketing/rendita-stimata",
     icon: Calculator,
     subitem: true,
+    subitemLast: true,
   },
 ];
 
@@ -326,11 +330,13 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
               href={link.href}
               className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
                 isActive
-                  ? "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
+                  ? link.grouped
+                    ? "rounded-t-lg border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)]"
+                    : "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
                   : isHighlighted
-                    ? "border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)]"
+                    ? `border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)] ${link.grouped ? "rounded-t-lg" : ""}`
                     : link.subitem
-                      ? "ml-3 text-slate-600 hover:bg-slate-100 hover:text-ink"
+                      ? `ml-3 -mt-1.5 rounded-none border-x border-emerald-200 bg-emerald-50/30 text-slate-600 hover:bg-emerald-50 hover:text-ink ${link.subitemLast ? "rounded-b-lg border-b" : ""}`
                       : "text-slate-600 hover:bg-slate-100 hover:text-ink"
               }`}
             >

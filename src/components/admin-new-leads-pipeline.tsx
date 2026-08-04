@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Columns3, GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 
@@ -126,10 +126,27 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
 
 function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOpen }: { record: AdminLeadRecord; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void }) {
   return <button className={`group w-full rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`} draggable={draggable} type="button" onClick={onOpen} onDragEnd={onDragEnd} onDragStart={onDragStart}>
-    <div className="flex items-start gap-2">{draggable ? <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} /> : null}<div className="min-w-0 flex-1 space-y-3"><PipelineField label="Immobile" value={record.lead?.title ?? defaultTitle(record)} /><PipelineField label="Richiesta" value={(record.property?.requestedServices ?? []).join(", ") || "Da verificare"} /><PipelineField label="Stato" value="Nuovi Lead" /></div></div>
+    <div className="flex items-start gap-2">
+      {draggable ? <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} /> : null}
+      <div className="min-w-0 flex-1 space-y-4">
+        <div>
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Home size={12} />Immobile</p>
+          <p className="mt-1 break-words text-sm font-bold leading-5 text-ink">{record.lead?.title ?? defaultTitle(record)}</p>
+          {record.property?.propertyType ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-green">{record.property.propertyType}</p> : null}
+        </div>
+        <div>
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><UserRound size={12} />Proprietario</p>
+          <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-700">{formatOwnerName(record)}</p>
+        </div>
+        <div>
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Phone size={12} />Telefono</p>
+          <p className="mt-1 flex items-center gap-2 break-all text-sm font-bold leading-5 text-green"><Phone size={15} className="shrink-0" />{record.contact?.phone ?? "Non indicato"}</p>
+        </div>
+      </div>
+    </div>
   </button>;
 }
-function PipelineField({ label, value }: { label: string; value: string }) { return <div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">{label}</p><p className="mt-1 break-words text-sm font-semibold leading-5 text-ink">{value}</p></div>; }
+function formatOwnerName(record: AdminLeadRecord) { return `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim() || "Non indicato"; }
 function defaultTitle(record: AdminLeadRecord) { const type = record.property?.propertyType?.trim() || "Immobile"; const city = record.property?.city?.trim(); return city ? `${type} a ${city}` : type; }
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) { return <button aria-label={label} className="grid size-8 place-items-center rounded-md text-slate-500 hover:bg-white hover:text-ink disabled:opacity-30" type="button" disabled={disabled} onClick={onClick}>{children}</button>; }
 

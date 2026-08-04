@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
@@ -223,38 +223,43 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
     });
 
-    const notificationResults = await Promise.allSettled([
-      notifyImmediateNewLead({
-        id: leadId,
-        title: leadTitle,
-        city: property.city,
-        province: property.province,
-        shared_price_cents: sharedPriceCents,
-        exclusive_price_cents: exclusivePriceCents,
-      }),
-      notifyNewLeadOnTelegram({
-        id: leadId,
-        title: leadTitle,
-        city: property.city,
-        province: property.province,
-        propertyType: property.property_type,
-        sharedPriceCents,
-        exclusivePriceCents,
-        sharedSlotsSold: 0,
-      }),
-    ]);
-
-    notificationResults.forEach((result, index) => {
-      if (result.status === "rejected") {
-        console.warn(
-          index === 0
-            ? "New lead email notification failed:"
-            : "New lead Telegram notification failed:",
-          result.reason,
-        );
-      }
-    });
     revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
+
+    // Lead publication must not wait for one request per PM or for Telegram.
+    // `after` keeps the post-publication notifications independent from the admin UI.
+    after(async () => {
+      const notificationResults = await Promise.allSettled([
+        notifyImmediateNewLead({
+          id: leadId,
+          title: leadTitle,
+          city: property.city,
+          province: property.province,
+          shared_price_cents: sharedPriceCents,
+          exclusive_price_cents: exclusivePriceCents,
+        }),
+        notifyNewLeadOnTelegram({
+          id: leadId,
+          title: leadTitle,
+          city: property.city,
+          province: property.province,
+          propertyType: property.property_type,
+          sharedPriceCents,
+          exclusivePriceCents,
+          sharedSlotsSold: 0,
+        }),
+      ]);
+
+      notificationResults.forEach((result, index) => {
+        if (result.status === "rejected") {
+          console.warn(
+            index === 0
+              ? "New lead email notification failed:"
+              : "New lead Telegram notification failed:",
+            result.reason,
+          );
+        }
+      });
+    });
 
     return NextResponse.json({ status: "published", lead: publishedLead });
   } catch (error) {

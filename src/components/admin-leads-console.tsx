@@ -202,34 +202,44 @@ export function AdminLeadsConsole() {
 
     setActionLoading(record.ownerRequestId);
     setError(null);
-
-    const token = await getAccessToken();
-    const response = await fetch(
-      `/api/admin/leads/${record.ownerRequestId}/approve`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sessione non disponibile. Effettua di nuovo il login.");
+      const response = await fetch(
+        `/api/admin/leads/${record.ownerRequestId}/approve`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: record.lead?.title ?? buildDefaultTitle(record),
+            sharedPriceCents: priceDraft.sharedPriceCents,
+            exclusivePriceCents: priceDraft.exclusivePriceCents,
+            ownerVerified: priceDraft.ownerVerified,
+          }),
         },
-        body: JSON.stringify({
-          title: record.lead?.title ?? buildDefaultTitle(record),
-          sharedPriceCents: priceDraft.sharedPriceCents,
-          exclusivePriceCents: priceDraft.exclusivePriceCents,
-          ownerVerified: priceDraft.ownerVerified,
-        }),
-      },
-    );
-    const payload = (await response.json()) as { error?: string };
+      );
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
-    if (!response.ok) {
-      setError(payload.error ?? "Approvazione non completata.");
-    } else {
-      await loadRecords();
+      if (!response.ok) {
+        setError(payload.error ?? "Approvazione non completata.");
+        return;
+      }
+
+      setSelectedId(null);
       setFilter("published");
+      void loadRecords();
+    } catch (approvalError) {
+      setError(
+        approvalError instanceof Error
+          ? approvalError.message
+          : "Approvazione non completata. Riprova tra poco.",
+      );
+    } finally {
+      setActionLoading(null);
     }
-
-    setActionLoading(null);
   }
 
   function requestApproval(record: AdminLeadRecord) {

@@ -31,6 +31,14 @@ const pmLinks = [
 ];
 
 const marketingPreviewLink = { label: "Marketing", href: "/app/marketing" };
+const marketingToolLinks = [
+  { label: "CRM", href: "/app/marketing/crm", group: "Marketing" },
+  {
+    label: "Rendita Stimata",
+    href: "/app/marketing/rendita-stimata",
+    group: "Marketing",
+  },
+];
 
 const adminLinks: Array<{
   label: string;
@@ -133,7 +141,13 @@ export function AppAreaChrome({
               hasAdminPermission(adminPermissions, link.permission)),
         )
       : marketingAddon?.menuVisible
-        ? [pmLinks[0], pmLinks[1], { ...marketingPreviewLink, highlighted: marketingAddon.hasAccess }, ...pmLinks.slice(2)]
+        ? [
+            pmLinks[0],
+            pmLinks[1],
+            { ...marketingPreviewLink, highlighted: marketingAddon.hasAccess },
+            ...(marketingAddon.hasAccess ? marketingToolLinks : []),
+            ...pmLinks.slice(2),
+          ]
         : pmLinks;
   const homeHref = section === "admin" ? adminHomeHref : "/app/marketplace";
 

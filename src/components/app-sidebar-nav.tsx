@@ -9,6 +9,7 @@ import {
   BadgePercent,
   Bell,
   Building2,
+  Calculator,
   CreditCard,
   Crosshair,
   Columns3,
@@ -49,6 +50,8 @@ type AppNavLink = {
   permission?: AdminPermissionKey;
   superAdminOnly?: boolean;
   highlighted?: boolean;
+  exact?: boolean;
+  subitem?: boolean;
 };
 
 const pmLinks: AppNavLink[] = [
@@ -75,8 +78,25 @@ const marketingPreviewLink: AppNavLink = {
   label: "Marketing",
   href: "/app/marketing",
   icon: Columns3,
-  category: "Operatività",
+  exact: true,
 };
+
+const marketingToolLinks: AppNavLink[] = [
+  {
+    label: "CRM",
+    href: "/app/marketing/crm",
+    icon: Columns3,
+    category: "Marketing",
+    subitem: true,
+  },
+  {
+    label: "Rendita Stimata",
+    href: "/app/marketing/rendita-stimata",
+    icon: Calculator,
+    category: "Marketing",
+    subitem: true,
+  },
+];
 
 const adminLinks: AppNavLink[] = [
   {
@@ -232,6 +252,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
           ...marketingPreviewLink,
           highlighted: true,
         },
+        ...(session.marketingAddon.hasAccess ? marketingToolLinks : []),
         ...pmLinks.slice(2),
       ]
     : pmLinks;
@@ -289,7 +310,9 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
         const previousCategory = previousLink?.category;
         const showCategory = Boolean(category && category !== previousCategory);
         const isActive =
-          link.href === "/app" || link.href === "/admin"
+          link.exact
+            ? pathname === link.href
+            : link.href === "/app" || link.href === "/admin"
             ? pathname === link.href
             : pathname.startsWith(link.href);
         const isHighlighted = Boolean(link.highlighted && !isActive);
@@ -308,7 +331,9 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                   ? "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
                   : isHighlighted
                     ? "border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)]"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-ink"
+                    : link.subitem
+                      ? "ml-3 text-slate-600 hover:bg-slate-100 hover:text-ink"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-ink"
               }`}
             >
               <span

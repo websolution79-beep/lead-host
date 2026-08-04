@@ -131,8 +131,7 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
       <div className="min-w-0 flex-1 space-y-4">
         <div>
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Home size={12} />Immobile</p>
-          <p className="mt-1 break-words text-sm font-bold leading-5 text-ink">{record.lead?.title ?? defaultTitle(record)}</p>
-          {record.property?.propertyType ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.1em] text-green">{record.property.propertyType}</p> : null}
+          <p className="mt-1 break-words text-sm font-bold leading-5 text-green">{record.lead?.title ?? defaultTitle(record)}</p>
         </div>
         <div>
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><UserRound size={12} />Proprietario</p>
@@ -140,7 +139,7 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
         </div>
         <div>
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Phone size={12} />Telefono</p>
-          <p className="mt-1 flex items-center gap-2 break-all text-sm font-bold leading-5 text-green"><Phone size={15} className="shrink-0" />{record.contact?.phone ?? "Non indicato"}</p>
+          <p className="mt-1 break-all text-sm font-semibold leading-5 text-slate-700">{record.contact?.phone ?? "Non indicato"}</p>
         </div>
       </div>
     </div>

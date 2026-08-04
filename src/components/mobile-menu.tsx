@@ -72,8 +72,34 @@ export function MobileMenu({
             }`}
           >
             {links.map((link, index) => {
+              if (link.subitem) return null;
+
               const previousGroup = links[index - 1]?.group;
               const showGroup = Boolean(link.group && link.group !== previousGroup);
+              const renderLink = (item: MobileMenuLink, subitem = false) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
+                    isDark
+                      ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
+                      : subitem
+                        ? `ml-3 rounded-lg text-slate-600 hover:bg-emerald-50 hover:text-ink`
+                        : item.grouped
+                          ? "bg-transparent text-emerald-800"
+                          : item.highlighted
+                            ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
+                            : "text-slate-600 hover:bg-fog hover:text-ink"
+                  }`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  {item.label}
+                  {item.href === adminLeadBadgeHref ? <AdminLeadNavBadge /> : null}
+                  {item.href === supportHref && supportSection ? (
+                    <SupportNavBadge section={supportSection} />
+                  ) : null}
+                </Link>
+              );
 
               return (
                 <Fragment key={link.href}>
@@ -86,27 +112,14 @@ export function MobileMenu({
                       {link.group}
                     </p>
                   ) : null}
-                  <Link
-                    href={link.href}
-                    className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
-                      isDark
-                        ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
-                        : link.grouped
-                          ? "rounded-t-lg border border-emerald-300 bg-emerald-50 text-emerald-800"
-                          : link.subitem
-                            ? `ml-3 -mt-1.5 rounded-none border-x border-emerald-200 bg-emerald-50/30 text-slate-600 hover:bg-emerald-50 hover:text-ink ${link.subitemLast ? "rounded-b-lg border-b" : ""}`
-                            : link.highlighted
-                              ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
-                              : "text-slate-600 hover:bg-fog hover:text-ink"
-                    }`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {link.label}
-                    {link.href === adminLeadBadgeHref ? <AdminLeadNavBadge /> : null}
-                    {link.href === supportHref && supportSection ? (
-                      <SupportNavBadge section={supportSection} />
-                    ) : null}
-                  </Link>
+                  {link.grouped && links.some((item) => item.subitem) ? (
+                    <div className="rounded-lg border border-emerald-300 bg-emerald-50/35 p-1 shadow-[0_8px_24px_rgba(4,120,87,0.08)]">
+                      {renderLink(link)}
+                      {links.filter((item) => item.subitem).map((item) => renderLink(item, true))}
+                    </div>
+                  ) : (
+                    renderLink(link)
+                  )}
                 </Fragment>
               );
             })}

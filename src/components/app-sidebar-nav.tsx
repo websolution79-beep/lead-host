@@ -306,18 +306,67 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       </div>
 
       {links.map((link, index) => {
-        const Icon = link.icon;
+        if (link.subitem) return null;
+
         const category = link.category;
         const previousLink = links[index - 1];
         const previousCategory = previousLink?.category;
         const showCategory = Boolean(category && category !== previousCategory);
-        const isActive =
-          link.exact
-            ? pathname === link.href
-            : link.href === "/app" || link.href === "/admin"
-            ? pathname === link.href
-            : pathname.startsWith(link.href);
-        const isHighlighted = Boolean(link.highlighted && !isActive);
+        const renderLink = (item: AppNavLink, subitem = false) => {
+          const ItemIcon = item.icon;
+          const itemIsActive = item.exact
+            ? pathname === item.href
+            : item.href === "/app" || item.href === "/admin"
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
+          const itemIsHighlighted = Boolean(item.highlighted && !itemIsActive);
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
+                subitem
+                  ? `ml-3 rounded-lg text-slate-600 hover:bg-emerald-50 hover:text-ink ${itemIsActive ? "bg-emerald-100 text-emerald-900" : ""}`
+                    : itemIsActive
+                      ? item.grouped
+                        ? "bg-transparent text-emerald-800"
+                        : "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
+                    : itemIsHighlighted
+                      ? item.grouped
+                        ? session.marketingAddon?.hasAccess
+                          ? "bg-transparent text-emerald-800"
+                          : "border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)]"
+                        : "bg-transparent text-emerald-800"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-ink"
+              }`}
+            >
+              <span
+                className={`flex size-8 items-center justify-center rounded-md transition ${
+                  itemIsActive && !item.grouped
+                    ? "bg-white/12 text-white"
+                    : itemIsHighlighted || item.grouped
+                      ? "bg-white text-emerald-700 ring-1 ring-emerald-200"
+                      : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-green"
+                }`}
+              >
+                <ItemIcon size={17} />
+              </span>
+              {item.label}
+              {item.href === "/app/marketing" && session.marketingAddon?.menuVisible ? (
+                <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${itemIsActive ? "bg-emerald-100 text-emerald-800" : "bg-emerald-100 text-emerald-800"}`}>
+                  {session.marketingAddon.hasAccess ? "Attivo" : "Prova gratis"}
+                </span>
+              ) : null}
+              {section === "admin" && item.href === "/admin/leads" ? (
+                <AdminLeadNavBadge />
+              ) : null}
+              {item.href === supportBadgeHref ? <SupportNavBadge section={section} /> : null}
+            </Link>
+          );
+        };
+
+        const marketingGroup = link.grouped && session.marketingAddon?.hasAccess;
 
         return (
           <Fragment key={link.href}>
@@ -326,42 +375,14 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                 {category}
               </p>
             ) : null}
-            <Link
-              href={link.href}
-              className={`group flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
-                isActive
-                  ? link.grouped
-                    ? "rounded-t-lg border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)]"
-                    : "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
-                  : isHighlighted
-                    ? `border border-emerald-300 bg-emerald-50 text-emerald-800 shadow-[0_8px_24px_rgba(4,120,87,0.10)] ${link.grouped ? "rounded-t-lg" : ""}`
-                    : link.subitem
-                      ? `ml-3 -mt-1.5 rounded-none border-x border-emerald-200 bg-emerald-50/30 text-slate-600 hover:bg-emerald-50 hover:text-ink ${link.subitemLast ? "rounded-b-lg border-b" : ""}`
-                      : "text-slate-600 hover:bg-slate-100 hover:text-ink"
-              }`}
-            >
-              <span
-                className={`flex size-8 items-center justify-center rounded-md transition ${
-                  isActive
-                    ? "bg-white/12 text-white"
-                    : isHighlighted
-                      ? "bg-white text-emerald-700 ring-1 ring-emerald-200"
-                    : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-green"
-                }`}
-              >
-                <Icon size={17} />
-              </span>
-              {link.label}
-              {link.href === "/app/marketing" && session.marketingAddon?.menuVisible ? (
-                <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isActive ? "bg-white/15 text-white" : "bg-emerald-100 text-emerald-800"}`}>
-                  {session.marketingAddon.hasAccess ? "Attivo" : "Prova gratis"}
-                </span>
-              ) : null}
-              {section === "admin" && link.href === "/admin/leads" ? (
-                <AdminLeadNavBadge />
-              ) : null}
-              {link.href === supportBadgeHref ? <SupportNavBadge section={section} /> : null}
-            </Link>
+            {marketingGroup ? (
+              <div className="rounded-lg border border-emerald-300 bg-emerald-50/35 p-1 shadow-[0_8px_24px_rgba(4,120,87,0.08)]">
+                {renderLink(link)}
+                {marketingToolLinks.map((tool) => renderLink(tool, true))}
+              </div>
+            ) : (
+              renderLink(link)
+            )}
           </Fragment>
         );
       })}

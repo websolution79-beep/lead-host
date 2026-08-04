@@ -86,14 +86,12 @@ const marketingToolLinks: AppNavLink[] = [
     label: "CRM",
     href: "/app/marketing/crm",
     icon: Columns3,
-    category: "Marketing",
     subitem: true,
   },
   {
     label: "Rendita Stimata",
     href: "/app/marketing/rendita-stimata",
     icon: Calculator,
-    category: "Marketing",
     subitem: true,
   },
 ];

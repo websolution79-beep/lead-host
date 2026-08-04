@@ -32,11 +32,10 @@ const pmLinks = [
 
 const marketingPreviewLink = { label: "Marketing", href: "/app/marketing" };
 const marketingToolLinks = [
-  { label: "CRM", href: "/app/marketing/crm", group: "Marketing" },
+  { label: "CRM", href: "/app/marketing/crm" },
   {
     label: "Rendita Stimata",
     href: "/app/marketing/rendita-stimata",
-    group: "Marketing",
   },
 ];
 

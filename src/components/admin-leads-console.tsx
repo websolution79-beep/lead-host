@@ -21,6 +21,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
+import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { hasAdminPermission } from "@/lib/admin/permissions";
@@ -460,6 +461,14 @@ export function AdminLeadsConsole() {
             : "grid gap-5"
         }
       >
+        {filter === "new" ? (
+          <AdminNewLeadsPipeline
+            records={filteredRecords}
+            canManage={canManageLeads}
+            onOpenDetail={selectRecord}
+            onChanged={loadRecords}
+          />
+        ) : (
         <div className="card overflow-hidden">
           <div className="admin-leads-header">
             <span>Richiesta</span>
@@ -561,6 +570,7 @@ export function AdminLeadsConsole() {
             </div>
           )}
         </div>
+        )}
 
         {selectedRecord ? (
           <LeadDetailPanel

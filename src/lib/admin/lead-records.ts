@@ -32,6 +32,7 @@ export type AdminLeadRecord = {
   qualificationNotes: string | null;
   statusReason: string | null;
   statusChangedAt: string | null;
+  reviewPipelineStageId: string | null;
   ownerVerified: boolean;
   consents: {
     privacy: boolean;
@@ -102,7 +103,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified",
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id",
     )
     .order("created_at", { ascending: false })
     .limit(150);
@@ -200,6 +201,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       qualificationNotes: request.qualification_notes,
       statusReason: statusMetadata?.status_reason ?? null,
       statusChangedAt: statusMetadata?.status_changed_at ?? null,
+      reviewPipelineStageId: request.review_pipeline_stage_id,
       ownerVerified: request.owner_verified,
       consents: {
         privacy: Boolean(request.privacy_consent_at),

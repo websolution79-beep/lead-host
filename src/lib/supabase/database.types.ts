@@ -1542,6 +1542,7 @@ export type Database = {
           duplicate_check: Json;
           qualification_notes: string | null;
           owner_verified: boolean;
+          review_pipeline_stage_id: string | null;
           status_reason: string | null;
           status_changed_at: string | null;
           created_at: string;
@@ -1569,6 +1570,7 @@ export type Database = {
           duplicate_check?: Json;
           qualification_notes?: string | null;
           owner_verified?: boolean;
+          review_pipeline_stage_id?: string | null;
           status_reason?: string | null;
           status_changed_at?: string | null;
           created_at?: string;
@@ -1596,8 +1598,36 @@ export type Database = {
           duplicate_check?: Json;
           qualification_notes?: string | null;
           owner_verified?: boolean;
+          review_pipeline_stage_id?: string | null;
           status_reason?: string | null;
           status_changed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      admin_lead_pipeline_stages: {
+        Row: {
+          id: string;
+          name: string;
+          color: string;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          color?: string;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          color?: string;
+          position?: number;
           created_at?: string;
           updated_at?: string;
         };

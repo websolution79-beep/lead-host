@@ -456,7 +456,7 @@ export function AdminLeadsConsole() {
 
       <div
         className={
-          selectedRecord
+          selectedRecord && filter !== "new"
             ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]"
             : "grid gap-5"
         }
@@ -572,7 +572,7 @@ export function AdminLeadsConsole() {
         </div>
         )}
 
-        {selectedRecord ? (
+        {selectedRecord && filter !== "new" ? (
           <LeadDetailPanel
             record={selectedRecord}
             canManage={canManageLeads}
@@ -589,6 +589,32 @@ export function AdminLeadsConsole() {
           />
         ) : null}
       </div>
+
+      {selectedRecord && filter === "new" ? (
+        <div
+          className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/35 p-0 sm:p-5 lg:p-8"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Dettaglio lead"
+        >
+          <div className="min-h-full bg-paper p-4 sm:rounded-xl sm:p-6 lg:mx-auto lg:max-w-6xl lg:p-8">
+            <LeadDetailPanel
+              record={selectedRecord}
+              canManage={canManageLeads}
+              actionReason={actionReason}
+              onActionReasonChange={setActionReason}
+              onApprove={requestApproval}
+              onReject={reject}
+              onMoveToStatus={moveToStatus}
+              onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
+              onClose={() => setSelectedId(null)}
+              approvalDraft={getApprovalDraft(selectedRecord)}
+              onApprovalDraftChange={(update) => updateApprovalDraft(selectedRecord, update)}
+              actionLoading={actionLoading}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {editingRecord ? (
         <AdminLeadEditorModal

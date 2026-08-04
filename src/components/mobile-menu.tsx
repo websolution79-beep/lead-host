@@ -13,6 +13,9 @@ type MobileMenuLink = {
   label: string;
   group?: string;
   highlighted?: boolean;
+  grouped?: boolean;
+  subitem?: boolean;
+  subitemLast?: boolean;
 };
 
 type MobileMenuProps = {
@@ -88,9 +91,13 @@ export function MobileMenu({
                     className={`flex min-h-12 items-center rounded-lg px-4 text-base font-semibold ${
                       isDark
                         ? "text-cream/78 hover:bg-cream/10 hover:text-cream"
-                        : link.highlighted
-                          ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
-                          : "text-slate-600 hover:bg-fog hover:text-ink"
+                        : link.grouped
+                          ? "rounded-t-lg border border-emerald-300 bg-emerald-50 text-emerald-800"
+                          : link.subitem
+                            ? `ml-3 -mt-1.5 rounded-none border-x border-emerald-200 bg-emerald-50/30 text-slate-600 hover:bg-emerald-50 hover:text-ink ${link.subitemLast ? "rounded-b-lg border-b" : ""}`
+                            : link.highlighted
+                              ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
+                              : "text-slate-600 hover:bg-fog hover:text-ink"
                     }`}
                     onClick={() => setIsOpen(false)}
                   >

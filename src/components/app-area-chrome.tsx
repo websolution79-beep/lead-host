@@ -30,12 +30,18 @@ const pmLinks = [
   { label: "Assistenza", href: "/app/assistenza" },
 ];
 
-const marketingPreviewLink = { label: "Marketing", href: "/app/marketing" };
+const marketingPreviewLink = {
+  label: "Marketing",
+  href: "/app/marketing",
+  grouped: true,
+};
 const marketingToolLinks = [
-  { label: "CRM", href: "/app/marketing/crm" },
+  { label: "CRM", href: "/app/marketing/crm", subitem: true },
   {
     label: "Rendita Stimata",
     href: "/app/marketing/rendita-stimata",
+    subitem: true,
+    subitemLast: true,
   },
 ];
 

@@ -6,6 +6,12 @@ type ServiceSupabaseClient = ReturnType<typeof createServiceSupabaseClient>;
 type TermsAcceptanceInput =
   | {
       profileId: string;
+      context: "account_registration";
+      termsVersion: string;
+      metadata?: Json;
+    }
+  | {
+      profileId: string;
       context: "wallet_top_up";
       termsVersion: string;
       walletTransactionId: string;
@@ -42,4 +48,3 @@ export async function recordTermsAcceptance(
     metadata: input.metadata ?? {},
   });
 }
-

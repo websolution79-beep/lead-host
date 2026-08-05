@@ -20,6 +20,7 @@ export function PmSignupForm() {
   const [managedPropertiesRange, setManagedPropertiesRange] = useState("");
   const [primaryCity, setPrimaryCity] = useState("");
   const [password, setPassword] = useState("");
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [emailMarketingConsent, setEmailMarketingConsent] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -68,6 +69,7 @@ export function PmSignupForm() {
         managedPropertiesRange,
         primaryCity,
         password,
+        legalAccepted,
         emailMarketingConsent,
         trackingConsent,
       }),
@@ -272,6 +274,36 @@ export function PmSignupForm() {
         onChange={(event) => setPassword(event.target.value)}
         required
       />
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <input
+          className="mt-1 size-4 shrink-0 accent-green"
+          type="checkbox"
+          checked={legalAccepted}
+          onChange={(event) => setLegalAccepted(event.target.checked)}
+          required
+        />
+        <span className="text-sm leading-6 text-slate-700">
+          Dichiaro di aver letto l&apos;{" "}
+          <Link
+            className="font-semibold text-green underline decoration-green/30 underline-offset-4"
+            href="https://www.iubenda.com/privacy-policy/12644511"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Informativa Privacy
+          </Link>{" "}
+          e accetto i{" "}
+          <Link
+            className="font-semibold text-green underline decoration-green/30 underline-offset-4"
+            href="/termini"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Termini e Condizioni
+          </Link>
+          .
+        </span>
+      </label>
       <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
         <input
           className="mt-1 size-4 shrink-0 accent-green"

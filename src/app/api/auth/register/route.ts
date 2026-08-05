@@ -9,6 +9,11 @@ import {
 } from "@/lib/tracking/server-events";
 import { MARKETING_CONSENT_POLICY_VERSION } from "@/lib/brevo/config";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
+import { recordTermsAcceptance } from "@/lib/legal/acceptances";
+import {
+  CURRENT_PRIVACY_POLICY_VERSION,
+  CURRENT_TERMS_VERSION,
+} from "@/lib/legal/terms";
 
 const registrationSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
@@ -23,6 +28,7 @@ const registrationSchema = z.object({
   ]),
   primaryCity: z.string().trim().min(2).max(120),
   password: z.string().min(8).max(128),
+  legalAccepted: z.literal(true),
   emailMarketingConsent: z.boolean().optional().default(false),
   trackingConsent: z
     .object({
@@ -64,6 +70,9 @@ export async function POST(request: NextRequest) {
           phone: payload.phone,
           managed_properties_range: payload.managedPropertiesRange,
           primary_city: payload.primaryCity,
+          legal_accepted: payload.legalAccepted,
+          terms_version: CURRENT_TERMS_VERSION,
+          privacy_policy_version: CURRENT_PRIVACY_POLICY_VERSION,
           email_marketing_consent: payload.emailMarketingConsent,
           email_marketing_policy_version: MARKETING_CONSENT_POLICY_VERSION,
         },
@@ -109,6 +118,26 @@ export async function POST(request: NextRequest) {
           },
         });
       });
+    }
+
+    if (data.user) {
+      const { error: acceptanceError } = await recordTermsAcceptance(
+        serviceClient,
+        {
+          profileId: data.user.id,
+          context: "account_registration",
+          termsVersion: CURRENT_TERMS_VERSION,
+          metadata: {
+            privacy_policy_version: CURRENT_PRIVACY_POLICY_VERSION,
+            source: "pm_signup_form",
+          },
+        },
+      );
+
+      // A duplicate can only result from a repeated signup response; it is safe.
+      if (acceptanceError && acceptanceError.code !== "23505") {
+        console.error("PM registration legal acceptance recording failed", acceptanceError);
+      }
     }
 
     if (data.user) {

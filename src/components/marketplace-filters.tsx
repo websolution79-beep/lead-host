@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BellRing, Filter, RotateCcw } from "lucide-react";
+import { BellRing, ChevronDown, ChevronUp, Filter, RotateCcw } from "lucide-react";
 import { LeadCard } from "@/components/lead-card";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import {
@@ -36,6 +36,7 @@ export function MarketplaceFilters({
   const [availability, setAvailability] =
     useState<AvailabilityFilter>("all");
   const [leadType, setLeadType] = useState<LeadTypeFilter>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const regions = useMemo(
     () => ITALY_GEO.map((item) => item.region),
@@ -106,6 +107,14 @@ export function MarketplaceFilters({
     setLeadType("all");
   }
 
+  const activeFiltersCount = [
+    region !== "all",
+    province !== "all",
+    city !== "all",
+    availability !== "all",
+    leadType !== "all",
+  ].filter(Boolean).length;
+
   function handleRegion(value: string) {
     setRegion(value);
     setProvince("all");
@@ -135,7 +144,57 @@ export function MarketplaceFilters({
 
   return (
     <section className="min-w-0 max-w-full overflow-x-clip">
-      <div className="card mb-5 min-w-0 max-w-full p-4">
+      <div className="card mb-4 min-w-0 max-w-full p-3 lg:hidden">
+        <button
+          className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-2 text-left"
+          type="button"
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen((current) => !current)}
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-green/10 text-green">
+              <Filter size={19} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold uppercase tracking-[0.12em] text-green">
+                Filtri
+              </span>
+              <span className="mt-0.5 block text-sm text-muted">
+                {activeFiltersCount
+                  ? `${activeFiltersCount} ${activeFiltersCount === 1 ? "filtro attivo" : "filtri attivi"}`
+                  : `${filteredLeads.length} lead disponibili`}
+              </span>
+            </span>
+          </span>
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-ink">
+            {filtersOpen ? <ChevronUp size={19} /> : <ChevronDown size={19} />}
+          </span>
+        </button>
+
+        {filtersOpen ? (
+          <div className="mt-3 border-t border-slate-200 pt-4">
+            <MarketplaceFilterControls
+              region={region}
+              province={province}
+              city={city}
+              leadType={leadType}
+              availability={availability}
+              regions={regions}
+              provinces={provinces}
+              cities={cities}
+              sharedPurchasesEnabled={sharedPurchasesEnabled}
+              onRegionChange={handleRegion}
+              onProvinceChange={handleProvince}
+              onCityChange={setCity}
+              onLeadTypeChange={setLeadType}
+              onAvailabilityChange={setAvailability}
+              onReset={resetFilters}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      <div className="card mb-5 hidden min-w-0 max-w-full p-4 lg:block">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-green">
@@ -147,68 +206,23 @@ export function MarketplaceFilters({
             </p>
           </div>
 
-          <div className="filters-grid w-full min-w-0 flex-1">
-            <SelectFilter
-              label="Regione"
-              value={region}
-              onChange={handleRegion}
-              options={regions}
-            />
-            <SelectFilter
-              label="Provincia"
-              value={province}
-              onChange={handleProvince}
-              options={provinces}
-            />
-            <SelectFilter
-              label="Citta"
-              value={city}
-              onChange={setCity}
-              options={cities}
-            />
-            <label className="filter-control grid gap-1 text-sm font-semibold text-ink">
-              Tipologia Lead
-              <select
-                aria-label="Tipologia Lead"
-                className="filter-select"
-                value={leadType}
-                onChange={(event) =>
-                  setLeadType(event.target.value as LeadTypeFilter)
-                }
-              >
-                <option value="all">Tutti i Lead</option>
-                <option value="in_target">Lead Standard</option>
-                <option value="verified">Lead Premium</option>
-              </select>
-            </label>
-            <label className="filter-control grid gap-1 text-sm font-semibold text-ink">
-              Disponibilita
-              <select
-                aria-label="Disponibilita"
-                className="filter-select"
-                value={availability}
-                onChange={(event) =>
-                  setAvailability(event.target.value as AvailabilityFilter)
-                }
-              >
-                <option value="all">Tutti</option>
-                {sharedPurchasesEnabled ? (
-                  <option value="shared_available">Condiviso disponibile</option>
-                ) : null}
-                <option value="exclusive_available">Esclusiva disponibile</option>
-                <option value="last_availability">Ultima disponibilita</option>
-                <option value="unavailable">Non piu disponibile</option>
-              </select>
-            </label>
-            <button
-              className="btn btn-secondary min-w-0 self-end"
-              type="button"
-              onClick={resetFilters}
-            >
-              <RotateCcw size={16} />
-              Reset
-            </button>
-          </div>
+          <MarketplaceFilterControls
+            region={region}
+            province={province}
+            city={city}
+            leadType={leadType}
+            availability={availability}
+            regions={regions}
+            provinces={provinces}
+            cities={cities}
+            sharedPurchasesEnabled={sharedPurchasesEnabled}
+            onRegionChange={handleRegion}
+            onProvinceChange={handleProvince}
+            onCityChange={setCity}
+            onLeadTypeChange={setLeadType}
+            onAvailabilityChange={setAvailability}
+            onReset={resetFilters}
+          />
         </div>
       </div>
 
@@ -234,6 +248,70 @@ export function MarketplaceFilters({
         </div>
       )}
     </section>
+  );
+}
+
+function MarketplaceFilterControls({
+  region,
+  province,
+  city,
+  leadType,
+  availability,
+  regions,
+  provinces,
+  cities,
+  sharedPurchasesEnabled,
+  onRegionChange,
+  onProvinceChange,
+  onCityChange,
+  onLeadTypeChange,
+  onAvailabilityChange,
+  onReset,
+}: {
+  region: string;
+  province: string;
+  city: string;
+  leadType: LeadTypeFilter;
+  availability: AvailabilityFilter;
+  regions: string[];
+  provinces: string[];
+  cities: string[];
+  sharedPurchasesEnabled: boolean;
+  onRegionChange: (value: string) => void;
+  onProvinceChange: (value: string) => void;
+  onCityChange: (value: string) => void;
+  onLeadTypeChange: (value: LeadTypeFilter) => void;
+  onAvailabilityChange: (value: AvailabilityFilter) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="filters-grid w-full min-w-0 flex-1">
+      <SelectFilter label="Regione" value={region} onChange={onRegionChange} options={regions} />
+      <SelectFilter label="Provincia" value={province} onChange={onProvinceChange} options={provinces} />
+      <SelectFilter label="Citta" value={city} onChange={onCityChange} options={cities} />
+      <label className="filter-control grid gap-1 text-sm font-semibold text-ink">
+        Tipologia Lead
+        <select aria-label="Tipologia Lead" className="filter-select" value={leadType} onChange={(event) => onLeadTypeChange(event.target.value as LeadTypeFilter)}>
+          <option value="all">Tutti i Lead</option>
+          <option value="in_target">Lead Standard</option>
+          <option value="verified">Lead Premium</option>
+        </select>
+      </label>
+      <label className="filter-control grid gap-1 text-sm font-semibold text-ink">
+        Disponibilita
+        <select aria-label="Disponibilita" className="filter-select" value={availability} onChange={(event) => onAvailabilityChange(event.target.value as AvailabilityFilter)}>
+          <option value="all">Tutti</option>
+          {sharedPurchasesEnabled ? <option value="shared_available">Condiviso disponibile</option> : null}
+          <option value="exclusive_available">Esclusiva disponibile</option>
+          <option value="last_availability">Ultima disponibilita</option>
+          <option value="unavailable">Non piu disponibile</option>
+        </select>
+      </label>
+      <button className="btn btn-secondary min-w-0 self-end" type="button" onClick={onReset}>
+        <RotateCcw size={16} />
+        Reset
+      </button>
+    </div>
   );
 }
 

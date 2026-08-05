@@ -108,16 +108,23 @@ export function LeadCard({
         </div>
       </dl>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {lead.services.slice(0, 3).map((service) => (
-          <span
-            key={service}
-            className="rounded-full bg-fog px-3 py-1 text-xs font-semibold text-ink"
-          >
-            {service}
-          </span>
-        ))}
-      </div>
+      {lead.services.length > 0 ? (
+        <div className="mt-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+            Servizi richiesti
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {lead.services.slice(0, 3).map((service) => (
+              <span
+                key={service}
+                className="rounded-full bg-fog px-3 py-1 text-xs font-semibold text-ink"
+              >
+                {service}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-auto pt-5">
         <div className="min-w-0 rounded-lg border border-ink/10 bg-paper p-3 text-sm">

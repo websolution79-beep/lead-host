@@ -1380,6 +1380,7 @@ export type Database = {
           id: string;
           profile_id: string;
           role_id: string;
+          badge_color: string;
           status: "invited" | "active" | "suspended";
           creation_mode: "invite" | "manual";
           must_change_password: boolean;
@@ -1394,6 +1395,7 @@ export type Database = {
           id?: string;
           profile_id: string;
           role_id: string;
+          badge_color?: string;
           status?: "invited" | "active" | "suspended";
           creation_mode: "invite" | "manual";
           must_change_password?: boolean;
@@ -1408,6 +1410,7 @@ export type Database = {
           id?: string;
           profile_id?: string;
           role_id?: string;
+          badge_color?: string;
           status?: "invited" | "active" | "suspended";
           creation_mode?: "invite" | "manual";
           must_change_password?: boolean;
@@ -1543,6 +1546,8 @@ export type Database = {
           qualification_notes: string | null;
           owner_verified: boolean;
           review_pipeline_stage_id: string | null;
+          first_worked_by_profile_id: string | null;
+          first_worked_at: string | null;
           status_reason: string | null;
           status_changed_at: string | null;
           created_at: string;
@@ -1571,6 +1576,8 @@ export type Database = {
           qualification_notes?: string | null;
           owner_verified?: boolean;
           review_pipeline_stage_id?: string | null;
+          first_worked_by_profile_id?: string | null;
+          first_worked_at?: string | null;
           status_reason?: string | null;
           status_changed_at?: string | null;
           created_at?: string;
@@ -1599,6 +1606,8 @@ export type Database = {
           qualification_notes?: string | null;
           owner_verified?: boolean;
           review_pipeline_stage_id?: string | null;
+          first_worked_by_profile_id?: string | null;
+          first_worked_at?: string | null;
           status_reason?: string | null;
           status_changed_at?: string | null;
           created_at?: string;
@@ -2434,6 +2443,14 @@ export type Database = {
           p_results: Json;
         };
         Returns: Database["public"]["Tables"]["service_email_campaigns"]["Row"];
+      };
+      move_owner_request_review_pipeline_stage: {
+        Args: {
+          p_owner_request_id: string;
+          p_stage_id: string;
+          p_actor_profile_id: string;
+        };
+        Returns: Database["public"]["Tables"]["owner_requests"]["Row"];
       };
       fail_service_email_batch: {
         Args: {

@@ -129,8 +129,11 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
     <div className="flex items-start gap-2">
       {draggable ? <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} /> : null}
       <div className="min-w-0 flex-1 space-y-4">
-        <div>
+        <div className="flex items-start justify-between gap-2">
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Home size={12} />Immobile</p>
+          <FirstWorkedBadge record={record} />
+        </div>
+        <div>
           <p className="mt-1 break-words text-sm font-bold leading-5 text-green">{record.lead?.title ?? defaultTitle(record)}</p>
         </div>
         <div>
@@ -144,6 +147,14 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
       </div>
     </div>
   </button>;
+}
+function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
+  const worker = record.firstWorkedBy;
+  if (!worker) return null;
+  const name = `${worker.firstName ?? ""} ${worker.lastName?.trim().slice(0, 1) ?? ""}`.trim();
+  if (!name) return null;
+  const color = worker.badgeColor ?? "#2563EB";
+  return <span className="max-w-[120px] truncate rounded-full border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: color, color, backgroundColor: `${color}14` }}>{name}{worker.lastName ? "." : ""}</span>;
 }
 function formatOwnerName(record: AdminLeadRecord) { return `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim() || "Non indicato"; }
 function defaultTitle(record: AdminLeadRecord) { const type = record.property?.propertyType?.trim() || "Immobile"; const city = record.property?.city?.trim(); return city ? `${type} a ${city}` : type; }

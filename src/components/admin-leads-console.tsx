@@ -706,6 +706,7 @@ function LeadDetailPanel({
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge record={record} />
+          <FirstWorkedBadge record={record} />
           {canEdit ? (
             <button
               className="icon-button min-h-9 px-2"
@@ -1178,6 +1179,27 @@ function StatCard({
       </div>
       <p className="mt-4 text-3xl font-semibold text-ink">{value}</p>
     </div>
+  );
+}
+
+function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
+  const worker = record.firstWorkedBy;
+  if (!worker) return null;
+
+  const firstName = worker.firstName?.trim() ?? "";
+  const lastInitial = worker.lastName?.trim().slice(0, 1) ?? "";
+  const label = `${firstName}${lastInitial ? ` ${lastInitial}.` : ""}`.trim();
+  if (!label) return null;
+
+  const color = worker.badgeColor ?? "#2563EB";
+  return (
+    <span
+      className="max-w-[132px] truncate rounded-full border px-2.5 py-1 text-xs font-bold"
+      style={{ borderColor: color, color, backgroundColor: `${color}14` }}
+      title={`Prima lavorazione: ${label}`}
+    >
+      {label}
+    </span>
   );
 }
 

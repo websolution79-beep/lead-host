@@ -52,6 +52,7 @@ type TeamMember = {
   status: "invited" | "active" | "suspended";
   creation_mode: "invite" | "manual";
   must_change_password: boolean;
+  badge_color: string;
   invited_at: string | null;
   joined_at: string | null;
   created_at: string;
@@ -109,6 +110,7 @@ export function AdminTeamConsole() {
   const [memberDraft, setMemberDraft] = useState<MemberDraft | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [editMemberRoleId, setEditMemberRoleId] = useState("");
+  const [editMemberBadgeColor, setEditMemberBadgeColor] = useState("#2563EB");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -197,6 +199,7 @@ export function AdminTeamConsole() {
   function openMemberEdit(member: TeamMember) {
     setEditingMember(member);
     setEditMemberRoleId(member.role_id);
+    setEditMemberBadgeColor(member.badge_color ?? "#2563EB");
   }
 
   async function request(
@@ -351,6 +354,7 @@ export function AdminTeamConsole() {
         memberId: editingMember.id,
         roleId: editMemberRoleId,
         status: editingMember.status === "suspended" ? "suspended" : "active",
+        badgeColor: editMemberBadgeColor,
       });
       setEditingMember(null);
       setSuccess("Membro Team aggiornato.");
@@ -391,6 +395,7 @@ export function AdminTeamConsole() {
         memberId: member.id,
         roleId: member.role_id,
         status: nextStatus,
+        badgeColor: member.badge_color ?? "#2563EB",
       });
       setEditingMember(null);
       setSuccess(
@@ -568,9 +573,11 @@ export function AdminTeamConsole() {
         <MemberEditModal
           member={editingMember}
           roleId={editMemberRoleId}
+          badgeColor={editMemberBadgeColor}
           roles={activeRoles}
           saving={saving}
           onRoleChange={setEditMemberRoleId}
+          onBadgeColorChange={setEditMemberBadgeColor}
           onStatusToggle={() => void toggleMemberStatus(editingMember)}
           onResendInvite={() => void resendMemberInvite(editingMember)}
           onClose={() => setEditingMember(null)}
@@ -982,9 +989,11 @@ function MemberCreationModal({
 function MemberEditModal({
   member,
   roleId,
+  badgeColor,
   roles,
   saving,
   onRoleChange,
+  onBadgeColorChange,
   onStatusToggle,
   onResendInvite,
   onClose,
@@ -992,9 +1001,11 @@ function MemberEditModal({
 }: {
   member: TeamMember;
   roleId: string;
+  badgeColor: string;
   roles: TeamRole[];
   saving: boolean;
   onRoleChange: (roleId: string) => void;
+  onBadgeColorChange: (color: string) => void;
   onStatusToggle: () => void;
   onResendInvite: () => void;
   onClose: () => void;
@@ -1049,6 +1060,23 @@ function MemberEditModal({
               </option>
             ))}
           </select>
+        </Field>
+        <Field label="Colore identificativo">
+          <div className="flex items-center gap-3">
+            <input
+              className="size-11 cursor-pointer rounded-lg border border-slate-200 bg-white p-1"
+              type="color"
+              value={badgeColor}
+              aria-label="Scegli colore identificativo"
+              onChange={(event) => onBadgeColorChange(event.target.value.toUpperCase())}
+            />
+            <span
+              className="rounded-full border px-3 py-1.5 text-sm font-bold"
+              style={{ borderColor: badgeColor, color: badgeColor, backgroundColor: `${badgeColor}14` }}
+            >
+              {memberName(member).replace(/\s+(\S)\S*$/, " $1.")}
+            </span>
+          </div>
         </Field>
         <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row">

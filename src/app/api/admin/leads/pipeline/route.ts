@@ -129,11 +129,21 @@ export async function PATCH(request: NextRequest) {
           { status: 409 },
         );
       }
-      const { error } = await supabase
-        .from("owner_requests")
-        .update({ review_pipeline_stage_id: payload.stageId })
-        .eq("id", payload.ownerRequestId);
+      const { data: movedRequest, error } = await supabase.rpc(
+        "move_owner_request_review_pipeline_stage",
+        {
+          p_owner_request_id: payload.ownerRequestId,
+          p_stage_id: payload.stageId,
+          p_actor_profile_id: profile.id,
+        },
+      );
       if (error) throw error;
+      if (!movedRequest) {
+        return NextResponse.json(
+          { error: "Il lead non e piu disponibile nella pipeline Nuovi Lead." },
+          { status: 409 },
+        );
+      }
       entityId = payload.ownerRequestId;
     }
 

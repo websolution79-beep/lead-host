@@ -33,6 +33,13 @@ export type AdminLeadRecord = {
   statusReason: string | null;
   statusChangedAt: string | null;
   reviewPipelineStageId: string | null;
+  firstWorkedBy: {
+    profileId: string;
+    firstName: string | null;
+    lastName: string | null;
+    badgeColor: string | null;
+  } | null;
+  firstWorkedAt: string | null;
   ownerVerified: boolean;
   consents: {
     privacy: boolean;
@@ -103,7 +110,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { data: requests, error: requestsError } = await supabase
     .from("owner_requests")
     .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id",
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at",
     )
     .order("created_at", { ascending: false })
     .limit(150);
@@ -118,7 +125,8 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     return [];
   }
 
-  const [contactsResult, propertiesResult, leadsResult, statusMetadataResult] =
+  const firstWorkedProfileIds = [...new Set((requests ?? []).map((item) => item.first_worked_by_profile_id).filter((id): id is string => Boolean(id)))];
+  const [contactsResult, propertiesResult, leadsResult, statusMetadataResult, firstWorkedProfilesResult, firstWorkedMembersResult] =
     await Promise.all([
       supabase
         .from("owner_contacts")
@@ -140,11 +148,19 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
         .from("owner_requests")
         .select("id,status_reason,status_changed_at")
         .in("id", ownerRequestIds),
+      firstWorkedProfileIds.length
+        ? supabase.from("profiles").select("id,first_name,last_name").in("id", firstWorkedProfileIds)
+        : Promise.resolve({ data: [], error: null }),
+      firstWorkedProfileIds.length
+        ? supabase.from("team_members").select("profile_id,badge_color").in("profile_id", firstWorkedProfileIds)
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
   if (contactsResult.error) throw contactsResult.error;
   if (propertiesResult.error) throw propertiesResult.error;
   if (leadsResult.error) throw leadsResult.error;
+  if (firstWorkedProfilesResult.error) throw firstWorkedProfilesResult.error;
+  if (firstWorkedMembersResult.error) throw firstWorkedMembersResult.error;
   if (
     statusMetadataResult.error &&
     !statusMetadataResult.error.message.includes("status_reason")
@@ -164,6 +180,12 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const statusMetadataByRequest = new Map(
     (statusMetadataResult.data ?? []).map((item) => [item.id, item]),
   );
+  const firstWorkedProfilesById = new Map(
+    (firstWorkedProfilesResult.data ?? []).map((profile) => [profile.id, profile]),
+  );
+  const firstWorkedMembersByProfileId = new Map(
+    (firstWorkedMembersResult.data ?? []).map((member) => [member.profile_id, member]),
+  );
   const leadIds = (leadsResult.data ?? []).map((item) => item.id);
   const purchasesByLead = await fetchPurchasesByLead(supabase, leadIds);
 
@@ -172,6 +194,12 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
     const property = propertiesByRequest.get(request.id) ?? null;
     const lead = leadsByRequest.get(request.id) ?? null;
     const statusMetadata = statusMetadataByRequest.get(request.id) ?? null;
+    const firstWorkedProfile = request.first_worked_by_profile_id
+      ? firstWorkedProfilesById.get(request.first_worked_by_profile_id) ?? null
+      : null;
+    const firstWorkedMember = request.first_worked_by_profile_id
+      ? firstWorkedMembersByProfileId.get(request.first_worked_by_profile_id) ?? null
+      : null;
     const location = {
       region: property?.region,
       province: property?.province,
@@ -202,6 +230,15 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       statusReason: statusMetadata?.status_reason ?? null,
       statusChangedAt: statusMetadata?.status_changed_at ?? null,
       reviewPipelineStageId: request.review_pipeline_stage_id,
+      firstWorkedBy: firstWorkedProfile && request.first_worked_by_profile_id
+        ? {
+            profileId: request.first_worked_by_profile_id,
+            firstName: firstWorkedProfile.first_name,
+            lastName: firstWorkedProfile.last_name,
+            badgeColor: firstWorkedMember?.badge_color ?? null,
+          }
+        : null,
+      firstWorkedAt: request.first_worked_at,
       ownerVerified: request.owner_verified,
       consents: {
         privacy: Boolean(request.privacy_consent_at),

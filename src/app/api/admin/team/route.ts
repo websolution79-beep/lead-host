@@ -28,6 +28,7 @@ const memberFieldsSchema = z.object({
   email: z.string().trim().email().max(255).transform((value) => value.toLowerCase()),
   roleId: z.string().uuid(),
 });
+const badgeColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
 const postSchema = z.discriminatedUnion("action", [
   z.object({
@@ -61,6 +62,7 @@ const patchSchema = z.discriminatedUnion("action", [
     memberId: z.string().uuid(),
     roleId: z.string().uuid(),
     status: z.enum(["active", "suspended"]),
+    badgeColor: badgeColorSchema,
   }),
 ]);
 
@@ -373,6 +375,7 @@ export async function PATCH(request: NextRequest) {
       .update({
         role_id: payload.data.roleId,
         status: payload.data.status,
+        badge_color: payload.data.badgeColor,
         suspended_at: suspendedAt,
       })
       .eq("id", payload.data.memberId)
@@ -393,6 +396,7 @@ export async function PATCH(request: NextRequest) {
       {
         role_id: payload.data.roleId,
         status: payload.data.status,
+        badge_color: payload.data.badgeColor,
       },
     );
 

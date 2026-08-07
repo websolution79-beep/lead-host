@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
     const requestedProfileId = request.nextUrl.searchParams.get("profileId");
+    const search = normalizeSearchTerm(request.nextUrl.searchParams.get("search"));
 
     const { data: roleRows, error: rolesError } = await supabase
       .from("user_roles")
@@ -152,17 +153,21 @@ export async function GET(request: NextRequest) {
     if (!requestedProfileId) {
       const pagination = readPagination(request.nextUrl.searchParams);
       const [
-        { data: profiles, error: profilesError },
+        { data: profiles, error: profilesError, count: profilesCount },
         { count: suspendedCount, error: suspendedCountError },
       ] = await Promise.all([
-        supabase
+        applyPropertyManagerSearch(
+          supabase
           .from("profiles")
           .select(
             "id,auth_user_id,email,first_name,last_name,phone,avatar_url,status,created_at,updated_at",
+            { count: "exact" },
           )
           .in("id", allProfileIds)
           .order("created_at", { ascending: false })
           .range(pagination.from, pagination.to),
+          search,
+        ),
         supabase
           .from("property_manager_profiles")
           .select("id", { count: "exact", head: true })
@@ -258,11 +263,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           propertyManagers,
-          pagination: buildPagination(
-            pagination.page,
-            pagination.pageSize,
-            allProfileIds.length,
-          ),
+            pagination: buildPagination(
+              pagination.page,
+              pagination.pageSize,
+              profilesCount ?? 0,
+            ),
           stats: {
             total: allProfileIds.length,
             active: Math.max(0, allProfileIds.length - (suspendedCount ?? 0)),
@@ -571,6 +576,27 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+function normalizeSearchTerm(value: string | null) {
+  return (value ?? "")
+    .trim()
+    .slice(0, 120)
+    .replace(/[(),]/g, " ")
+    .replace(/[%_]/g, "\\$&")
+    .replace(/\s+/g, " ");
+}
+
+function applyPropertyManagerSearch<T extends { or: (filters: string) => T }>(
+  query: T,
+  search: string,
+) {
+  if (!search) return query;
+
+  const pattern = `%${search}%`;
+  return query.or(
+    `email.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern}`,
+  );
 }
 
 function groupRowsByPropertyManagerId<T extends { property_manager_id: string }>(rows: T[]) {

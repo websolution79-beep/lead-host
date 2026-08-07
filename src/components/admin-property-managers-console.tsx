@@ -9,6 +9,7 @@ import {
   Eye,
   Mail,
   ReceiptText,
+  Search,
   ShoppingBag,
   UserCheck,
   Users,
@@ -122,6 +123,8 @@ export function AdminPropertyManagersConsole() {
   const [actionProfileId, setActionProfileId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: 25,
@@ -136,19 +139,31 @@ export function AdminPropertyManagersConsole() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadPropertyManagers(page);
+      void loadPropertyManagers(page, debouncedSearchTerm);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, debouncedSearchTerm]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   async function getAccessToken() {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token;
   }
 
-  async function loadPropertyManagers(targetPage = page) {
+  async function loadPropertyManagers(
+    targetPage = page,
+    search = debouncedSearchTerm,
+  ) {
     setIsLoading(true);
     setError("");
 
@@ -160,8 +175,14 @@ export function AdminPropertyManagersConsole() {
       return;
     }
 
+    const query = new URLSearchParams({
+      page: String(targetPage),
+      pageSize: "25",
+    });
+    if (search) query.set("search", search);
+
     const response = await fetch(
-      `/api/admin/property-managers?page=${targetPage}&pageSize=25`,
+      `/api/admin/property-managers?${query.toString()}`,
       {
       headers: { Authorization: `Bearer ${token}` },
       },
@@ -286,6 +307,34 @@ export function AdminPropertyManagersConsole() {
           >
             Aggiorna
           </button>
+        </div>
+
+        <div className="border-b border-slate-200 p-4 sm:p-5">
+          <label className="relative block">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              className="min-h-12 w-full rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-12 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-green focus:ring-2 focus:ring-green/15"
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Cerca per nome, cognome o email"
+              aria-label="Cerca Property Manager per nome, cognome o email"
+            />
+            {searchTerm ? (
+              <button
+                className="absolute right-2 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-ink"
+                type="button"
+                onClick={() => setSearchTerm("")}
+                aria-label="Cancella ricerca"
+                title="Cancella ricerca"
+              >
+                <X aria-hidden="true" className="size-4" />
+              </button>
+            ) : null}
+          </label>
         </div>
 
         {error ? (

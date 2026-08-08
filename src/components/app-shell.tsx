@@ -14,7 +14,7 @@ export function AppShell({ title, eyebrow, children, section }: AppShellProps) {
   return (
     <>
       <header className="premium-header w-full min-w-0 max-w-full overflow-x-clip border-b border-ink/10">
-        <div className="mx-auto w-full min-w-0 max-w-6xl px-5 py-6 sm:px-8">
+        <div className="w-full min-w-0 px-5 py-6 sm:px-8 xl:px-10 2xl:px-12">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               <p className="section-kicker">{eyebrow}</p>
@@ -41,7 +41,7 @@ export function AppShell({ title, eyebrow, children, section }: AppShellProps) {
           </div>
         </div>
       </header>
-      <div className="mx-auto w-full min-w-0 max-w-6xl overflow-x-clip px-5 py-8 sm:px-8">
+      <div className="w-full min-w-0 overflow-x-clip px-5 py-8 sm:px-8 xl:px-10 2xl:px-12">
         {children}
       </div>
     </>

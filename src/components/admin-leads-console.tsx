@@ -503,13 +503,7 @@ export function AdminLeadsConsole() {
         </div>
       ) : null}
 
-      <div
-        className={
-          selectedRecord && filter !== "new"
-            ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]"
-            : "grid gap-5"
-        }
-      >
+      <div className="grid gap-5">
         {filter === "new" ? (
           <AdminNewLeadsPipeline
             records={filteredRecords}
@@ -621,27 +615,9 @@ export function AdminLeadsConsole() {
         </div>
         )}
 
-        {selectedRecord && filter !== "new" ? (
-          <LeadDetailPanel
-            record={selectedRecord}
-            canManage={canManageLeads}
-            canManuallyPublishTelegram={canManuallyPublishTelegram}
-            actionReason={actionReason}
-            onActionReasonChange={setActionReason}
-            onApprove={requestApproval}
-            onReject={reject}
-            onMoveToStatus={moveToStatus}
-            onManualTelegram={sendManualTelegram}
-            onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
-            onClose={() => setSelectedId(null)}
-            approvalDraft={getApprovalDraft(selectedRecord)}
-            onApprovalDraftChange={(update) => updateApprovalDraft(selectedRecord, update)}
-            actionLoading={actionLoading}
-          />
-        ) : null}
       </div>
 
-      {selectedRecord && filter === "new" ? (
+      {selectedRecord ? (
         <div
           className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/35 p-0 sm:p-5 lg:p-8"
           role="dialog"

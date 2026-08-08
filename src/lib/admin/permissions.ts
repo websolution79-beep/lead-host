@@ -12,6 +12,7 @@ export const ADMIN_PERMISSION_KEYS = [
   "emails",
   "brevo",
   "telegram",
+  "telegram_manual_publish",
   "analytics",
   "tracking",
   "settings",

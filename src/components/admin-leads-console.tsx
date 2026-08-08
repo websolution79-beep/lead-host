@@ -11,6 +11,7 @@ import {
   ListChecks,
   Pencil,
   Search,
+  Send,
   ShieldCheck,
   Sparkles,
   ShoppingBag,
@@ -68,6 +69,13 @@ export function AdminLeadsConsole() {
   const canManageLeads =
     Boolean(session.isSuperAdmin) ||
     hasAdminPermission(session.adminPermissions ?? {}, "leads", "write");
+  const canManuallyPublishTelegram =
+    Boolean(session.isSuperAdmin) ||
+    hasAdminPermission(
+      session.adminPermissions ?? {},
+      "telegram_manual_publish",
+      "write",
+    );
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
@@ -362,6 +370,37 @@ export function AdminLeadsConsole() {
     setActionLoading(null);
   }
 
+  async function sendManualTelegram(record: AdminLeadRecord) {
+    if (!window.confirm("Inviare nuovamente questo annuncio nel canale Telegram?")) {
+      return;
+    }
+
+    setActionLoading(record.ownerRequestId);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sessione non disponibile. Effettua di nuovo il login.");
+      const response = await fetch(
+        `/api/admin/leads/${record.ownerRequestId}/telegram`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error ?? "Invio Telegram non riuscito.");
+        return;
+      }
+      window.alert("Annuncio inviato su Telegram.");
+    } catch (telegramError) {
+      setError(
+        telegramError instanceof Error
+          ? telegramError.message
+          : "Invio Telegram non riuscito.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <div className="admin-kpi-grid">
@@ -586,11 +625,13 @@ export function AdminLeadsConsole() {
           <LeadDetailPanel
             record={selectedRecord}
             canManage={canManageLeads}
+            canManuallyPublishTelegram={canManuallyPublishTelegram}
             actionReason={actionReason}
             onActionReasonChange={setActionReason}
             onApprove={requestApproval}
             onReject={reject}
             onMoveToStatus={moveToStatus}
+            onManualTelegram={sendManualTelegram}
             onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
             onClose={() => setSelectedId(null)}
             approvalDraft={getApprovalDraft(selectedRecord)}
@@ -611,11 +652,13 @@ export function AdminLeadsConsole() {
             <LeadDetailPanel
               record={selectedRecord}
               canManage={canManageLeads}
+              canManuallyPublishTelegram={canManuallyPublishTelegram}
               actionReason={actionReason}
               onActionReasonChange={setActionReason}
               onApprove={requestApproval}
               onReject={reject}
               onMoveToStatus={moveToStatus}
+              onManualTelegram={sendManualTelegram}
               onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
               onClose={() => setSelectedId(null)}
               approvalDraft={getApprovalDraft(selectedRecord)}
@@ -659,11 +702,13 @@ export function AdminLeadsConsole() {
 function LeadDetailPanel({
   record,
   canManage,
+  canManuallyPublishTelegram,
   actionReason,
   onActionReasonChange,
   onApprove,
   onReject,
   onMoveToStatus,
+  onManualTelegram,
   onEdit,
   onClose,
   approvalDraft,
@@ -672,6 +717,7 @@ function LeadDetailPanel({
 }: {
   record: AdminLeadRecord;
   canManage: boolean;
+  canManuallyPublishTelegram: boolean;
   actionReason: string;
   onActionReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
@@ -680,6 +726,7 @@ function LeadDetailPanel({
     record: AdminLeadRecord,
     status: "pending" | "to_verify",
   ) => void;
+  onManualTelegram: (record: AdminLeadRecord) => void;
   onEdit: () => void;
   onClose: () => void;
   approvalDraft: ApprovalPriceDraft;
@@ -975,6 +1022,17 @@ function LeadDetailPanel({
       ) : null}
 
       <div className="mt-5 grid gap-3">
+        {canManuallyPublishTelegram && canSendManualTelegram(record) ? (
+          <button
+            className="btn w-full border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
+            type="button"
+            disabled={isBusy}
+            onClick={() => onManualTelegram(record)}
+          >
+            <Send size={18} />
+            {isBusy ? "Invio Telegram..." : "Invio manuale su Telegram"}
+          </button>
+        ) : null}
         {canApprove ? (
           <button
             className="btn btn-primary w-full"
@@ -1410,6 +1468,14 @@ function mergeApprovalDraft(
 
 function isPendingLead(record: AdminLeadRecord) {
   return record.requestStatus === "pending";
+}
+
+function canSendManualTelegram(record: AdminLeadRecord) {
+  return (
+    record.requestStatus === "published" &&
+    Boolean(record.lead) &&
+    ["available", "last_availability"].includes(record.lead?.publicStatus ?? "")
+  );
 }
 
 function canEditRequest(record: AdminLeadRecord) {

@@ -146,6 +146,20 @@ export async function notifyNewLeadOnTelegram(lead: TelegramLeadSummary) {
   }
 }
 
+// This intentionally bypasses only the automation switch. It is used by an
+// explicitly authorised admin to re-share one still-purchasable lead.
+export async function sendManualLeadToTelegram(lead: TelegramLeadSummary) {
+  const supabase = createServiceSupabaseClient();
+  const { settings } = await fetchTelegramChannelSettings(supabase);
+  const result = await sendTelegramMessage({
+    text: renderTelegramLeadMessage(settings, lead),
+    buttonUrl: buildLeadUrl(lead.id),
+    buttonLabel: "Vedi il lead",
+  });
+
+  return { status: "sent" as const, messageId: result.message_id };
+}
+
 export function renderTelegramLeadMessage(
   settings: TelegramChannelSettings,
   lead: TelegramLeadSummary,

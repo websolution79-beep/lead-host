@@ -91,11 +91,14 @@ export function AdminLeadsConsole() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [publishWarningId, setPublishWarningId] = useState<string | null>(null);
+  const [manualTelegramRecord, setManualTelegramRecord] =
+    useState<AdminLeadRecord | null>(null);
   const [filter, setFilter] = useState<FilterState>("new");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [actionReason, setActionReason] = useState("");
   const [approvalDrafts, setApprovalDrafts] = useState<Record<string, ApprovalPriceDraft>>(
     {},
@@ -370,13 +373,19 @@ export function AdminLeadsConsole() {
     setActionLoading(null);
   }
 
-  async function sendManualTelegram(record: AdminLeadRecord) {
-    if (!window.confirm("Inviare nuovamente questo annuncio nel canale Telegram?")) {
-      return;
-    }
+  function requestManualTelegram(record: AdminLeadRecord) {
+    setError(null);
+    setNotice(null);
+    setManualTelegramRecord(record);
+  }
+
+  async function confirmManualTelegram() {
+    const record = manualTelegramRecord;
+    if (!record) return;
 
     setActionLoading(record.ownerRequestId);
     setError(null);
+    setNotice(null);
     try {
       const token = await getAccessToken();
       if (!token) throw new Error("Sessione non disponibile. Effettua di nuovo il login.");
@@ -389,7 +398,8 @@ export function AdminLeadsConsole() {
         setError(payload.error ?? "Invio Telegram non riuscito.");
         return;
       }
-      window.alert("Annuncio inviato su Telegram.");
+      setManualTelegramRecord(null);
+      setNotice("Annuncio inviato manualmente nel canale Telegram.");
     } catch (telegramError) {
       setError(
         telegramError instanceof Error
@@ -500,6 +510,12 @@ export function AdminLeadsConsole() {
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
           {error}
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div className="rounded-lg border border-green/20 bg-mint p-4 text-sm font-semibold text-green">
+          {notice}
         </div>
       ) : null}
 
@@ -634,7 +650,7 @@ export function AdminLeadsConsole() {
               onApprove={requestApproval}
               onReject={reject}
               onMoveToStatus={moveToStatus}
-              onManualTelegram={sendManualTelegram}
+              onManualTelegram={requestManualTelegram}
               onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
               onClose={() => setSelectedId(null)}
               approvalDraft={getApprovalDraft(selectedRecord)}
@@ -669,6 +685,15 @@ export function AdminLeadsConsole() {
             setPublishWarningId(null);
             void approve(publishWarningRecord);
           }}
+        />
+      ) : null}
+
+      {manualTelegramRecord ? (
+        <ManualTelegramConfirmationModal
+          record={manualTelegramRecord}
+          isSending={actionLoading === manualTelegramRecord.ownerRequestId}
+          onCancel={() => setManualTelegramRecord(null)}
+          onConfirm={() => void confirmManualTelegram()}
         />
       ) : null}
     </div>
@@ -1177,6 +1202,77 @@ function PublishWarningModal({
           <button className="btn btn-primary" type="button" onClick={onPublish}>
             <CheckCircle2 size={17} />
             Pubblica comunque
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualTelegramConfirmationModal({
+  record,
+  isSending,
+  onCancel,
+  onConfirm,
+}: {
+  record: AdminLeadRecord;
+  isSending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="telegram-manual-confirmation-title"
+    >
+      <div className="w-full bg-white shadow-2xl sm:max-w-md sm:rounded-lg">
+        <div className="px-5 py-6 sm:px-6">
+          <span className="inline-flex rounded-lg bg-sky-100 p-2 text-sky-700">
+            <Send size={21} />
+          </span>
+          <p className="mt-4 section-kicker text-sky-700">Canale Telegram</p>
+          <h2
+            className="mt-1 text-xl font-semibold text-ink"
+            id="telegram-manual-confirmation-title"
+          >
+            Invia nuovamente l&apos;annuncio?
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            Pubblicherai <strong className="text-ink">{record.lead?.title ?? buildDefaultTitle(record)}</strong>{" "}
+            nel canale Telegram con il link al marketplace.
+          </p>
+        </div>
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={isSending}
+            onClick={onCancel}
+          >
+            Annulla
+          </button>
+          <button
+            className="btn w-full bg-sky-600 text-white hover:bg-sky-700 sm:w-auto"
+            type="button"
+            disabled={isSending}
+            onClick={onConfirm}
+          >
+            <Send size={17} />
+            {isSending ? "Invio in corso..." : "Invia su Telegram"}
           </button>
         </div>
       </div>

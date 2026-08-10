@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
             redirectTo: `${appUrl}/auth/callback?next=/reimposta-password`,
           })
         : await supabase.auth.admin.inviteUserByEmail(memberProfile.email, {
-            redirectTo: `${appUrl}/auth/callback?next=/admin`,
+            redirectTo: `${appUrl}/auth/callback?next=/reimposta-password`,
             data: {
               account_type: "team",
               first_name: memberProfile.first_name,
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
     const authResult =
       creationMode === "invite"
         ? await supabase.auth.admin.inviteUserByEmail(memberInput.email, {
-            redirectTo: `${getRequestAppUrl(request)}/auth/callback?next=/admin`,
+            redirectTo: `${getRequestAppUrl(request)}/auth/callback?next=/reimposta-password`,
             data: metadata,
           })
         : await supabase.auth.admin.createUser({

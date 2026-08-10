@@ -604,20 +604,7 @@ function normalizeSearchTerm(value: string | null) {
     .trim()
     .slice(0, 120)
     .replace(/[(),]/g, " ")
-    .replace(/[%_]/g, "\\$&")
     .replace(/\s+/g, " ");
-}
-
-function applyPropertyManagerSearch<T extends { or: (filters: string) => T }>(
-  query: T,
-  search: string,
-) {
-  if (!search) return query;
-
-  const pattern = `%${search}%`;
-  return query.or(
-    `email.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern},phone.ilike.${pattern}`,
-  );
 }
 
 async function resolveFilteredPropertyManagerIds({
@@ -634,55 +621,69 @@ async function resolveFilteredPropertyManagerIds({
     | "not_indicated"
     | undefined;
 }) {
-  let matchingIds = new Set(allProfileIds);
+  if (!search && !managedPropertiesFilter) return allProfileIds;
 
-  if (search) {
-    const pattern = `%${search}%`;
-    const [profilesResult, citiesResult] = await Promise.all([
-      applyPropertyManagerSearch(
-        supabase.from("profiles").select("id").in("id", allProfileIds),
-        search,
-      ),
-      supabase
-        .from("property_manager_profiles")
-        .select("profile_id")
-        .in("profile_id", allProfileIds)
-        .ilike("primary_city", pattern),
-    ]);
-
-    if (profilesResult.error) throw profilesResult.error;
-    if (citiesResult.error) throw citiesResult.error;
-
-    matchingIds = new Set([
-      ...(profilesResult.data ?? []).map((profile) => profile.id),
-      ...(citiesResult.data ?? []).map((profile) => profile.profile_id),
-    ]);
-  }
-
-  if (managedPropertiesFilter) {
-    const baseQuery = supabase
+  const [profilesResult, pmProfilesResult, authUsersResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id,auth_user_id,email,first_name,last_name,phone")
+      .in("id", allProfileIds),
+    supabase
       .from("property_manager_profiles")
-      .select("profile_id")
-      .in("profile_id", allProfileIds);
-    const rangeResult =
-      managedPropertiesFilter === "not_indicated"
-        ? await baseQuery.is("managed_properties_range", null)
-        : await baseQuery.eq(
-            "managed_properties_range",
-            managedPropertiesFilter,
-          );
+      .select("profile_id,managed_properties_range,primary_city")
+      .in("profile_id", allProfileIds),
+    supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+  ]);
 
-    if (rangeResult.error) throw rangeResult.error;
+  if (profilesResult.error) throw profilesResult.error;
+  if (pmProfilesResult.error) throw pmProfilesResult.error;
+  if (authUsersResult.error) throw authUsersResult.error;
 
-    const rangeIds = new Set(
-      (rangeResult.data ?? []).map((profile) => profile.profile_id),
-    );
-    matchingIds = new Set(
-      [...matchingIds].filter((profileId) => rangeIds.has(profileId)),
-    );
-  }
+  const pmProfilesByProfileId = new Map(
+    (pmProfilesResult.data ?? []).map((profile) => [profile.profile_id, profile]),
+  );
+  const metadataByAuthUserId = new Map(
+    (authUsersResult.data.users ?? []).map((user) => [
+      user.id,
+      (user.user_metadata ?? {}) as AuthMetadata,
+    ]),
+  );
+  const normalizedSearch = search.toLocaleLowerCase("it-IT");
 
-  return allProfileIds.filter((profileId) => matchingIds.has(profileId));
+  return (profilesResult.data ?? [])
+    .filter((profile) => {
+      const pmProfile = pmProfilesByProfileId.get(profile.id);
+      const metadata = profile.auth_user_id
+        ? metadataByAuthUserId.get(profile.auth_user_id)
+        : undefined;
+      const effectiveRange =
+        pmProfile?.managed_properties_range ??
+        metadata?.managed_properties_range ??
+        null;
+      const effectiveCity =
+        pmProfile?.primary_city ?? metadata?.primary_city ?? "";
+
+      const matchesSearch =
+        !normalizedSearch ||
+        [
+          profile.first_name,
+          profile.last_name,
+          [profile.first_name, profile.last_name].filter(Boolean).join(" "),
+          profile.email,
+          profile.phone,
+          effectiveCity,
+        ].some((value) =>
+          value?.toLocaleLowerCase("it-IT").includes(normalizedSearch),
+        );
+      const matchesManagedProperties =
+        !managedPropertiesFilter ||
+        (managedPropertiesFilter === "not_indicated"
+          ? !effectiveRange
+          : effectiveRange === managedPropertiesFilter);
+
+      return matchesSearch && matchesManagedProperties;
+    })
+    .map((profile) => profile.id);
 }
 
 function groupRowsByPropertyManagerId<T extends { property_manager_id: string }>(rows: T[]) {

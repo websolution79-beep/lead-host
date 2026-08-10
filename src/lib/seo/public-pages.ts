@@ -25,6 +25,11 @@ export const publicSitemapPages = [
     priority: 0.8,
   },
   {
+    path: "/webinar",
+    changeFrequency: "weekly",
+    priority: 0.8,
+  },
+  {
     path: "/proprietari",
     changeFrequency: "monthly",
     priority: 0.6,

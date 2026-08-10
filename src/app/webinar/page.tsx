@@ -4,7 +4,9 @@ import Link from "next/link";
 import {
   ArrowDown,
   BarChart3,
+  CalendarDays,
   CheckCircle2,
+  Clock3,
   Columns3,
   MailCheck,
   MessageCircleQuestion,
@@ -18,14 +20,14 @@ import { PublicNav } from "@/components/public-nav";
 export const metadata: Metadata = {
   title: "Webinar gratuito per Property Manager | Lead Host",
   description:
-    "Partecipa all'incontro online di Lead Host dedicato ai Property Manager: confronto tra professionisti, acquisizione immobili e anteprima gratuita di CRM e Rendita Stimata.",
+    "Partecipa all'incontro online di Lead Host di martedì 11 agosto alle 21:00: confronto tra Property Manager e accesso gratuito a CRM e Rendita Stimata.",
   alternates: {
     canonical: "/webinar",
   },
   openGraph: {
     title: "Webinar gratuito per Property Manager | Lead Host",
     description:
-      "Un confronto concreto tra Property Manager con anteprima e test gratuito degli strumenti CRM e Rendita Stimata di Lead Host.",
+      "Martedì 11 agosto alle 21:00: un confronto concreto tra Property Manager con accesso gratuito agli strumenti CRM e Rendita Stimata di Lead Host.",
     images: ["/images/lead-host-pm-hero.png"],
     type: "website",
   },
@@ -47,25 +49,35 @@ export default function WebinarPage() {
         <div className="relative mx-auto flex min-h-[84svh] max-w-[1500px] flex-col px-5 pb-10 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
           <PublicNav variant="dark" />
 
-          <div className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,.75fr)] lg:py-16">
+          <div className="grid flex-1 items-center gap-10 py-8 sm:py-12 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,.75fr)] lg:py-16">
             <div className="max-w-4xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-2 text-xs font-bold uppercase tracking-normal text-white backdrop-blur-sm">
                 <Video size={15} />
                 Incontro gratuito su Zoom
               </div>
-              <h1 className="mt-6 max-w-4xl text-4xl font-semibold leading-[1.08] sm:text-5xl lg:text-6xl">
-                Parliamo di acquisizione immobili e degli strumenti che servono davvero ai Property Manager.
+              <div className="mt-4 flex w-fit flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-emerald-300/50 bg-emerald-400/15 px-4 py-3 text-white backdrop-blur-sm sm:mt-5 sm:px-5">
+                <span className="inline-flex items-center gap-2 text-base font-bold sm:text-lg">
+                  <CalendarDays className="text-emerald-300" size={20} />
+                  Martedì 11 agosto
+                </span>
+                <span className="inline-flex items-center gap-2 text-base font-bold sm:text-lg">
+                  <Clock3 className="text-emerald-300" size={20} />
+                  Ore 21:00
+                </span>
+              </div>
+              <h1 className="mt-4 max-w-4xl text-[2rem] font-semibold leading-[1.1] sm:mt-5 sm:text-5xl sm:leading-[1.08] lg:text-6xl">
+                Un confronto tra Property Manager, con nuovi strumenti da provare sul campo.
               </h1>
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-200 sm:text-xl">
-                Una chiacchierata informale con Lead Host e altri professionisti del settore per confrontarci sui problemi reali, trovare soluzioni concrete e provare gratuitamente CRM e Rendita Stimata.
+              <p className="mt-4 max-w-3xl text-base leading-7 text-slate-200 sm:mt-6 sm:text-xl sm:leading-8">
+                Parliamo delle difficoltà reali nell&apos;acquisizione e nella gestione dei proprietari. Durante l&apos;incontro presenteremo CRM e Rendita Stimata, con la possibilità di provarli gratuitamente.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center">
                 <Link className="btn btn-primary justify-center" href="#iscrizione">
                   Partecipa gratuitamente
                   <ArrowDown size={17} />
                 </Link>
                 <p className="text-sm font-semibold text-slate-200">
-                  Data e orario saranno comunicati via email.
+                  Riceverai il link Zoom direttamente via email.
                 </p>
               </div>
             </div>
@@ -98,6 +110,10 @@ export default function WebinarPage() {
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.9fr)_minmax(420px,1.1fr)] lg:items-start">
           <div className="lg:sticky lg:top-8">
             <p className="section-kicker">Iscrizione gratuita</p>
+            <p className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 text-sm font-bold text-emerald-900">
+              <CalendarDays size={17} />
+              Martedì 11 agosto, ore 21:00
+            </p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
               Ricevi il link dell&apos;incontro direttamente via email.
             </h2>
@@ -116,6 +132,10 @@ export default function WebinarPage() {
             <div className="mb-7">
               <p className="text-xs font-bold uppercase text-emerald-700">Prenota il tuo posto</p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-950">Partecipa al webinar</h2>
+              <p className="mt-3 flex items-center gap-2 text-sm font-bold text-emerald-800">
+                <Clock3 size={17} />
+                Martedì 11 agosto, ore 21:00
+              </p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 I campi contrassegnati con * sono obbligatori.
               </p>

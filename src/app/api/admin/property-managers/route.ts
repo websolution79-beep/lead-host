@@ -5,7 +5,10 @@ import {
   adminApiErrorResponse,
   requireSuperAdmin,
 } from "@/lib/admin/auth";
-import { getManagedPropertiesLabel } from "@/lib/domain/pm-onboarding";
+import {
+  getManagedPropertiesLabel,
+  managedPropertiesOptions,
+} from "@/lib/domain/pm-onboarding";
 import { buildPagination, readPagination } from "@/lib/api/pagination";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
@@ -114,11 +117,23 @@ type AuthMetadata = {
   primary_city?: string;
 };
 
+const managedPropertiesFilterSchema = z.enum([
+  "starting_now",
+  "one_to_three",
+  "four_to_ten",
+  "more_than_ten",
+  "not_indicated",
+]);
+
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
     const requestedProfileId = request.nextUrl.searchParams.get("profileId");
     const search = normalizeSearchTerm(request.nextUrl.searchParams.get("search"));
+    const managedPropertiesFilter = managedPropertiesFilterSchema
+      .optional()
+      .catch(undefined)
+      .parse(request.nextUrl.searchParams.get("managedProperties") || undefined);
 
     const { data: roleRows, error: rolesError } = await supabase
       .from("user_roles")
@@ -152,22 +167,28 @@ export async function GET(request: NextRequest) {
 
     if (!requestedProfileId) {
       const pagination = readPagination(request.nextUrl.searchParams);
+      const filteredProfileIds = await resolveFilteredPropertyManagerIds({
+        supabase,
+        allProfileIds,
+        search,
+        managedPropertiesFilter,
+      });
       const [
         { data: profiles, error: profilesError, count: profilesCount },
         { count: suspendedCount, error: suspendedCountError },
       ] = await Promise.all([
-        applyPropertyManagerSearch(
+        filteredProfileIds.length
+          ?
           supabase
           .from("profiles")
           .select(
             "id,auth_user_id,email,first_name,last_name,phone,avatar_url,status,created_at,updated_at",
             { count: "exact" },
           )
-          .in("id", allProfileIds)
+          .in("id", filteredProfileIds)
           .order("created_at", { ascending: false })
-          .range(pagination.from, pagination.to),
-          search,
-        ),
+          .range(pagination.from, pagination.to)
+          : Promise.resolve({ data: [], error: null, count: 0 }),
         supabase
           .from("property_manager_profiles")
           .select("id", { count: "exact", head: true })
@@ -595,8 +616,73 @@ function applyPropertyManagerSearch<T extends { or: (filters: string) => T }>(
 
   const pattern = `%${search}%`;
   return query.or(
-    `email.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern}`,
+    `email.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern},phone.ilike.${pattern}`,
   );
+}
+
+async function resolveFilteredPropertyManagerIds({
+  supabase,
+  allProfileIds,
+  search,
+  managedPropertiesFilter,
+}: {
+  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"];
+  allProfileIds: string[];
+  search: string;
+  managedPropertiesFilter:
+    | (typeof managedPropertiesOptions)[number]["value"]
+    | "not_indicated"
+    | undefined;
+}) {
+  let matchingIds = new Set(allProfileIds);
+
+  if (search) {
+    const pattern = `%${search}%`;
+    const [profilesResult, citiesResult] = await Promise.all([
+      applyPropertyManagerSearch(
+        supabase.from("profiles").select("id").in("id", allProfileIds),
+        search,
+      ),
+      supabase
+        .from("property_manager_profiles")
+        .select("profile_id")
+        .in("profile_id", allProfileIds)
+        .ilike("primary_city", pattern),
+    ]);
+
+    if (profilesResult.error) throw profilesResult.error;
+    if (citiesResult.error) throw citiesResult.error;
+
+    matchingIds = new Set([
+      ...(profilesResult.data ?? []).map((profile) => profile.id),
+      ...(citiesResult.data ?? []).map((profile) => profile.profile_id),
+    ]);
+  }
+
+  if (managedPropertiesFilter) {
+    const baseQuery = supabase
+      .from("property_manager_profiles")
+      .select("profile_id")
+      .in("profile_id", allProfileIds);
+    const rangeResult =
+      managedPropertiesFilter === "not_indicated"
+        ? await baseQuery.is("managed_properties_range", null)
+        : await baseQuery.eq(
+            "managed_properties_range",
+            managedPropertiesFilter,
+          );
+
+    if (rangeResult.error) throw rangeResult.error;
+
+    const rangeIds = new Set(
+      (rangeResult.data ?? []).map((profile) => profile.profile_id),
+    );
+    matchingIds = new Set(
+      [...matchingIds].filter((profileId) => rangeIds.has(profileId)),
+    );
+  }
+
+  return allProfileIds.filter((profileId) => matchingIds.has(profileId));
 }
 
 function groupRowsByPropertyManagerId<T extends { property_manager_id: string }>(rows: T[]) {

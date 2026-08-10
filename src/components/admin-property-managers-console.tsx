@@ -7,6 +7,7 @@ import {
   Building2,
   CirclePause,
   Eye,
+  Filter,
   Mail,
   ReceiptText,
   Search,
@@ -22,6 +23,12 @@ import {
   PaginationControls,
   type PaginationState,
 } from "@/components/pagination-controls";
+import {
+  managedPropertiesOptions,
+  type ManagedPropertiesRange,
+} from "@/lib/domain/pm-onboarding";
+
+type ManagedPropertiesFilter = "" | ManagedPropertiesRange | "not_indicated";
 
 type PropertyManagerRecord = {
   profileId: string;
@@ -125,6 +132,8 @@ export function AdminPropertyManagersConsole() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [managedPropertiesFilter, setManagedPropertiesFilter] =
+    useState<ManagedPropertiesFilter>("");
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     pageSize: 25,
@@ -139,12 +148,16 @@ export function AdminPropertyManagersConsole() {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      void loadPropertyManagers(page, debouncedSearchTerm);
+      void loadPropertyManagers(
+        page,
+        debouncedSearchTerm,
+        managedPropertiesFilter,
+      );
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, debouncedSearchTerm]);
+  }, [page, debouncedSearchTerm, managedPropertiesFilter]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -163,6 +176,7 @@ export function AdminPropertyManagersConsole() {
   async function loadPropertyManagers(
     targetPage = page,
     search = debouncedSearchTerm,
+    managedProperties = managedPropertiesFilter,
   ) {
     setIsLoading(true);
     setError("");
@@ -180,6 +194,9 @@ export function AdminPropertyManagersConsole() {
       pageSize: "25",
     });
     if (search) query.set("search", search);
+    if (managedProperties) {
+      query.set("managedProperties", managedProperties);
+    }
 
     const response = await fetch(
       `/api/admin/property-managers?${query.toString()}`,
@@ -310,31 +327,83 @@ export function AdminPropertyManagersConsole() {
         </div>
 
         <div className="border-b border-slate-200 p-4 sm:p-5">
-          <label className="relative block">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400"
-            />
-            <input
-              className="min-h-12 w-full rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-12 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-green focus:ring-2 focus:ring-green/15"
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Cerca per nome, cognome o email"
-              aria-label="Cerca Property Manager per nome, cognome o email"
-            />
-            {searchTerm ? (
-              <button
-                className="absolute right-2 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-ink"
-                type="button"
-                onClick={() => setSearchTerm("")}
-                aria-label="Cancella ricerca"
-                title="Cancella ricerca"
-              >
-                <X aria-hidden="true" className="size-4" />
-              </button>
-            ) : null}
-          </label>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)_auto] lg:items-end">
+            <label className="block min-w-0">
+              <span className="mb-2 block text-sm font-semibold text-ink">
+                Cerca Property Manager
+              </span>
+              <span className="relative block">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  className="min-h-12 w-full rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-12 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-green focus:ring-2 focus:ring-green/15"
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Nome, email, telefono o città principale"
+                  aria-label="Cerca Property Manager per nome, email, telefono o città principale"
+                />
+                {searchTerm ? (
+                  <button
+                    className="absolute right-2 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-ink"
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    aria-label="Cancella ricerca"
+                    title="Cancella ricerca"
+                  >
+                    <X aria-hidden="true" className="size-4" />
+                  </button>
+                ) : null}
+              </span>
+            </label>
+
+            <label className="block min-w-0">
+              <span className="mb-2 block text-sm font-semibold text-ink">
+                Immobili gestiti
+              </span>
+              <span className="relative block">
+                <Filter
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400"
+                />
+                <select
+                  className="min-h-12 w-full appearance-none rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-10 text-sm font-semibold text-ink outline-none transition focus:border-green focus:ring-2 focus:ring-green/15"
+                  value={managedPropertiesFilter}
+                  onChange={(event) => {
+                    setPage(1);
+                    setManagedPropertiesFilter(
+                      event.target.value as ManagedPropertiesFilter,
+                    );
+                  }}
+                  aria-label="Filtra Property Manager per immobili gestiti"
+                >
+                  <option value="">Tutti</option>
+                  {managedPropertiesOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                  <option value="not_indicated">Non indicato</option>
+                </select>
+              </span>
+            </label>
+
+            <button
+              className="btn btn-secondary min-h-12 w-full lg:w-auto"
+              type="button"
+              disabled={!searchTerm && !managedPropertiesFilter}
+              onClick={() => {
+                setSearchTerm("");
+                setDebouncedSearchTerm("");
+                setManagedPropertiesFilter("");
+                setPage(1);
+              }}
+            >
+              Reset
+            </button>
+          </div>
         </div>
 
         {error ? (

@@ -1545,6 +1545,7 @@ export type Database = {
           duplicate_check: Json;
           qualification_notes: string | null;
           owner_verified: boolean;
+          subletting_available: boolean;
           review_pipeline_stage_id: string | null;
           first_worked_by_profile_id: string | null;
           first_worked_at: string | null;
@@ -1575,6 +1576,7 @@ export type Database = {
           duplicate_check?: Json;
           qualification_notes?: string | null;
           owner_verified?: boolean;
+          subletting_available?: boolean;
           review_pipeline_stage_id?: string | null;
           first_worked_by_profile_id?: string | null;
           first_worked_at?: string | null;
@@ -1605,6 +1607,7 @@ export type Database = {
           duplicate_check?: Json;
           qualification_notes?: string | null;
           owner_verified?: boolean;
+          subletting_available?: boolean;
           review_pipeline_stage_id?: string | null;
           first_worked_by_profile_id?: string | null;
           first_worked_at?: string | null;

@@ -41,6 +41,8 @@ export type AdminLeadRecord = {
   } | null;
   firstWorkedAt: string | null;
   ownerVerified: boolean;
+  sublettingAvailable: boolean;
+  sublettingFeatureAvailable: boolean;
   consents: {
     privacy: boolean;
     dataSharing: boolean;
@@ -107,13 +109,8 @@ export type AdminLeadRecord = {
 
 export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { settings } = await fetchCommercialSettings(supabase);
-  const { data: requests, error: requestsError } = await supabase
-    .from("owner_requests")
-    .select(
-      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(150);
+  const ownerRequestsResult = await fetchAdminOwnerRequests(supabase);
+  const { data: requests, error: requestsError } = ownerRequestsResult;
 
   if (requestsError) {
     throw requestsError;
@@ -240,6 +237,9 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
         : null,
       firstWorkedAt: request.first_worked_at,
       ownerVerified: request.owner_verified,
+      sublettingAvailable: request.subletting_available,
+      sublettingFeatureAvailable:
+        ownerRequestsResult.sublettingColumnAvailable,
       consents: {
         privacy: Boolean(request.privacy_consent_at),
         dataSharing: Boolean(request.data_sharing_consent_at),
@@ -305,6 +305,45 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       purchases: lead ? purchasesByLead.get(lead.id) ?? [] : [],
     } satisfies AdminLeadRecord;
   });
+}
+
+async function fetchAdminOwnerRequests(supabase: ServiceClient) {
+  const fields =
+    "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,subletting_available,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at";
+  const result = await supabase
+    .from("owner_requests")
+    .select(fields)
+    .order("created_at", { ascending: false })
+    .limit(150);
+
+  if (!result.error || !isMissingSublettingColumnError(result.error)) {
+    return { ...result, sublettingColumnAvailable: true };
+  }
+
+  const fallback = await supabase
+    .from("owner_requests")
+    .select(
+      "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at",
+    )
+    .order("created_at", { ascending: false })
+    .limit(150);
+
+  return {
+    ...fallback,
+    data: (fallback.data ?? []).map((request) => ({
+      ...request,
+      subletting_available: false,
+    })),
+    sublettingColumnAvailable: false,
+  };
+}
+
+function isMissingSublettingColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    Boolean(error.message?.includes("subletting_available"))
+  );
 }
 
 function parseDuplicateCheck(value: Json): AdminLeadRecord["duplicateCheck"] {

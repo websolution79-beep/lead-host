@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { getMissingLeadFields } from "@/lib/owner-requests/completeness";
@@ -8,7 +9,7 @@ import {
   checkOwnerRequestDuplicates,
   duplicateCheckToJson,
 } from "@/lib/owner-requests/duplicate-check";
-import type { Json } from "@/lib/supabase/database.types";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 
 type RouteContext = {
@@ -73,6 +74,7 @@ const updateSchema = z.object({
   marketplace: z
     .object({
       ownerVerified: z.boolean().optional(),
+      sublettingAvailable: z.boolean().optional(),
       title: nullableText(140),
       sharedPriceCents: z.number().int().min(100).max(100000).optional(),
       exclusivePriceCents: z.number().int().min(100).max(200000).optional(),
@@ -89,6 +91,8 @@ const editableStatuses = new Set([
   "approved",
   "published",
 ]);
+
+type ServiceClient = SupabaseClient<Database>;
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
@@ -111,13 +115,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { supabase, profile, isSuperAdmin } =
       await requireSuperAdmin(request);
     const [requestResult, contactResult, propertyResult, leadResult] = await Promise.all([
-      supabase
-        .from("owner_requests")
-        .select(
-          "id,status,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,normalized_payload,qualification_notes,owner_verified",
-        )
-        .eq("id", ownerRequestId)
-        .maybeSingle(),
+      fetchEditableOwnerRequest(supabase, ownerRequestId),
       supabase
         .from("owner_contacts")
         .select("id,first_name,last_name,email,phone,precise_address")
@@ -143,6 +141,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (leadResult.error) throw leadResult.error;
     if (!requestResult.data) {
       return NextResponse.json({ error: "Richiesta non trovata." }, { status: 404 });
+    }
+
+    if (
+      payload.data.marketplace?.sublettingAvailable &&
+      !requestResult.sublettingColumnAvailable
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Database non ancora aggiornato per la disponibilità alla sublocazione. Applica la migration e riprova.",
+        },
+        { status: 409 },
+      );
     }
 
     if (!editableStatuses.has(requestResult.data.status)) {
@@ -325,6 +336,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         owner_verified:
           payload.data.marketplace?.ownerVerified ??
           requestResult.data.owner_verified,
+        ...(requestResult.sublettingColumnAvailable
+          ? {
+              subletting_available:
+                payload.data.marketplace?.sublettingAvailable ??
+                requestResult.data.subletting_available,
+            }
+          : {}),
         normalized_payload: mergeNormalizedPayload(
           requestResult.data.normalized_payload,
           nextContact,
@@ -378,6 +396,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       before: {
         status: requestResult.data.status,
         owner_verified: requestResult.data.owner_verified,
+        subletting_available: requestResult.data.subletting_available,
         lead_title: leadResult.data?.title ?? null,
         shared_price_cents: leadResult.data?.shared_price_cents ?? null,
         exclusive_price_cents: leadResult.data?.exclusive_price_cents ?? null,
@@ -387,6 +406,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         owner_verified:
           payload.data.marketplace?.ownerVerified ??
           requestResult.data.owner_verified,
+        subletting_available:
+          payload.data.marketplace?.sublettingAvailable ??
+          requestResult.data.subletting_available,
         lead_title:
           payload.data.marketplace?.title ?? leadResult.data?.title ?? null,
         shared_price_cents:
@@ -413,6 +435,47 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+async function fetchEditableOwnerRequest(
+  supabase: ServiceClient,
+  ownerRequestId: string,
+) {
+  const result = await supabase
+    .from("owner_requests")
+    .select(
+      "id,status,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,normalized_payload,qualification_notes,owner_verified,subletting_available",
+    )
+    .eq("id", ownerRequestId)
+    .maybeSingle();
+
+  if (!result.error || !isMissingSublettingColumnError(result.error)) {
+    return { ...result, sublettingColumnAvailable: true };
+  }
+
+  const fallback = await supabase
+    .from("owner_requests")
+    .select(
+      "id,status,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,normalized_payload,qualification_notes,owner_verified",
+    )
+    .eq("id", ownerRequestId)
+    .maybeSingle();
+
+  return {
+    ...fallback,
+    data: fallback.data
+      ? { ...fallback.data, subletting_available: false }
+      : null,
+    sublettingColumnAvailable: false,
+  };
+}
+
+function isMissingSublettingColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    Boolean(error.message?.includes("subletting_available"))
+  );
 }
 
 function mergeNormalizedPayload(

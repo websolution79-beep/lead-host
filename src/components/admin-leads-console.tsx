@@ -61,6 +61,7 @@ type ApprovalPriceDraft = {
   sharedPriceCents: number;
   exclusivePriceCents: number;
   ownerVerified: boolean;
+  sublettingAvailable: boolean;
   pricesCustomized: boolean;
 };
 
@@ -229,6 +230,7 @@ export function AdminLeadsConsole() {
             sharedPriceCents: priceDraft.sharedPriceCents,
             exclusivePriceCents: priceDraft.exclusivePriceCents,
             ownerVerified: priceDraft.ownerVerified,
+            sublettingAvailable: priceDraft.sublettingAvailable,
           }),
         },
       );
@@ -273,6 +275,7 @@ export function AdminLeadsConsole() {
         sharedPriceCents: record.pricing.sharedPriceCents,
         exclusivePriceCents: record.pricing.exclusivePriceCents,
         ownerVerified: record.ownerVerified,
+        sublettingAvailable: record.sublettingAvailable,
         pricesCustomized: Boolean(record.lead),
       },
     }));
@@ -284,6 +287,7 @@ export function AdminLeadsConsole() {
         sharedPriceCents: record.pricing.sharedPriceCents,
         exclusivePriceCents: record.pricing.exclusivePriceCents,
         ownerVerified: record.ownerVerified,
+        sublettingAvailable: record.sublettingAvailable,
         pricesCustomized: Boolean(record.lead),
       }
     );
@@ -918,6 +922,29 @@ function LeadDetailPanel({
 
       {canApprove ? (
         <section className="mt-5 border-t border-slate-200 pt-5">
+          {record.sublettingFeatureAvailable ? (
+            <label className="mb-4 flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4">
+              <input
+                className="mt-0.5 size-4 accent-violet-700"
+                type="checkbox"
+                checked={approvalDraft.sublettingAvailable}
+                onChange={(event) =>
+                  onApprovalDraftChange({
+                    sublettingAvailable: event.target.checked,
+                  })
+                }
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-violet-900">
+                  Disponibile alla sublocazione
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-violet-800">
+                  Seleziona se il proprietario ha dichiarato questa disponibilità
+                  durante la verifica telefonica.
+                </span>
+              </span>
+            </label>
+          ) : null}
           <label className="mb-4 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
             <input
               className="mt-0.5 size-4 accent-blue-600"
@@ -1524,6 +1551,8 @@ function mergeApprovalDraft(
 
     return {
       ownerVerified: Boolean(update.ownerVerified),
+      sublettingAvailable:
+        update.sublettingAvailable ?? current.sublettingAvailable,
       sharedPriceCents: suggestion.sharedPriceCents,
       exclusivePriceCents: suggestion.exclusivePriceCents,
       pricesCustomized: false,

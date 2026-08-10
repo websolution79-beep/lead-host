@@ -27,6 +27,7 @@ import {
   VerifiedOwnerBadge,
 } from "@/components/verified-owner-badge";
 import { MarketplaceBackLink } from "@/components/marketplace-back-link";
+import { SublettingAvailableBadge } from "@/components/subletting-available-badge";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
@@ -102,7 +103,10 @@ export default async function LeadDetailPage({
               <h2 className="mt-3 text-3xl font-semibold text-ink">
                 {lead.propertyType} in zona {lead.district}
               </h2>
-              {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
+              <div className="flex flex-wrap gap-2">
+                {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
+                {lead.sublettingAvailable ? <SublettingAvailableBadge /> : null}
+              </div>
               <p className="mt-3 text-muted">
                 {lead.city}, {lead.province}
               </p>

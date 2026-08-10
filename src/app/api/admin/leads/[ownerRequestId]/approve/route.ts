@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
@@ -10,6 +11,7 @@ import { notifyImmediateNewLead } from "@/lib/email/notifications";
 import { notifyNewLeadOnTelegram } from "@/lib/telegram/service";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
+import type { Database } from "@/lib/supabase/database.types";
 
 type RouteContext = {
   params: Promise<{
@@ -23,7 +25,10 @@ const approveSchema = z.object({
   sharedPriceCents: z.number().int().min(100).max(100000).optional(),
   exclusivePriceCents: z.number().int().min(100).max(200000).optional(),
   ownerVerified: z.boolean().optional(),
+  sublettingAvailable: z.boolean().optional(),
 });
+
+type ServiceClient = SupabaseClient<Database>;
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
@@ -42,16 +47,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { supabase, profile, isSuperAdmin } =
       await requireSuperAdmin(request);
 
-    const { data: ownerRequest, error: requestError } = await supabase
-      .from("owner_requests")
-      .select("id,status,owner_verified")
-      .eq("id", ownerRequestId)
-      .single();
+    const ownerRequestResult = await fetchOwnerRequestForApproval(
+      supabase,
+      ownerRequestId,
+    );
+    const { data: ownerRequest, error: requestError } = ownerRequestResult;
 
     if (requestError || !ownerRequest) {
       return NextResponse.json(
         { error: "Richiesta non trovata." },
         { status: 404 },
+      );
+    }
+
+    if (
+      payload.data.sublettingAvailable &&
+      !ownerRequestResult.sublettingColumnAvailable
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Database non ancora aggiornato per la disponibilità alla sublocazione. Applica la migration e riprova.",
+        },
+        { status: 409 },
       );
     }
 
@@ -92,6 +110,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const leadTitle = payload.data.title || buildLeadTitle(property);
     const { settings } = await fetchCommercialSettings(supabase);
     const ownerVerified = payload.data.ownerVerified ?? ownerRequest.owner_verified;
+    const sublettingAvailable =
+      payload.data.sublettingAvailable ?? ownerRequest.subletting_available;
     const suggestedPricing = resolveLeadPricing(settings, property, ownerVerified);
     const sharedPriceCents =
       payload.data.sharedPriceCents ?? suggestedPricing.sharedPriceCents;
@@ -180,6 +200,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .update({
         status: "published",
         owner_verified: ownerVerified,
+        ...(ownerRequestResult.sublettingColumnAvailable
+          ? { subletting_available: sublettingAvailable }
+          : {}),
         qualification_notes: payload.data.notes || null,
         status_reason: null,
       })
@@ -194,6 +217,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .update({
           status: "published",
           owner_verified: ownerVerified,
+          ...(ownerRequestResult.sublettingColumnAvailable
+            ? { subletting_available: sublettingAvailable }
+            : {}),
           qualification_notes: payload.data.notes || null,
         })
         .eq("id", ownerRequestId);
@@ -220,6 +246,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         exclusive_price_cents: exclusivePriceCents,
         pricing_source: suggestedPricing.label,
         owner_verified: ownerVerified,
+        subletting_available: sublettingAvailable,
       },
     });
 
@@ -265,6 +292,43 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+async function fetchOwnerRequestForApproval(
+  supabase: ServiceClient,
+  ownerRequestId: string,
+) {
+  const result = await supabase
+    .from("owner_requests")
+    .select("id,status,owner_verified,subletting_available")
+    .eq("id", ownerRequestId)
+    .single();
+
+  if (!result.error || !isMissingSublettingColumnError(result.error)) {
+    return { ...result, sublettingColumnAvailable: true };
+  }
+
+  const fallback = await supabase
+    .from("owner_requests")
+    .select("id,status,owner_verified")
+    .eq("id", ownerRequestId)
+    .single();
+
+  return {
+    ...fallback,
+    data: fallback.data
+      ? { ...fallback.data, subletting_available: false }
+      : null,
+    sublettingColumnAvailable: false,
+  };
+}
+
+function isMissingSublettingColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    Boolean(error.message?.includes("subletting_available"))
+  );
 }
 
 function buildLeadTitle(property: {

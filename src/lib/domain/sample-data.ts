@@ -4,6 +4,7 @@ export type MarketplaceLead = {
   id: string;
   title: string;
   ownerVerified: boolean;
+  sublettingAvailable: boolean;
   region: string;
   province: string;
   city: string;
@@ -32,6 +33,7 @@ export const demoLeads: MarketplaceLead[] = [
     id: "palermo-centro-trilocale",
     title: "Trilocale a Palermo",
     ownerVerified: true,
+    sublettingAvailable: false,
     region: "Sicilia",
     province: "Palermo",
     city: "Palermo",
@@ -57,6 +59,7 @@ export const demoLeads: MarketplaceLead[] = [
     id: "roma-prati-bilocale",
     title: "Bilocale a Roma",
     ownerVerified: true,
+    sublettingAvailable: false,
     region: "Lazio",
     province: "Roma",
     city: "Roma",
@@ -82,6 +85,7 @@ export const demoLeads: MarketplaceLead[] = [
     id: "bari-murat-bb",
     title: "B&B a Bari",
     ownerVerified: true,
+    sublettingAvailable: false,
     region: "Puglia",
     province: "Bari",
     city: "Bari",
@@ -107,6 +111,7 @@ export const demoLeads: MarketplaceLead[] = [
     id: "milano-navigli-monolocale",
     title: "Monolocale sui Navigli",
     ownerVerified: true,
+    sublettingAvailable: false,
     region: "Lombardia",
     province: "Milano",
     city: "Milano",
@@ -132,6 +137,7 @@ export const demoLeads: MarketplaceLead[] = [
     id: "firenze-oltrarno-casa",
     title: "Casa indipendente a Firenze",
     ownerVerified: true,
+    sublettingAvailable: false,
     region: "Toscana",
     province: "Firenze",
     city: "Firenze",
@@ -157,6 +163,7 @@ export const demoLeads: MarketplaceLead[] = [
     id: "napoli-chiaia-villa",
     title: "Villa a Napoli",
     ownerVerified: true,
+    sublettingAvailable: false,
     region: "Campania",
     province: "Napoli",
     city: "Napoli",

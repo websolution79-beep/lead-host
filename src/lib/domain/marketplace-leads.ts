@@ -15,7 +15,7 @@ type OwnerPublicContactRow = Pick<
 >;
 type OwnerRequestVerificationRow = Pick<
   Database["public"]["Tables"]["owner_requests"]["Row"],
-  "id" | "owner_verified"
+  "id" | "owner_verified" | "subletting_available"
 >;
 export async function getPublishedMarketplaceLeads() {
   return getCachedPublishedMarketplaceLeads();
@@ -105,10 +105,7 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
       .from("owner_contacts")
       .select("owner_request_id,precise_address")
       .in("owner_request_id", ownerRequestIds),
-    supabase
-      .from("owner_requests")
-      .select("id,owner_verified")
-      .in("id", ownerRequestIds),
+    fetchMarketplaceOwnerRequestFlags(supabase, ownerRequestIds),
   ]);
 
   if (propertiesResult.error || contactsResult.error || requestsResult.error) {
@@ -179,6 +176,7 @@ function mapDbLeadToMarketplaceLead(
     id: lead.id,
     title: capitalizeLeadTitle(lead.title),
     ownerVerified: ownerRequest?.owner_verified ?? false,
+    sublettingAvailable: ownerRequest?.subletting_available ?? false,
     region: property.region ?? "Italia",
     province: property.province ?? "Provincia non indicata",
     city: property.city ?? "Località non indicata",
@@ -207,6 +205,41 @@ function mapDbLeadToMarketplaceLead(
       property.description ??
       "Il proprietario non ha aggiunto una descrizione facoltativa.",
   };
+}
+
+async function fetchMarketplaceOwnerRequestFlags(
+  supabase: ServiceClient,
+  ownerRequestIds: string[],
+) {
+  const result = await supabase
+    .from("owner_requests")
+    .select("id,owner_verified,subletting_available")
+    .in("id", ownerRequestIds);
+
+  if (!result.error || !isMissingSublettingColumnError(result.error)) {
+    return result;
+  }
+
+  const fallback = await supabase
+    .from("owner_requests")
+    .select("id,owner_verified")
+    .in("id", ownerRequestIds);
+
+  return {
+    ...fallback,
+    data: (fallback.data ?? []).map((request) => ({
+      ...request,
+      subletting_available: false,
+    } satisfies OwnerRequestVerificationRow)),
+  };
+}
+
+function isMissingSublettingColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    Boolean(error.message?.includes("subletting_available"))
+  );
 }
 
 function capitalizeLeadTitle(title: string) {

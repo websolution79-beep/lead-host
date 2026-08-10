@@ -24,11 +24,13 @@ type AdminLeadEditorModalProps = {
   approvalDraft?: {
     sharedPriceCents: number;
     exclusivePriceCents: number;
+    sublettingAvailable: boolean;
   };
   onApprovalDraftChange?: (update: {
     sharedPriceCents: number;
     exclusivePriceCents: number;
     ownerVerified: boolean;
+    sublettingAvailable: boolean;
     pricesCustomized: boolean;
   }) => void;
   onClose: () => void;
@@ -58,6 +60,7 @@ type LeadEditDraft = {
   marketingConsent: boolean;
   qualificationNotes: string;
   ownerVerified: boolean;
+  sublettingAvailable: boolean;
   leadTitle: string;
   sharedPrice: string;
   exclusivePrice: string;
@@ -233,6 +236,7 @@ export function AdminLeadEditorModal({
         qualificationNotes: draft.qualificationNotes,
         marketplace: {
           ownerVerified: draft.ownerVerified,
+          sublettingAvailable: draft.sublettingAvailable,
           ...(record.lead
             ? {
                 title: draft.leadTitle,
@@ -263,6 +267,7 @@ export function AdminLeadEditorModal({
         sharedPriceCents,
         exclusivePriceCents,
         ownerVerified: draft.ownerVerified,
+        sublettingAvailable: draft.sublettingAvailable,
         pricesCustomized: true,
       });
     }
@@ -418,6 +423,28 @@ export function AdminLeadEditorModal({
             </EditorSection>
 
             <EditorSection icon={BadgeEuro} title="Impostazioni Marketplace">
+              {record.sublettingFeatureAvailable ? (
+                <label className="mb-4 flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4">
+                  <input
+                    className="mt-0.5 size-4 accent-violet-700"
+                    type="checkbox"
+                    checked={draft.sublettingAvailable}
+                    onChange={(event) =>
+                      update("sublettingAvailable", event.target.checked)
+                    }
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-violet-900">
+                      Disponibile alla sublocazione
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-violet-800">
+                      Seleziona quando il proprietario dichiara la disponibilità a
+                      valutare un accordo di sublocazione.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
+
               <label className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <input
                   className="mt-0.5 size-4 accent-blue-600"
@@ -714,6 +741,7 @@ function buildDraft(
     marketingConsent: record.consents.marketing,
     qualificationNotes: record.qualificationNotes ?? "",
     ownerVerified: record.ownerVerified,
+    sublettingAvailable: record.sublettingAvailable,
     leadTitle: record.lead?.title ?? "",
     sharedPrice: centsToEuroInput(
       record.lead?.sharedPriceCents ??
@@ -754,10 +782,16 @@ function EuroEditField({
 }
 
 function hasMarketplaceChanges(record: AdminLeadRecord, draft: LeadEditDraft) {
-  if (!record.lead) return draft.ownerVerified !== record.ownerVerified;
+  if (!record.lead) {
+    return (
+      draft.ownerVerified !== record.ownerVerified ||
+      draft.sublettingAvailable !== record.sublettingAvailable
+    );
+  }
 
   return (
     draft.ownerVerified !== record.ownerVerified ||
+    draft.sublettingAvailable !== record.sublettingAvailable ||
     draft.leadTitle.trim() !== record.lead.title.trim() ||
     parseEuroCents(draft.sharedPrice) !== record.lead.sharedPriceCents ||
     parseEuroCents(draft.exclusivePrice) !== record.lead.exclusivePriceCents

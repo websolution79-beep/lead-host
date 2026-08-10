@@ -24,6 +24,7 @@ import {
   StandardLeadBadge,
   VerifiedOwnerBadge,
 } from "@/components/verified-owner-badge";
+import { SublettingAvailableBadge } from "@/components/subletting-available-badge";
 
 type LeadCardProps = {
   lead: MarketplaceLead;
@@ -72,7 +73,10 @@ export function LeadCard({
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-green">
             {lead.propertyType}
           </p>
-          {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
+          <div className="flex flex-wrap gap-2">
+            {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
+            {lead.sublettingAvailable ? <SublettingAvailableBadge /> : null}
+          </div>
         </div>
         <span className={statusStyle.badgeClassName}>
           {formatPublicStatus(lead.publicStatus)}

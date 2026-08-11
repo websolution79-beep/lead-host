@@ -26,6 +26,12 @@ import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
+import {
+  hasActionableDuplicateWarning,
+  hasCompletedLeadPurchase,
+  isExpiredAdminLead,
+  isVisibleAdminMarketplaceLead,
+} from "@/lib/admin/lead-record-filters";
 import { hasAdminPermission } from "@/lib/admin/permissions";
 import { formatCents } from "@/lib/config/commercial";
 import {
@@ -112,12 +118,12 @@ export function AdminLeadsConsole() {
     if (filter === "completion" && record.requestStatus !== "waiting_for_completion") {
       return false;
     }
-    if (filter === "duplicates" && !hasDuplicateWarning(record)) return false;
+    if (filter === "duplicates" && !hasActionableDuplicateWarning(record)) return false;
     if (filter === "new" && !isNewLead(record)) return false;
     if (filter === "pending" && !isPendingLead(record)) return false;
-    if (filter === "published" && record.requestStatus !== "published") return false;
-    if (filter === "sold" && record.purchases.length === 0) return false;
-    if (filter === "expired" && !isExpiredLead(record)) return false;
+    if (filter === "published" && !isVisibleAdminMarketplaceLead(record)) return false;
+    if (filter === "sold" && !hasCompletedLeadPurchase(record)) return false;
+    if (filter === "expired" && !isExpiredAdminLead(record)) return false;
     if (filter === "rejected" && record.requestStatus !== "not_publishable") return false;
 
     const haystack = [
@@ -604,7 +610,7 @@ export function AdminLeadsConsole() {
                     <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.08em] text-muted">
                       LH-{record.ownerRequestId.slice(0, 8).toUpperCase()}
                     </p>
-                    {hasDuplicateWarning(record) ? (
+                    {hasActionableDuplicateWarning(record) ? (
                       <span className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[11px] font-bold text-red-700">
                         <AlertCircle size={12} />
                         Possibile duplicato
@@ -1115,7 +1121,7 @@ function LeadDetailPanel({
             {isBusy ? "Invio Telegram..." : "Invio manuale su Telegram"}
           </button>
         ) : null}
-        {canManage && isExpiredLead(record) ? (
+        {canManage && isExpiredAdminLead(record) ? (
           <button
             className="btn btn-primary w-full"
             type="button"
@@ -1531,7 +1537,7 @@ function StatusBadge({ record }: { record: AdminLeadRecord }) {
     );
   }
 
-  if (isExpiredLead(record)) {
+  if (isExpiredAdminLead(record)) {
     return (
       <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
         <TimerOff size={14} />
@@ -1754,21 +1760,6 @@ function groupMissingFields(fields: MissingLeadField[]) {
       fields: fields.filter((field) => field.group === group),
     }))
     .filter((group) => group.fields.length);
-}
-
-function hasDuplicateWarning(record: AdminLeadRecord) {
-  return ["duplicate", "possible_duplicate"].includes(record.duplicateCheck.status);
-}
-
-function isExpiredLead(record: AdminLeadRecord) {
-  const lead = record.lead;
-
-  if (!lead) return false;
-  if (lead.internalStatus === "withdrawn_after_7_days") return true;
-  if (!["available", "one_slot_sold"].includes(lead.internalStatus)) return false;
-  if (!lead.expiresAt) return false;
-
-  return new Date(lead.expiresAt).getTime() <= Date.now();
 }
 
 function formatOwner(record: AdminLeadRecord) {

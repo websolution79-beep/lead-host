@@ -22,6 +22,10 @@ export type MarketplaceLead = {
   sharedSlotsSold: number;
   sharedPriceCents?: number;
   exclusivePriceCents?: number;
+  baseSharedPriceCents?: number;
+  baseExclusivePriceCents?: number;
+  promotionId?: string | null;
+  promotionName?: string | null;
   exclusivePurchaseId: string | null;
   publishedAt: string;
   expiresAt: string;

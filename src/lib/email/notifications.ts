@@ -1,6 +1,10 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import {
+  fetchEffectiveMarketplacePromotion,
+  resolvePromotionalPrice,
+} from "@/lib/config/marketplace-promotions";
+import {
   renderAdminOwnerRequestEmail,
   renderLeadDigestEmail,
   renderLeadPurchaseEmail,
@@ -466,13 +470,27 @@ export async function sendMarketingAddonActivationEmails({
 
 export async function notifyImmediateNewLead(lead: LeadSummary) {
   const supabase = createServiceSupabaseClient();
+  const { promotion } = await fetchEffectiveMarketplacePromotion(supabase);
+  const effectiveLead: LeadSummary = {
+    ...lead,
+    shared_price_cents: resolvePromotionalPrice(
+      promotion,
+      "shared",
+      lead.shared_price_cents,
+    ).amountCents,
+    exclusive_price_cents: resolvePromotionalPrice(
+      promotion,
+      "exclusive",
+      lead.exclusive_price_cents,
+    ).amountCents,
+  };
   await createNewLeadInternalNotifications({
-    leadId: lead.id,
-    title: lead.title,
-    city: lead.city,
-    province: lead.province,
-    sharedPrice: formatCurrencyCents(lead.shared_price_cents),
-    exclusivePrice: formatCurrencyCents(lead.exclusive_price_cents),
+    leadId: effectiveLead.id,
+    title: effectiveLead.title,
+    city: effectiveLead.city,
+    province: effectiveLead.province,
+    sharedPrice: formatCurrencyCents(effectiveLead.shared_price_cents),
+    exclusivePrice: formatCurrencyCents(effectiveLead.exclusive_price_cents),
   });
   const emptySummary = {
     recipients: 0,
@@ -514,10 +532,10 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
   );
   const pmByProfileId = new Map(pmRows.map((item) => [item.profile_id, item]));
   const email = renderNewLeadEmail({
-    leadTitle: lead.title,
-    city: lead.city,
-    sharedPriceCents: lead.shared_price_cents,
-    exclusivePriceCents: lead.exclusive_price_cents,
+    leadTitle: effectiveLead.title,
+    city: effectiveLead.city,
+    sharedPriceCents: effectiveLead.shared_price_cents,
+    exclusivePriceCents: effectiveLead.exclusive_price_cents,
   });
 
   const eligibleProfiles = ((profiles ?? []) as ProfileRow[]).filter((profile) => {
@@ -531,7 +549,7 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
   });
   const alreadySentEmails = await fetchAlreadySentNewLeadEmails(
     supabase,
-    lead.id,
+    effectiveLead.id,
     eligibleProfiles.map((profile) => profile.email),
   );
   const recipients = eligibleProfiles.filter(
@@ -543,14 +561,14 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
         to: profile.email,
         profileId: profile.id,
         propertyManagerId: pmByProfileId.get(profile.id)?.id ?? null,
-        leadId: lead.id,
+        leadId: effectiveLead.id,
         eventType: "lead.new_available",
         templateVariables: {
-          lead_title: lead.title,
-          city: lead.city ?? "",
-          city_suffix: lead.city ? ` - ${lead.city}` : "",
-          shared_price: formatCurrencyCents(lead.shared_price_cents),
-          exclusive_price: formatCurrencyCents(lead.exclusive_price_cents),
+          lead_title: effectiveLead.title,
+          city: effectiveLead.city ?? "",
+          city_suffix: effectiveLead.city ? ` - ${effectiveLead.city}` : "",
+          shared_price: formatCurrencyCents(effectiveLead.shared_price_cents),
+          exclusive_price: formatCurrencyCents(effectiveLead.exclusive_price_cents),
         },
         ...email,
       }),
@@ -734,8 +752,23 @@ export async function sendLeadDigest({
   propertyManagerId: string;
   leads: LeadSummary[];
 }) {
+  const supabase = createServiceSupabaseClient();
+  const { promotion } = await fetchEffectiveMarketplacePromotion(supabase);
+  const effectiveLeads = leads.map((lead) => ({
+    ...lead,
+    shared_price_cents: resolvePromotionalPrice(
+      promotion,
+      "shared",
+      lead.shared_price_cents,
+    ).amountCents,
+    exclusive_price_cents: resolvePromotionalPrice(
+      promotion,
+      "exclusive",
+      lead.exclusive_price_cents,
+    ).amountCents,
+  }));
   const email = renderLeadDigestEmail(
-    leads.map((lead) => ({
+    effectiveLeads.map((lead) => ({
       title: lead.title,
       city: lead.city,
       province: lead.province,
@@ -749,10 +782,10 @@ export async function sendLeadDigest({
     profileId: profile.id,
     propertyManagerId,
     eventType: "lead.digest",
-    metadata: { lead_ids: leads.map((lead) => lead.id) },
+    metadata: { lead_ids: effectiveLeads.map((lead) => lead.id) },
     templateVariables: {
-      lead_count: leads.length,
-      lead_list_text: leads
+      lead_count: effectiveLeads.length,
+      lead_list_text: effectiveLeads
         .map(
           (lead) =>
             `- ${lead.title}${lead.city ? `, ${lead.city}` : ""}: condiviso ${formatCurrencyCents(lead.shared_price_cents)}, esclusivo ${formatCurrencyCents(lead.exclusive_price_cents)}`,

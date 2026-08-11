@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight,
+  BadgePercent,
   Bath,
   BedDouble,
   CalendarClock,
@@ -63,6 +64,12 @@ export function LeadCard({
   const sharedPriceCents = lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS;
   const exclusivePriceCents =
     lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS;
+  const sharedDiscounted =
+    lead.baseSharedPriceCents !== undefined &&
+    lead.baseSharedPriceCents > sharedPriceCents;
+  const exclusiveDiscounted =
+    lead.baseExclusivePriceCents !== undefined &&
+    lead.baseExclusivePriceCents > exclusivePriceCents;
 
   return (
     <article
@@ -131,6 +138,12 @@ export function LeadCard({
       ) : null}
 
       <div className="mt-auto pt-5">
+        {lead.promotionId ? (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+            <BadgePercent size={16} />
+            {lead.promotionName ?? "Promozione Marketplace"}
+          </div>
+        ) : null}
         <div className="min-w-0 rounded-lg border border-ink/10 bg-paper p-3 text-sm">
           {sharedPurchasesEnabled ? (
             <div className="flex items-center justify-between gap-3">
@@ -145,13 +158,26 @@ export function LeadCard({
           {sharedPurchasesEnabled ? (
             <p className="mt-2 text-muted">
               {sharedAvailable
-                ? `Condiviso ${formatCents(sharedPriceCents)}`
+                ? sharedDiscounted
+                  ? <PriceWithDiscount
+                      baseCents={lead.baseSharedPriceCents!}
+                      priceCents={sharedPriceCents}
+                      prefix="Condiviso"
+                    />
+                  : `Condiviso ${formatCents(sharedPriceCents)}`
                 : "Condivisione non disponibile"}
             </p>
           ) : null}
           <p className="mt-1 text-muted">
             {exclusiveAvailable
-              ? `Esclusiva ${formatCents(exclusivePriceCents)} disponibile`
+              ? exclusiveDiscounted
+                ? <PriceWithDiscount
+                    baseCents={lead.baseExclusivePriceCents!}
+                    priceCents={exclusivePriceCents}
+                    prefix="Esclusiva"
+                    suffix="disponibile"
+                  />
+                : `Esclusiva ${formatCents(exclusivePriceCents)} disponibile`
               : "Esclusiva non disponibile"}
           </p>
         </div>
@@ -162,6 +188,27 @@ export function LeadCard({
         </Link>
       </div>
     </article>
+  );
+}
+
+function PriceWithDiscount({
+  prefix,
+  baseCents,
+  priceCents,
+  suffix,
+}: {
+  prefix: string;
+  baseCents: number;
+  priceCents: number;
+  suffix?: string;
+}) {
+  return (
+    <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+      <span>{prefix}</span>
+      <span className="line-through opacity-60">{formatCents(baseCents)}</span>
+      <strong className="text-emerald-700">{formatCents(priceCents)}</strong>
+      {suffix ? <span>{suffix}</span> : null}
+    </span>
   );
 }
 

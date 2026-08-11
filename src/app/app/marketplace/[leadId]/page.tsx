@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import {
+  BadgePercent,
   Mail,
   MapPin,
   Phone,
@@ -215,6 +216,35 @@ export default async function LeadDetailPage({
           </div>
 
           <div className="mt-6">
+            {lead.promotionId ? (
+              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                <p className="flex items-center gap-2 font-bold">
+                  <BadgePercent size={18} />
+                  {lead.promotionName ?? "Promozione Marketplace"}
+                </p>
+                <div className="mt-2 grid gap-1">
+                  {sharedPurchasesVisible &&
+                  lead.baseSharedPriceCents !== undefined &&
+                  lead.sharedPriceCents !== undefined &&
+                  lead.baseSharedPriceCents > lead.sharedPriceCents ? (
+                    <PromotionPriceLine
+                      label="Condiviso"
+                      baseCents={lead.baseSharedPriceCents}
+                      priceCents={lead.sharedPriceCents}
+                    />
+                  ) : null}
+                  {lead.baseExclusivePriceCents !== undefined &&
+                  lead.exclusivePriceCents !== undefined &&
+                  lead.baseExclusivePriceCents > lead.exclusivePriceCents ? (
+                    <PromotionPriceLine
+                      label="Esclusiva"
+                      baseCents={lead.baseExclusivePriceCents}
+                      priceCents={lead.exclusivePriceCents}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             {isTeamMarketplaceReader ? (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
                 <p className="font-semibold">Marketplace in sola lettura</p>
@@ -244,6 +274,29 @@ export default async function LeadDetailPage({
         </aside>
       </div>
     </AppShell>
+  );
+}
+
+function PromotionPriceLine({
+  label,
+  baseCents,
+  priceCents,
+}: {
+  label: string;
+  baseCents: number;
+  priceCents: number;
+}) {
+  const formatter = new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  });
+
+  return (
+    <p className="flex flex-wrap items-center gap-2">
+      <span>{label}:</span>
+      <span className="line-through opacity-60">{formatter.format(baseCents / 100)}</span>
+      <strong>{formatter.format(priceCents / 100)}</strong>
+    </p>
   );
 }
 

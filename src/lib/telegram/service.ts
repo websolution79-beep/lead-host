@@ -5,6 +5,10 @@ import {
 } from "@/lib/config/telegram-settings";
 import { appUrl, getEnv } from "@/lib/env";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import {
+  fetchEffectiveMarketplacePromotion,
+  resolvePromotionalPrice,
+} from "@/lib/config/marketplace-promotions";
 
 type TelegramApiResponse<T> = {
   ok: boolean;
@@ -104,13 +108,19 @@ export async function sendTelegramTestMessage() {
 
 export async function notifyNewLeadOnTelegram(lead: TelegramLeadSummary) {
   const supabase = createServiceSupabaseClient();
-  const { settings } = await fetchTelegramChannelSettings(supabase);
+  const [{ settings }, { promotion }] = await Promise.all([
+    fetchTelegramChannelSettings(supabase),
+    fetchEffectiveMarketplacePromotion(supabase),
+  ]);
 
   if (!settings.enabled) {
     return { status: "skipped" as const, reason: "automation_disabled" as const };
   }
 
-  const messageText = renderTelegramLeadMessage(settings, lead);
+  const messageText = renderTelegramLeadMessage(
+    settings,
+    applyPromotionToTelegramLead(lead, promotion),
+  );
   const log = await reserveLeadDelivery(lead.id, messageText);
 
   if (!log) {
@@ -150,14 +160,39 @@ export async function notifyNewLeadOnTelegram(lead: TelegramLeadSummary) {
 // explicitly authorised admin to re-share one still-purchasable lead.
 export async function sendManualLeadToTelegram(lead: TelegramLeadSummary) {
   const supabase = createServiceSupabaseClient();
-  const { settings } = await fetchTelegramChannelSettings(supabase);
+  const [{ settings }, { promotion }] = await Promise.all([
+    fetchTelegramChannelSettings(supabase),
+    fetchEffectiveMarketplacePromotion(supabase),
+  ]);
   const result = await sendTelegramMessage({
-    text: renderTelegramLeadMessage(settings, lead),
+    text: renderTelegramLeadMessage(
+      settings,
+      applyPromotionToTelegramLead(lead, promotion),
+    ),
     buttonUrl: buildLeadUrl(lead.id),
     buttonLabel: "Vedi il lead",
   });
 
   return { status: "sent" as const, messageId: result.message_id };
+}
+
+function applyPromotionToTelegramLead(
+  lead: TelegramLeadSummary,
+  promotion: Awaited<ReturnType<typeof fetchEffectiveMarketplacePromotion>>["promotion"],
+) {
+  return {
+    ...lead,
+    sharedPriceCents: resolvePromotionalPrice(
+      promotion,
+      "shared",
+      lead.sharedPriceCents,
+    ).amountCents,
+    exclusivePriceCents: resolvePromotionalPrice(
+      promotion,
+      "exclusive",
+      lead.exclusivePriceCents,
+    ).amountCents,
+  };
 }
 
 export function renderTelegramLeadMessage(

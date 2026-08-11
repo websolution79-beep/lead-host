@@ -1986,6 +1986,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      marketplace_price_promotions: {
+        Row: {
+          id: string;
+          name: string;
+          status: "draft" | "scheduled" | "active" | "ended" | "cancelled";
+          starts_at: string | null;
+          ends_at: string | null;
+          apply_shared: boolean;
+          apply_exclusive: boolean;
+          rules: Json;
+          created_by: string | null;
+          activated_by: string | null;
+          ended_by: string | null;
+          activated_at: string | null;
+          ended_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          status?: "draft" | "scheduled" | "active" | "ended" | "cancelled";
+          starts_at?: string | null;
+          ends_at?: string | null;
+          apply_shared?: boolean;
+          apply_exclusive?: boolean;
+          rules?: Json;
+          created_by?: string | null;
+          activated_by?: string | null;
+          ended_by?: string | null;
+          activated_at?: string | null;
+          ended_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          status?: "draft" | "scheduled" | "active" | "ended" | "cancelled";
+          starts_at?: string | null;
+          ends_at?: string | null;
+          apply_shared?: boolean;
+          apply_exclusive?: boolean;
+          rules?: Json;
+          created_by?: string | null;
+          activated_by?: string | null;
+          ended_by?: string | null;
+          activated_at?: string | null;
+          ended_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       wallet_coupons: {
         Row: {
           id: string;

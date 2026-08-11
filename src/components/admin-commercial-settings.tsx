@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeEuro,
+  BadgePercent,
   MapPin,
   Plus,
   Save,
@@ -12,6 +13,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { AdminPmRegistrationSettings } from "@/components/admin-pm-registration-settings";
+import { AdminMarketplacePromotions } from "@/components/admin-marketplace-promotions";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
@@ -27,7 +29,12 @@ type SettingsResponse = {
   error?: string;
 };
 
-type ActiveTab = "registrations" | "wallet" | "lead_prices" | "geo_rules";
+type ActiveTab =
+  | "registrations"
+  | "wallet"
+  | "lead_prices"
+  | "geo_rules"
+  | "promotions";
 
 const emptySettings: CommercialSettings = {
   firstTopUpMinCents: 3000,
@@ -165,7 +172,7 @@ export function AdminCommercialSettings() {
               approvazione lead. Gli acquisti lead usano sempre il credito wallet interno.
             </p>
           </div>
-          {activeTab !== "registrations" ? (
+          {activeTab !== "registrations" && activeTab !== "promotions" ? (
             <button
               className="btn btn-primary"
               type="button"
@@ -197,7 +204,7 @@ export function AdminCommercialSettings() {
         ) : null}
       </section>
 
-      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-5">
         <TabButton
           active={activeTab === "registrations"}
           icon={UserPlus}
@@ -221,6 +228,12 @@ export function AdminCommercialSettings() {
           icon={MapPin}
           label="Regole prezzi"
           onClick={() => setActiveTab("geo_rules")}
+        />
+        <TabButton
+          active={activeTab === "promotions"}
+          icon={BadgePercent}
+          label="Promozioni Marketplace"
+          onClick={() => setActiveTab("promotions")}
         />
       </div>
 
@@ -246,6 +259,10 @@ export function AdminCommercialSettings() {
           onUpsertRule={upsertRule}
           onDeleteRule={deleteRule}
         />
+      ) : null}
+
+      {!loading && activeTab === "promotions" ? (
+        <AdminMarketplacePromotions />
       ) : null}
     </div>
   );

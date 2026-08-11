@@ -4,6 +4,11 @@ import type { MarketplaceLead } from "@/lib/domain/sample-data";
 import type { Database } from "@/lib/supabase/database.types";
 import { unstable_cache } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
+import {
+  fetchEffectiveMarketplacePromotion,
+  resolvePromotionalPrice,
+  type MarketplacePromotion,
+} from "@/lib/config/marketplace-promotions";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -48,7 +53,9 @@ async function loadPublishedMarketplaceLeads() {
     return [];
   }
 
-  return mapLeadRowsToMarketplace(supabase, leads ?? []);
+  const { promotion } = await fetchEffectiveMarketplacePromotion(supabase);
+
+  return mapLeadRowsToMarketplace(supabase, leads ?? [], promotion);
 }
 
 export async function getPublishedMarketplaceLeadById(id: string) {
@@ -73,7 +80,8 @@ export async function getPublishedMarketplaceLeadById(id: string) {
     return null;
   }
 
-  const [mappedLead] = await mapLeadRowsToMarketplace(supabase, [lead]);
+  const { promotion } = await fetchEffectiveMarketplacePromotion(supabase);
+  const [mappedLead] = await mapLeadRowsToMarketplace(supabase, [lead], promotion);
 
   return mappedLead ?? null;
 }
@@ -86,7 +94,11 @@ function buildMarketplaceVisibilityFilter(now: string) {
   ].join(",");
 }
 
-async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[]) {
+async function mapLeadRowsToMarketplace(
+  supabase: ServiceClient,
+  leads: LeadRow[],
+  promotion: MarketplacePromotion | null,
+) {
   const propertyIds = Array.from(new Set(leads.map((lead) => lead.property_id)));
   const ownerRequestIds = Array.from(new Set(leads.map((lead) => lead.owner_request_id)));
 
@@ -137,6 +149,7 @@ async function mapLeadRowsToMarketplace(supabase: ServiceClient, leads: LeadRow[
         property,
         contactsByRequestId.get(lead.owner_request_id) ?? null,
         requestsById.get(lead.owner_request_id) ?? null,
+        promotion,
       );
     })
     .filter((lead): lead is MarketplaceLead => Boolean(lead));
@@ -161,6 +174,7 @@ function mapDbLeadToMarketplaceLead(
   >,
   contact: OwnerPublicContactRow | null,
   ownerRequest: OwnerRequestVerificationRow | null,
+  promotion: MarketplacePromotion | null,
 ): MarketplaceLead {
   const now = new Date();
   const expiresAt = lead.expires_at ?? lead.visible_until ?? lead.created_at;
@@ -171,6 +185,18 @@ function mapDbLeadToMarketplaceLead(
       : lead.internal_status;
   const publicStatus =
     internalStatus === "withdrawn_after_7_days" ? "unavailable" : lead.public_status;
+  const sharedPricing = resolvePromotionalPrice(
+    promotion,
+    "shared",
+    lead.shared_price_cents,
+  );
+  const exclusivePricing = resolvePromotionalPrice(
+    promotion,
+    "exclusive",
+    lead.exclusive_price_cents,
+  );
+  const appliedPromotionId =
+    sharedPricing.promotionId ?? exclusivePricing.promotionId;
 
   return {
     id: lead.id,
@@ -196,8 +222,13 @@ function mapDbLeadToMarketplaceLead(
     publicStatus,
     internalStatus,
     sharedSlotsSold: lead.shared_slots_sold,
-    sharedPriceCents: lead.shared_price_cents,
-    exclusivePriceCents: lead.exclusive_price_cents,
+    sharedPriceCents: sharedPricing.amountCents,
+    exclusivePriceCents: exclusivePricing.amountCents,
+    baseSharedPriceCents: lead.shared_price_cents,
+    baseExclusivePriceCents: lead.exclusive_price_cents,
+    promotionId: appliedPromotionId,
+    promotionName:
+      sharedPricing.promotionName ?? exclusivePricing.promotionName,
     exclusivePurchaseId: lead.exclusive_purchase_id,
     publishedAt: lead.published_at ?? lead.created_at,
     expiresAt,

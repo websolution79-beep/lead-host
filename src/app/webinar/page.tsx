@@ -20,18 +20,23 @@ import { PublicNav } from "@/components/public-nav";
 export const metadata: Metadata = {
   title: "Webinar gratuito per Property Manager | Lead Host",
   description:
-    "Partecipa all'incontro online di Lead Host di martedì 11 agosto alle 21:00: confronto tra Property Manager e accesso gratuito a CRM e Rendita Stimata.",
+    "Scopri il prossimo incontro online di Lead Host: confronto tra Property Manager e accesso gratuito a CRM e Rendita Stimata.",
   alternates: {
     canonical: "/webinar",
   },
   openGraph: {
     title: "Webinar gratuito per Property Manager | Lead Host",
     description:
-      "Martedì 11 agosto alle 21:00: un confronto concreto tra Property Manager con accesso gratuito agli strumenti CRM e Rendita Stimata di Lead Host.",
+      "Un confronto concreto tra Property Manager con accesso gratuito agli strumenti CRM e Rendita Stimata di Lead Host. Nuova data in arrivo.",
     images: ["/images/lead-host-pm-hero.png"],
     type: "website",
   },
 };
+
+const webinarConfig = {
+  registrationOpen: false,
+  dateLabel: "Nuova data in arrivo",
+} as const;
 
 export default function WebinarPage() {
   return (
@@ -58,11 +63,7 @@ export default function WebinarPage() {
               <div className="mt-4 flex w-fit flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-emerald-300/50 bg-emerald-400/15 px-4 py-3 text-white backdrop-blur-sm sm:mt-5 sm:px-5">
                 <span className="inline-flex items-center gap-2 text-base font-bold sm:text-lg">
                   <CalendarDays className="text-emerald-300" size={20} />
-                  Martedì 11 agosto
-                </span>
-                <span className="inline-flex items-center gap-2 text-base font-bold sm:text-lg">
-                  <Clock3 className="text-emerald-300" size={20} />
-                  Ore 21:00
+                  {webinarConfig.dateLabel}
                 </span>
               </div>
               <h1 className="mt-4 max-w-4xl text-[2rem] font-semibold leading-[1.1] sm:mt-5 sm:text-5xl sm:leading-[1.08] lg:text-6xl">
@@ -72,12 +73,18 @@ export default function WebinarPage() {
                 Parliamo delle difficoltà reali nell&apos;acquisizione e nella gestione dei proprietari. Durante l&apos;incontro presenteremo CRM e Rendita Stimata, con la possibilità di provarli gratuitamente.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center">
-                <Link className="btn btn-primary justify-center" href="#iscrizione">
-                  Partecipa gratuitamente
-                  <ArrowDown size={17} />
-                </Link>
+                {webinarConfig.registrationOpen ? (
+                  <Link className="btn btn-primary justify-center" href="#iscrizione">
+                    Partecipa gratuitamente
+                    <ArrowDown size={17} />
+                  </Link>
+                ) : (
+                  <span className="inline-flex w-fit items-center rounded-lg border border-white/25 bg-white/10 px-4 py-3 text-sm font-bold text-white">
+                    Iscrizioni momentaneamente chiuse
+                  </span>
+                )}
                 <p className="text-sm font-semibold text-slate-200">
-                  Riceverai il link Zoom direttamente via email.
+                  Comunicheremo presto la nuova data dell&apos;incontro.
                 </p>
               </div>
             </div>
@@ -107,6 +114,7 @@ export default function WebinarPage() {
       </section>
 
       <section className="border-b border-slate-200 bg-slate-50 px-5 py-12 sm:px-8 sm:py-16 lg:px-12" id="iscrizione">
+        {webinarConfig.registrationOpen ? (
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.9fr)_minmax(420px,1.1fr)] lg:items-start">
           <div className="lg:sticky lg:top-8">
             <p className="section-kicker">Iscrizione gratuita</p>
@@ -146,6 +154,26 @@ export default function WebinarPage() {
             </p>
           </div>
         </div>
+        ) : (
+          <div className="mx-auto max-w-4xl">
+            <div className="rounded-lg border border-slate-200 bg-white px-6 py-10 text-center shadow-xl shadow-slate-200/60 sm:px-10 sm:py-14">
+              <span className="mx-auto grid size-14 place-items-center rounded-lg bg-emerald-100 text-emerald-800">
+                <CalendarDays size={27} />
+              </span>
+              <p className="section-kicker mt-6">Webinar Lead Host</p>
+              <h2 className="mx-auto mt-3 max-w-2xl text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
+                L&apos;iscrizione al webinar non è più disponibile.
+              </h2>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                Stiamo definendo una nuova data per permettere a più Property Manager di partecipare. Torna presto per scoprire quando si terrà il prossimo incontro.
+              </p>
+              <p className="mx-auto mt-6 inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-900">
+                <Clock3 size={17} />
+                {webinarConfig.dateLabel}
+              </p>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
@@ -216,9 +244,15 @@ export default function WebinarPage() {
               Iscriviti e ricevi via email il link per partecipare alla conversazione.
             </p>
           </div>
-          <Link className="btn btn-primary shrink-0 justify-center" href="#iscrizione">
-            Iscriviti gratuitamente
-          </Link>
+          {webinarConfig.registrationOpen ? (
+            <Link className="btn btn-primary shrink-0 justify-center" href="#iscrizione">
+              Iscriviti gratuitamente
+            </Link>
+          ) : (
+            <span className="inline-flex shrink-0 items-center rounded-lg border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-900">
+              Nuova data in arrivo
+            </span>
+          )}
         </div>
       </section>
     </main>

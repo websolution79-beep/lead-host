@@ -10,6 +10,7 @@ import {
   Eye,
   ListChecks,
   Pencil,
+  RotateCcw,
   Search,
   Send,
   ShieldCheck,
@@ -93,6 +94,8 @@ export function AdminLeadsConsole() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [publishWarningId, setPublishWarningId] = useState<string | null>(null);
   const [manualTelegramRecord, setManualTelegramRecord] =
+    useState<AdminLeadRecord | null>(null);
+  const [republishRecord, setRepublishRecord] =
     useState<AdminLeadRecord | null>(null);
   const [filter, setFilter] = useState<FilterState>("new");
   const [query, setQuery] = useState("");
@@ -415,6 +418,45 @@ export function AdminLeadsConsole() {
     }
   }
 
+  async function confirmRepublish() {
+    const record = republishRecord;
+    if (!record) return;
+
+    setActionLoading(record.ownerRequestId);
+    setError(null);
+    setNotice(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sessione non disponibile. Effettua di nuovo il login.");
+      const response = await fetch(
+        `/api/admin/leads/${record.ownerRequestId}/republish`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setError(payload.error ?? "Ripubblicazione non completata.");
+        return;
+      }
+
+      setRepublishRecord(null);
+      setSelectedId(null);
+      setFilter("published");
+      await loadRecords();
+      setNotice(
+        "Lead ripubblicato nel Marketplace senza inviare notifiche email o Telegram.",
+      );
+    } catch (republishError) {
+      setError(
+        republishError instanceof Error
+          ? republishError.message
+          : "Ripubblicazione non completata.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <div className="admin-kpi-grid">
@@ -655,6 +697,7 @@ export function AdminLeadsConsole() {
               onReject={reject}
               onMoveToStatus={moveToStatus}
               onManualTelegram={requestManualTelegram}
+              onRepublish={setRepublishRecord}
               onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
               onClose={() => setSelectedId(null)}
               approvalDraft={getApprovalDraft(selectedRecord)}
@@ -700,6 +743,15 @@ export function AdminLeadsConsole() {
           onConfirm={() => void confirmManualTelegram()}
         />
       ) : null}
+
+      {republishRecord ? (
+        <RepublishConfirmationModal
+          record={republishRecord}
+          isPublishing={actionLoading === republishRecord.ownerRequestId}
+          onCancel={() => setRepublishRecord(null)}
+          onConfirm={() => void confirmRepublish()}
+        />
+      ) : null}
     </div>
   );
 }
@@ -714,6 +766,7 @@ function LeadDetailPanel({
   onReject,
   onMoveToStatus,
   onManualTelegram,
+  onRepublish,
   onEdit,
   onClose,
   approvalDraft,
@@ -732,6 +785,7 @@ function LeadDetailPanel({
     status: "pending" | "to_verify",
   ) => void;
   onManualTelegram: (record: AdminLeadRecord) => void;
+  onRepublish: (record: AdminLeadRecord) => void;
   onEdit: () => void;
   onClose: () => void;
   approvalDraft: ApprovalPriceDraft;
@@ -1061,6 +1115,17 @@ function LeadDetailPanel({
             {isBusy ? "Invio Telegram..." : "Invio manuale su Telegram"}
           </button>
         ) : null}
+        {canManage && isExpiredLead(record) ? (
+          <button
+            className="btn btn-primary w-full"
+            type="button"
+            disabled={isBusy}
+            onClick={() => onRepublish(record)}
+          >
+            <RotateCcw size={18} />
+            {isBusy ? "Ripubblicazione..." : "Ripubblica nel Marketplace"}
+          </button>
+        ) : null}
         {canApprove ? (
           <button
             className="btn btn-primary w-full"
@@ -1300,6 +1365,84 @@ function ManualTelegramConfirmationModal({
           >
             <Send size={17} />
             {isSending ? "Invio in corso..." : "Invia su Telegram"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RepublishConfirmationModal({
+  record,
+  isPublishing,
+  onCancel,
+  onConfirm,
+}: {
+  record: AdminLeadRecord;
+  isPublishing: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="republish-confirmation-title"
+    >
+      <div className="w-full bg-white shadow-2xl sm:max-w-lg sm:rounded-lg">
+        <div className="px-5 py-6 sm:px-6">
+          <span className="inline-flex rounded-lg bg-mint p-2 text-green">
+            <RotateCcw size={21} />
+          </span>
+          <p className="mt-4 section-kicker">Lead scaduto</p>
+          <h2
+            className="mt-1 text-xl font-semibold text-ink"
+            id="republish-confirmation-title"
+          >
+            Ripubblicare l&apos;annuncio?
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            <strong className="text-ink">
+              {record.lead?.title ?? buildDefaultTitle(record)}
+            </strong>{" "}
+            tornera disponibile per un nuovo periodo calcolato dalle Impostazioni.
+            Prezzi, note e acquisti gia registrati resteranno invariati.
+          </p>
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold leading-6 text-amber-900">
+            Questa ripubblicazione non inviera email ai Property Manager e non
+            pubblichera messaggi automatici su Telegram.
+          </p>
+        </div>
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={isPublishing}
+            onClick={onCancel}
+          >
+            Annulla
+          </button>
+          <button
+            className="btn btn-primary w-full sm:w-auto"
+            type="button"
+            disabled={isPublishing}
+            onClick={onConfirm}
+          >
+            <RotateCcw size={17} />
+            {isPublishing ? "Ripubblicazione..." : "Conferma ripubblicazione"}
           </button>
         </div>
       </div>

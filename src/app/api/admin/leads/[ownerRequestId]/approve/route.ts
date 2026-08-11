@@ -117,6 +117,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       payload.data.sharedPriceCents ?? suggestedPricing.sharedPriceCents;
     const exclusivePriceCents =
       payload.data.exclusivePriceCents ?? suggestedPricing.exclusivePriceCents;
+    const qualificationNotes =
+      payload.data.notes === undefined || payload.data.notes.length === 0
+        ? ownerRequest.qualification_notes
+        : payload.data.notes;
     const { data: existingLead, error: existingError } = await supabase
       .from("leads")
       .select("id")
@@ -203,7 +207,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ...(ownerRequestResult.sublettingColumnAvailable
           ? { subletting_available: sublettingAvailable }
           : {}),
-        qualification_notes: payload.data.notes || null,
+        qualification_notes: qualificationNotes,
         status_reason: null,
       })
       .eq("id", ownerRequestId);
@@ -220,7 +224,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           ...(ownerRequestResult.sublettingColumnAvailable
             ? { subletting_available: sublettingAvailable }
             : {}),
-          qualification_notes: payload.data.notes || null,
+          qualification_notes: qualificationNotes,
         })
         .eq("id", ownerRequestId);
       updateRequestError = fallback.error;
@@ -238,9 +242,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       entityType: "owner_request",
       entityId: ownerRequestId,
       action: "lead.approved_and_published",
-      before: { status: ownerRequest.status },
+      before: {
+        status: ownerRequest.status,
+        qualification_notes: ownerRequest.qualification_notes,
+      },
       after: {
         status: "published",
+        qualification_notes: qualificationNotes,
         lead_id: leadId,
         shared_price_cents: sharedPriceCents,
         exclusive_price_cents: exclusivePriceCents,
@@ -300,7 +308,9 @@ async function fetchOwnerRequestForApproval(
 ) {
   const result = await supabase
     .from("owner_requests")
-    .select("id,status,owner_verified,subletting_available")
+    .select(
+      "id,status,qualification_notes,owner_verified,subletting_available",
+    )
     .eq("id", ownerRequestId)
     .single();
 
@@ -310,7 +320,7 @@ async function fetchOwnerRequestForApproval(
 
   const fallback = await supabase
     .from("owner_requests")
-    .select("id,status,owner_verified")
+    .select("id,status,qualification_notes,owner_verified")
     .eq("id", ownerRequestId)
     .single();
 

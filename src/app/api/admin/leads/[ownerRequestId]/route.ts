@@ -395,6 +395,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       action: "lead.information_updated",
       before: {
         status: requestResult.data.status,
+        qualification_notes: requestResult.data.qualification_notes,
         owner_verified: requestResult.data.owner_verified,
         subletting_available: requestResult.data.subletting_available,
         lead_title: leadResult.data?.title ?? null,
@@ -403,6 +404,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       },
       after: {
         status: requestResult.data.status,
+        qualification_notes:
+          payload.data.qualificationNotes !== undefined
+            ? payload.data.qualificationNotes
+            : requestResult.data.qualification_notes,
         owner_verified:
           payload.data.marketplace?.ownerVerified ??
           requestResult.data.owner_verified,

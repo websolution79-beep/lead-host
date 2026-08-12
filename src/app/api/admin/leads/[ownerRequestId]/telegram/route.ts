@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await Promise.all([
         supabase
           .from("owner_requests")
-          .select("status")
+          .select("status,subletting_available")
           .eq("id", ownerRequestId)
           .maybeSingle(),
         supabase
@@ -70,6 +70,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         sharedPriceCents: lead.shared_price_cents,
         exclusivePriceCents: lead.exclusive_price_cents,
         sharedSlotsSold: lead.shared_slots_sold,
+        sublettingAvailable: ownerRequest.subletting_available,
       });
     } catch (error) {
       if (error instanceof TelegramServiceError) {

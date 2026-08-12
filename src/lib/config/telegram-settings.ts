@@ -20,6 +20,7 @@ export const telegramTemplateVariables = [
   "exclusive_price",
   "available_slots",
   "max_shared_slots",
+  "subletting",
 ] as const;
 
 export const defaultTelegramChannelSettings: TelegramChannelSettings = {

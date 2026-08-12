@@ -281,6 +281,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           sharedPriceCents,
           exclusivePriceCents,
           sharedSlotsSold: 0,
+          sublettingAvailable,
         }),
       ]);
 

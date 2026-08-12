@@ -47,6 +47,7 @@ export type TelegramLeadSummary = {
   exclusivePriceCents: number;
   sharedSlotsSold: number;
   maxSharedSlots?: number;
+  sublettingAvailable?: boolean;
 };
 
 export class TelegramServiceError extends Error {}
@@ -212,12 +213,28 @@ export function renderTelegramLeadMessage(
     exclusive_price: formatCurrencyCents(lead.exclusivePriceCents),
     available_slots: String(availableSlots),
     max_shared_slots: String(maxSharedSlots),
+    subletting: lead.sublettingAvailable
+      ? "🏠 Disponibile alla Sublocazione"
+      : "",
   };
+  const template = lead.sublettingAvailable
+    ? settings.messageTemplate
+    : removeEmptyStandaloneShortcode(settings.messageTemplate, "subletting");
 
-  return settings.messageTemplate.replace(
+  return template.replace(
     /\{\{([a-z_]+)\}\}/g,
     (match, key: string) => variables[key] ?? match,
   );
+}
+
+function removeEmptyStandaloneShortcode(template: string, shortcode: string) {
+  const escapedShortcode = shortcode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const standaloneLine = new RegExp(
+    `^[ \\t]*\\{\\{${escapedShortcode}\\}\\}[ \\t]*(?:\\r?\\n|$)`,
+    "gm",
+  );
+
+  return template.replace(standaloneLine, "");
 }
 
 async function sendTelegramMessage({

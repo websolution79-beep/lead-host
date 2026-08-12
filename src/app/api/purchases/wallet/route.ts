@@ -4,7 +4,10 @@ import {
   propertyManagerApiErrorResponse,
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
-import { sendLeadPurchaseEmail } from "@/lib/email/notifications";
+import {
+  sendAdminLeadPurchaseEmail,
+  sendLeadPurchaseEmail,
+} from "@/lib/email/notifications";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
@@ -134,7 +137,27 @@ export async function POST(request: NextRequest) {
       amountCents: purchase.amount_cents,
       balanceCents: purchase.balance_cents,
     });
-    after(() => runBrevoWorkerSafely(10));
+    after(async () => {
+      await Promise.allSettled([
+        sendAdminLeadPurchaseEmail({
+          profile: {
+            id: profile.id,
+            email: profile.email,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            status: profile.status,
+          },
+          propertyManagerId: propertyManager.id,
+          leadPurchaseId: purchase.purchase_id,
+          leadId: purchase.lead_id,
+          leadTitle: purchase.lead_title,
+          mode: purchase.mode,
+          amountCents: purchase.amount_cents,
+          balanceCents: purchase.balance_cents,
+        }),
+        runBrevoWorkerSafely(10),
+      ]);
+    });
     revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
 
     return NextResponse.json({

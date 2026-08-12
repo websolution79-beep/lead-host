@@ -368,6 +368,58 @@ export async function sendWalletTopUpEmail({
   });
 }
 
+export async function sendAdminLeadPurchaseEmail({
+  profile,
+  propertyManagerId,
+  leadPurchaseId,
+  leadId,
+  leadTitle,
+  mode,
+  amountCents,
+  balanceCents,
+}: {
+  profile: ProfileRow;
+  propertyManagerId: string;
+  leadPurchaseId: string;
+  leadId: string;
+  leadTitle: string;
+  mode: "shared" | "exclusive";
+  amountCents: number;
+  balanceCents: number;
+}) {
+  if (await hasSentAdminLeadPurchaseEmail(leadPurchaseId)) {
+    return { status: "skipped" as const, reason: "already_sent" as const };
+  }
+
+  const fullName = [profile.first_name, profile.last_name]
+    .map((value) => value?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const purchaseModeLabel = mode === "exclusive" ? "esclusiva" : "condivisa";
+
+  return sendTransactionalEmailToInternalRecipients({
+    profileId: profile.id,
+    propertyManagerId,
+    leadPurchaseId,
+    leadId,
+    eventType: "admin.lead_purchased",
+    metadata: { purchase_id: leadPurchaseId },
+    templateVariables: {
+      property_manager_name: fullName || profile.email,
+      property_manager_email: profile.email,
+      lead_title: leadTitle,
+      purchase_mode: mode,
+      purchase_mode_label: purchaseModeLabel,
+      amount: formatCurrencyCents(amountCents),
+      wallet_balance: formatCurrencyCents(balanceCents),
+      purchase_id: leadPurchaseId,
+    },
+    subject: "",
+    html: "",
+    text: "",
+  });
+}
+
 export async function sendMarketingAddonActivationEmails({
   profileId,
   subscriptionId,
@@ -733,6 +785,35 @@ async function hasSentAddonActivationEmail(
       (metadata as Record<string, unknown>).addon_subscription_id === subscriptionId
     );
   });
+}
+
+async function hasSentAdminLeadPurchaseEmail(leadPurchaseId: string) {
+  type EmailLogsQuery = {
+    eq: (column: string, value: string) => EmailLogsQuery;
+    limit: (
+      count: number,
+    ) => Promise<{
+      data: { lead_purchase_id: string | null }[] | null;
+      error: { message?: string } | null;
+    }>;
+  };
+  const supabase = createServiceSupabaseClient();
+  const logsTable = supabase.from("email_delivery_logs" as never) as unknown as {
+    select: (columns: string) => EmailLogsQuery;
+  };
+  const { data, error } = await logsTable
+    .select("lead_purchase_id")
+    .eq("lead_purchase_id", leadPurchaseId)
+    .eq("event_type", "admin.lead_purchased")
+    .eq("status", "sent")
+    .limit(1);
+
+  if (error) {
+    console.warn("Admin lead purchase email duplicate check failed:", error.message);
+    return false;
+  }
+
+  return Boolean(data?.length);
 }
 
 function formatEmailDate(value: string) {

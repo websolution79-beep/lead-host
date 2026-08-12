@@ -8,6 +8,7 @@ type ServiceClient = SupabaseClient<Database>;
 export const configurableRecipientTemplateIds = [
   "admin.owner_request_pending",
   "lead.purchased",
+  "admin.lead_purchased",
   "wallet.top_up",
   "admin.support_request_pending",
   "admin.support_request_reply",

@@ -29,6 +29,7 @@ export type MarketplaceLead = {
   exclusivePurchaseId: string | null;
   publishedAt: string;
   expiresAt: string;
+  detailViewCount?: number;
   ownerDescription: string;
 };
 

@@ -22,6 +22,10 @@ type OwnerRequestVerificationRow = Pick<
   Database["public"]["Tables"]["owner_requests"]["Row"],
   "id" | "owner_verified" | "subletting_available"
 >;
+const LEAD_SELECT_WITH_VIEWS =
+  "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,detail_view_count,created_at,updated_at";
+const LEGACY_LEAD_SELECT =
+  "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,created_at,updated_at";
 export async function getPublishedMarketplaceLeads() {
   return getCachedPublishedMarketplaceLeads();
 }
@@ -39,14 +43,27 @@ async function loadPublishedMarketplaceLeads() {
   const supabase = createServiceSupabaseClient();
   const now = new Date().toISOString();
 
-  const { data: leads, error } = await supabase
+  let { data: leads, error } = await supabase
     .from("leads")
-    .select(
-      "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,created_at,updated_at",
-    )
+    .select(LEAD_SELECT_WITH_VIEWS)
     .not("published_at", "is", null)
     .or(buildMarketplaceVisibilityFilter(now))
     .order("published_at", { ascending: false });
+
+  if (error && isMissingDetailViewCountColumnError(error)) {
+    const fallback = await supabase
+      .from("leads")
+      .select(LEGACY_LEAD_SELECT)
+      .not("published_at", "is", null)
+      .or(buildMarketplaceVisibilityFilter(now))
+      .order("published_at", { ascending: false });
+
+    leads = (fallback.data ?? []).map((lead) => ({
+      ...lead,
+      detail_view_count: 0,
+    }));
+    error = fallback.error;
+  }
 
   if (error) {
     console.error(error);
@@ -62,14 +79,26 @@ export async function getPublishedMarketplaceLeadById(id: string) {
   const supabase = createServiceSupabaseClient();
   const now = new Date().toISOString();
 
-  const { data: lead, error } = await supabase
+  let { data: lead, error } = await supabase
     .from("leads")
-    .select(
-      "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,created_at,updated_at",
-    )
+    .select(LEAD_SELECT_WITH_VIEWS)
     .eq("id", id)
     .or(buildMarketplaceVisibilityFilter(now))
     .maybeSingle();
+
+  if (error && isMissingDetailViewCountColumnError(error)) {
+    const fallback = await supabase
+      .from("leads")
+      .select(LEGACY_LEAD_SELECT)
+      .eq("id", id)
+      .or(buildMarketplaceVisibilityFilter(now))
+      .maybeSingle();
+
+    lead = fallback.data
+      ? { ...fallback.data, detail_view_count: 0 }
+      : null;
+    error = fallback.error;
+  }
 
   if (
     error ||
@@ -232,10 +261,19 @@ function mapDbLeadToMarketplaceLead(
     exclusivePurchaseId: lead.exclusive_purchase_id,
     publishedAt: lead.published_at ?? lead.created_at,
     expiresAt,
+    detailViewCount: Number(lead.detail_view_count ?? 0),
     ownerDescription:
       property.description ??
       "Il proprietario non ha aggiunto una descrizione facoltativa.",
   };
+}
+
+function isMissingDetailViewCountColumnError(error: { code?: string; message?: string }) {
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    Boolean(error.message?.includes("detail_view_count"))
+  );
 }
 
 async function fetchMarketplaceOwnerRequestFlags(

@@ -278,6 +278,9 @@ export function AdminLeadsConsole() {
   function selectRecord(record: AdminLeadRecord) {
     setSelectedId(record.ownerRequestId);
     setActionReason("");
+    if (record.lead?.publishedAt) {
+      void recordPublishedLeadView(record.lead.id);
+    }
     setApprovalDrafts((current) => ({
       ...current,
       [record.ownerRequestId]: current[record.ownerRequestId] ?? {
@@ -288,6 +291,18 @@ export function AdminLeadsConsole() {
         pricesCustomized: Boolean(record.lead),
       },
     }));
+  }
+
+  async function recordPublishedLeadView(leadId: string) {
+    const token = await getAccessToken();
+
+    if (!token) return;
+
+    await fetch(`/api/marketplace/leads/${leadId}/view`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    }).catch(() => null);
   }
 
   function getApprovalDraft(record: AdminLeadRecord) {

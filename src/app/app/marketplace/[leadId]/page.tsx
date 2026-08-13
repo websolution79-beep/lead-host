@@ -31,6 +31,7 @@ import { MarketplaceBackLink } from "@/components/marketplace-back-link";
 import { SublettingAvailableBadge } from "@/components/subletting-available-badge";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { MarketplaceLeadViewTracker } from "@/components/marketplace-lead-view-tracker";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -216,6 +217,12 @@ export default async function LeadDetailPage({
           </div>
 
           <div className="mt-6">
+            <div className="mb-4">
+              <MarketplaceLeadViewTracker
+                leadId={lead.id}
+                initialViewCount={lead.detailViewCount ?? 0}
+              />
+            </div>
             {lead.promotionId ? (
               <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                 <p className="flex items-center gap-2 font-bold">

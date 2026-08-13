@@ -5,6 +5,7 @@ import {
   Bath,
   BedDouble,
   CalendarClock,
+  Eye,
   MapPin,
   Ruler,
   Star,
@@ -181,6 +182,13 @@ export function LeadCard({
               : "Esclusiva non disponibile"}
           </p>
         </div>
+
+        {(lead.detailViewCount ?? 0) >= 2 ? (
+          <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-amber-700">
+            <Eye size={17} aria-hidden="true" />
+            <span>Osservato da {lead.detailViewCount} Property Manager</span>
+          </p>
+        ) : null}
 
         <Link className="btn btn-secondary mt-4 w-full" href={detailHref}>
           Vedi dettaglio

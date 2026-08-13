@@ -2265,6 +2265,7 @@ export type Database = {
           sold_at: string | null;
           sold_visible_until: string | null;
           exclusive_purchase_id: string | null;
+          detail_view_count: number;
           created_at: string;
           updated_at: string;
         };
@@ -2291,6 +2292,7 @@ export type Database = {
           sold_at?: string | null;
           sold_visible_until?: string | null;
           exclusive_purchase_id?: string | null;
+          detail_view_count?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -2317,6 +2319,7 @@ export type Database = {
           sold_at?: string | null;
           sold_visible_until?: string | null;
           exclusive_purchase_id?: string | null;
+          detail_view_count?: number;
           created_at?: string;
           updated_at?: string;
         };

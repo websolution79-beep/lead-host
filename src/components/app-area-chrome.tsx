@@ -113,6 +113,12 @@ const adminLinks: Array<{
     permission: "tracking",
   },
   {
+    label: "Backup",
+    href: "/admin/backup",
+    group: "Dati e controllo",
+    superAdminOnly: true,
+  },
+  {
     label: "Impostazioni",
     href: "/admin/impostazioni",
     group: "Configurazione",

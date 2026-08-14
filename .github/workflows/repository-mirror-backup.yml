@@ -13,6 +13,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      encrypted_bytes: ${{ steps.mirror.outputs.encrypted_bytes }}
     env:
       R2_ACCOUNT_ID: ${{ secrets.BACKUP_R2_ACCOUNT_ID }}
       R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
@@ -42,8 +44,10 @@ jobs:
           git clone --mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${workdir}/lead-host.git"
           tar -C "$workdir" -czf "${workdir}/${timestamp}.git.tar.gz" lead-host.git
           node scripts/backup/encrypt-file.mjs encrypt "${workdir}/${timestamp}.git.tar.gz" "${workdir}/${timestamp}.git.tar.gz.enc"
+          encrypted_bytes="$(stat -c%s "${workdir}/${timestamp}.git.tar.gz.enc")"
           echo "timestamp=$timestamp" >> "$GITHUB_OUTPUT"
           echo "file=${workdir}/${timestamp}.git.tar.gz.enc" >> "$GITHUB_OUTPUT"
+          echo "encrypted_bytes=$encrypted_bytes" >> "$GITHUB_OUTPUT"
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Carica mirror
@@ -61,3 +65,24 @@ jobs:
         if: always()
         run: rm -rf "${RUNNER_TEMP}/lead-host-git"
 
+  report:
+    name: Aggiorna monitoraggio Admin
+    if: always() && (github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true')
+    needs: [mirror]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Registra esito sanitizzato
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.BACKUP_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_RUN_ID: ${{ github.run_id }}
+          BACKUP_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BACKUP_COMPONENTS_JSON: >-
+            [
+              {"component":"repository","status":"${{ needs.mirror.result }}","metadata":{"encryptedBytes":"${{ needs.mirror.outputs.encrypted_bytes }}"}}
+            ]
+        run: node scripts/backup/report-backup-status.mjs

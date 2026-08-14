@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      backup_component_status: {
+        Row: {
+          component: "database" | "storage" | "verification" | "repository";
+          status: "success" | "failure" | "cancelled" | "skipped" | "unknown";
+          last_attempt_at: string | null;
+          last_success_at: string | null;
+          run_id: string | null;
+          run_url: string | null;
+          metadata: Json;
+          updated_at: string;
+        };
+        Insert: {
+          component: "database" | "storage" | "verification" | "repository";
+          status?: "success" | "failure" | "cancelled" | "skipped" | "unknown";
+          last_attempt_at?: string | null;
+          last_success_at?: string | null;
+          run_id?: string | null;
+          run_url?: string | null;
+          metadata?: Json;
+          updated_at?: string;
+        };
+        Update: {
+          component?: "database" | "storage" | "verification" | "repository";
+          status?: "success" | "failure" | "cancelled" | "skipped" | "unknown";
+          last_attempt_at?: string | null;
+          last_success_at?: string | null;
+          run_id?: string | null;
+          run_url?: string | null;
+          metadata?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       billing_profiles: {
         Row: {
           id: string;

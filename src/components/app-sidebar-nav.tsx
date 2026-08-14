@@ -11,6 +11,7 @@ import {
   Building2,
   Calculator,
   CreditCard,
+  DatabaseBackup,
   Crosshair,
   Columns3,
   FileText,
@@ -205,6 +206,13 @@ const adminLinks: AppNavLink[] = [
     icon: Crosshair,
     category: "Dati e controllo",
     permission: "tracking",
+  },
+  {
+    label: "Backup",
+    href: "/admin/backup",
+    icon: DatabaseBackup,
+    category: "Dati e controllo",
+    superAdminOnly: true,
   },
   {
     label: "Impostazioni",

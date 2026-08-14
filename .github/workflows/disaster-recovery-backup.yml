@@ -18,6 +18,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      encrypted_bytes: ${{ steps.upload.outputs.encrypted_bytes }}
     env:
       SUPABASE_DB_URL: ${{ secrets.BACKUP_SUPABASE_DB_URL }}
       R2_ACCOUNT_ID: ${{ secrets.BACKUP_R2_ACCOUNT_ID }}
@@ -95,6 +97,7 @@ jobs:
           echo "encrypted_file=$encrypted_file" >> "$GITHUB_OUTPUT"
 
       - name: Carica database su R2
+        id: upload
         env:
           BACKUP_TIMESTAMP: ${{ steps.dump.outputs.timestamp }}
           BACKUP_PLAIN_FILE: ${{ steps.dump.outputs.plain_file }}
@@ -111,6 +114,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      objects: ${{ steps.storage_backup.outputs.objects }}
+      uploaded: ${{ steps.storage_backup.outputs.uploaded }}
+      reused: ${{ steps.storage_backup.outputs.reused }}
     env:
       SUPABASE_URL: ${{ secrets.BACKUP_SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
@@ -150,6 +157,7 @@ jobs:
         run: echo "value=$(date -u +'%Y-%m-%dT%H-%M-%SZ')" >> "$GITHUB_OUTPUT"
 
       - name: Copia incrementale cifrata
+        id: storage_backup
         env:
           BACKUP_TIMESTAMP: ${{ steps.timestamp.outputs.value }}
         run: node scripts/backup/backup-storage.mjs
@@ -177,3 +185,27 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Controlla manifesti e oggetti
         run: node scripts/backup/verify-r2-backup.mjs
+
+  report:
+    name: Aggiorna monitoraggio Admin
+    if: always() && (github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true')
+    needs: [database, storage, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Registra esito sanitizzato
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.BACKUP_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
+          BACKUP_RUN_ID: ${{ github.run_id }}
+          BACKUP_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          BACKUP_COMPONENTS_JSON: >-
+            [
+              {"component":"database","status":"${{ needs.database.result }}","metadata":{"encryptedBytes":"${{ needs.database.outputs.encrypted_bytes }}"}},
+              {"component":"storage","status":"${{ needs.storage.result }}","metadata":{"objects":"${{ needs.storage.outputs.objects }}","uploaded":"${{ needs.storage.outputs.uploaded }}","reused":"${{ needs.storage.outputs.reused }}"}},
+              {"component":"verification","status":"${{ needs.verify.result }}","metadata":{}}
+            ]
+        run: node scripts/backup/report-backup-status.mjs

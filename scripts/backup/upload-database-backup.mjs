@@ -49,5 +49,7 @@ const manifest = {
 
 await putJson(client, `${prefix}/manifests/database/${timestamp}.json`, manifest);
 await putJson(client, `${prefix}/manifests/database/latest.json`, manifest);
+if (process.env.GITHUB_OUTPUT) {
+  await fs.appendFile(process.env.GITHUB_OUTPUT, `encrypted_bytes=${stat.size}\n`);
+}
 console.log(JSON.stringify({ uploaded: objectKey, bytes: stat.size, manifest }, null, 2));
-

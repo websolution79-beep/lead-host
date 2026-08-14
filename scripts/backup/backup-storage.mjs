@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { promises as fs } from "node:fs";
 import {
   createR2Client,
   encryptBuffer,
@@ -118,5 +119,10 @@ const manifest = {
 
 await putJson(r2, `${prefix}/manifests/storage/${timestamp}.json`, manifest);
 await putJson(r2, latestKey, manifest);
+if (process.env.GITHUB_OUTPUT) {
+  await fs.appendFile(
+    process.env.GITHUB_OUTPUT,
+    `objects=${manifestObjects.length}\nuploaded=${uploaded}\nreused=${reused}\n`,
+  );
+}
 console.log(JSON.stringify(manifest.stats, null, 2));
-

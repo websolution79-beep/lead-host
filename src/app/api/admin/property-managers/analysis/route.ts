@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     const pageSize = Math.min(100, Math.max(10, Number(params.get("pageSize") || 25) || 25));
 
     const { data: roleRows, error: rolesError } = await supabase
-      .from("profile_roles")
+      .from("user_roles")
       .select("profile_id")
       .eq("role", "property_manager")
       .limit(5000);

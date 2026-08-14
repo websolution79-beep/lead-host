@@ -27,6 +27,7 @@ import {
   managedPropertiesOptions,
   type ManagedPropertiesRange,
 } from "@/lib/domain/pm-onboarding";
+import { AdminCustomerAnalysis } from "@/components/admin-customer-analysis";
 
 type ManagedPropertiesFilter = "" | ManagedPropertiesRange | "not_indicated";
 
@@ -145,6 +146,7 @@ export function AdminPropertyManagersConsole() {
     active: 0,
     suspended: 0,
   });
+  const [activeView, setActiveView] = useState<"directory" | "analysis">("directory");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -305,6 +307,32 @@ export function AdminPropertyManagersConsole() {
 
   return (
     <div className="grid gap-6">
+      <section className="card flex flex-wrap gap-2 p-2">
+        <button
+          type="button"
+          onClick={() => setActiveView("directory")}
+          className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${activeView === "directory" ? "bg-green text-white" : "text-slate-600 hover:bg-slate-100"}`}
+        >
+          Elenco PM
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveView("analysis")}
+          className={`min-h-11 rounded-lg px-4 text-sm font-semibold ${activeView === "analysis" ? "bg-green text-white" : "text-slate-600 hover:bg-slate-100"}`}
+        >
+          Analisi clienti
+        </button>
+      </section>
+
+      {activeView === "analysis" ? (
+        <AdminCustomerAnalysis
+          onOpenDetail={(profileId) => {
+            setActiveView("directory");
+            void openPropertyManager(profileId);
+          }}
+        />
+      ) : (
+        <>
       <section className="grid gap-3 lg:grid-cols-3">
         <KpiCard icon={Users} label="PM totali" value={stats.total.toString()} />
         <KpiCard icon={UserCheck} label="Attivi" value={stats.active.toString()} />
@@ -636,6 +664,8 @@ export function AdminPropertyManagersConsole() {
           </div>
         )}
       </section>
+        </>
+      )}
     </div>
   );
 }

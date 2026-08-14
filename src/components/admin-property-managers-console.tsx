@@ -8,6 +8,7 @@ import {
   CirclePause,
   Eye,
   Filter,
+  Gift,
   Mail,
   ReceiptText,
   Search,
@@ -28,6 +29,7 @@ import {
   type ManagedPropertiesRange,
 } from "@/lib/domain/pm-onboarding";
 import { AdminCustomerAnalysis } from "@/components/admin-customer-analysis";
+import { useAppSession } from "@/components/app-session-provider";
 
 type ManagedPropertiesFilter = "" | ManagedPropertiesRange | "not_indicated";
 
@@ -120,6 +122,7 @@ type PropertyManagerRecord = {
 };
 
 export function AdminPropertyManagersConsole() {
+  const session = useAppSession();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<PropertyManagerRecord[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -147,6 +150,9 @@ export function AdminPropertyManagersConsole() {
     suspended: 0,
   });
   const [activeView, setActiveView] = useState<"directory" | "analysis">("directory");
+  const [bonusTarget, setBonusTarget] = useState<PropertyManagerRecord | null>(null);
+  const [isBonusSaving, setIsBonusSaving] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -305,6 +311,55 @@ export function AdminPropertyManagersConsole() {
     setActionProfileId(null);
   }
 
+  async function grantWalletBonus(input: {
+    profileId: string;
+    amountCents: number;
+    reason: string;
+    internalNote: string;
+    operationId: string;
+  }) {
+    setIsBonusSaving(true);
+    setError("");
+    setNotice("");
+
+    const token = await getAccessToken();
+    if (!token) {
+      setIsBonusSaving(false);
+      return "Sessione Super Admin non trovata.";
+    }
+
+    try {
+      const response = await fetch("/api/admin/property-managers/bonus", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(input),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        return payload.error ?? "Non sono riuscito ad accreditare il bonus Wallet.";
+      }
+
+      const targetName = bonusTarget
+        ? [bonusTarget.firstName, bonusTarget.lastName].filter(Boolean).join(" ") ||
+          bonusTarget.email
+        : "Property Manager";
+      setBonusTarget(null);
+      setNotice(
+        `Bonus di ${formatCurrencyCents(payload.amountCents, "eur")} accreditato a ${targetName}.`,
+      );
+      await openPropertyManager(input.profileId);
+      return null;
+    } catch {
+      return "Connessione non disponibile. Riprova tra poco.";
+    } finally {
+      setIsBonusSaving(false);
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <section className="card flex flex-wrap gap-2 p-2">
@@ -439,6 +494,11 @@ export function AdminPropertyManagersConsole() {
             {error}
           </p>
         ) : null}
+        {notice ? (
+          <p className="m-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            {notice}
+          </p>
+        ) : null}
 
         {isDetailLoading ? (
           <div className="flex min-h-[320px] items-center justify-center p-6 text-sm font-semibold text-muted">
@@ -448,7 +508,15 @@ export function AdminPropertyManagersConsole() {
           <div className="p-4 md:p-6">
             <PropertyManagerDetail
               record={selectedRecord}
-              isBusy={actionProfileId === selectedRecord.profileId}
+              isBusy={
+                actionProfileId === selectedRecord.profileId ||
+                (isBonusSaving && bonusTarget?.profileId === selectedRecord.profileId)
+              }
+              canGrantBonus={Boolean(session.isSuperAdmin)}
+              onGrantBonus={() => {
+                setNotice("");
+                setBonusTarget(selectedRecord);
+              }}
               onClose={() => {
                 setSelectedProfileId(null);
                 setSelectedRecord(null);
@@ -666,6 +734,15 @@ export function AdminPropertyManagersConsole() {
       </section>
         </>
       )}
+      {bonusTarget ? (
+        <WalletBonusModal
+          key={bonusTarget.profileId}
+          record={bonusTarget}
+          isSaving={isBonusSaving}
+          onClose={() => setBonusTarget(null)}
+          onConfirm={grantWalletBonus}
+        />
+      ) : null}
     </div>
   );
 }
@@ -673,12 +750,16 @@ export function AdminPropertyManagersConsole() {
 function PropertyManagerDetail({
   record,
   isBusy,
+  canGrantBonus,
+  onGrantBonus,
   onClose,
   onSuspend,
   onReactivate,
 }: {
   record: PropertyManagerRecord;
   isBusy: boolean;
+  canGrantBonus: boolean;
+  onGrantBonus: () => void;
   onClose: () => void;
   onSuspend: () => void;
   onReactivate: () => void;
@@ -821,6 +902,17 @@ function PropertyManagerDetail({
               <MetricTile label="Segnalazioni aperte" value={record.stats.openReportsCount} />
             </div>
 
+            {canGrantBonus ? (
+              <button
+                type="button"
+                disabled={isBusy}
+                onClick={onGrantBonus}
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 text-sm font-semibold text-green transition hover:bg-emerald-100 disabled:opacity-50"
+              >
+                <Gift size={17} /> Regala credito
+              </button>
+            ) : null}
+
             <div className="mt-6 border-t border-slate-200 pt-5">
               <div className="mb-3 flex items-center gap-2">
                 <ArrowDownToLine size={17} className="text-green" />
@@ -905,6 +997,173 @@ function PropertyManagerDetail({
         </div>
       </div>
     </section>
+  );
+}
+
+function WalletBonusModal({
+  record,
+  isSaving,
+  onClose,
+  onConfirm,
+}: {
+  record: PropertyManagerRecord;
+  isSaving: boolean;
+  onClose: () => void;
+  onConfirm: (input: {
+    profileId: string;
+    amountCents: number;
+    reason: string;
+    internalNote: string;
+    operationId: string;
+  }) => Promise<string | null>;
+}) {
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+  const [formError, setFormError] = useState("");
+  const [operationId] = useState(() => crypto.randomUUID());
+  const amountCents = parseEuroAmount(amount);
+  const isAmountValid = amountCents >= 100 && amountCents <= 100000;
+  const resultingBalance = record.walletBalanceCents + (isAmountValid ? amountCents : 0);
+  const displayName =
+    [record.firstName, record.lastName].filter(Boolean).join(" ") || record.email;
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    if (!isAmountValid) {
+      setFormError("Inserisci un importo compreso tra 1 € e 1.000 €.");
+      return;
+    }
+    if (reason.trim().length < 3) {
+      setFormError("Inserisci una motivazione di almeno 3 caratteri.");
+      return;
+    }
+
+    const result = await onConfirm({
+      profileId: record.profileId,
+      amountCents,
+      reason: reason.trim(),
+      internalNote: internalNote.trim(),
+      operationId,
+    });
+    if (result) setFormError(result);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-sm sm:items-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wallet-bonus-title"
+    >
+      <section className="max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl bg-white shadow-2xl sm:max-w-xl sm:rounded-xl">
+        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
+          <div>
+            <p className="section-kicker">Bonus Wallet</p>
+            <h2 id="wallet-bonus-title" className="mt-1 text-xl font-semibold text-ink">
+              Regala credito a {displayName}
+            </h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Chiudi"
+            disabled={isSaving}
+            onClick={onClose}
+            className="grid size-10 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-50"
+          >
+            <X size={18} />
+          </button>
+        </header>
+
+        <form className="grid gap-5 p-5" onSubmit={submit}>
+          <div className="grid grid-cols-2 gap-3">
+            <MetricTile
+              label="Saldo attuale"
+              value={formatCurrencyCents(record.walletBalanceCents, record.walletCurrency)}
+            />
+            <MetricTile
+              label="Saldo dopo il bonus"
+              value={formatCurrencyCents(resultingBalance, record.walletCurrency)}
+            />
+          </div>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-ink">Importo bonus *</span>
+            <div className="flex min-h-12 items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-green">
+              <span className="mr-2 font-semibold text-slate-500">EUR</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={amount}
+                disabled={isSaving}
+                onChange={(event) => setAmount(event.target.value)}
+                placeholder="20,00"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 font-semibold text-ink outline-none"
+              />
+            </div>
+            <span className="mt-1 block text-xs text-slate-500">Da 1,00 € a 1.000,00 €.</span>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-ink">Motivazione *</span>
+            <input
+              type="text"
+              maxLength={160}
+              value={reason}
+              disabled={isSaving}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Ad esempio: Premio cliente fedele"
+              className="min-h-12 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-green"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-semibold text-ink">Nota interna</span>
+            <textarea
+              maxLength={500}
+              rows={3}
+              value={internalNote}
+              disabled={isSaving}
+              onChange={(event) => setInternalNote(event.target.value)}
+              placeholder="Informazioni facoltative visibili nell'audit amministrativo"
+              className="w-full resize-none rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-green"
+            />
+          </label>
+
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
+            Il credito sarà registrato come bonus Wallet. Non sarà conteggiato come
+            ricarica, non passerà da Stripe e non genererà fattura.
+          </div>
+
+          {formError ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              {formError}
+            </p>
+          ) : null}
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={onClose}
+              className="min-h-12 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 disabled:opacity-50"
+            >
+              Annulla
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving || !isAmountValid || reason.trim().length < 3}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-green px-4 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              <Gift size={17} /> {isSaving ? "Accredito..." : "Conferma accredito"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }
 
@@ -1046,6 +1305,13 @@ function StatusBadge({ record }: { record: PropertyManagerRecord }) {
       {isSuspended ? "Sospeso" : "Attivo"}
     </span>
   );
+}
+
+function parseEuroAmount(value: string) {
+  const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
+  if (!/^\d+(?:\.\d{0,2})?$/.test(normalized)) return 0;
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
 }
 
 function isPropertyManagerSuspended(record: PropertyManagerRecord) {

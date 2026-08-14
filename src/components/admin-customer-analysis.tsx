@@ -324,7 +324,7 @@ export function AdminCustomerAnalysis({
                 <span className="text-xs font-bold uppercase text-amber-600">#{record.rank}</span>
                 <p className="mt-2 truncate font-semibold text-ink">{record.displayName}</p>
                 <p className="mt-1 text-sm font-bold text-green">{formatCurrencyCents(record.netSpentCents, record.currency)}</p>
-                <p className="mt-1 text-xs text-slate-500">{record.purchasesCount} acquisti</p>
+                <p className="mt-1 text-xs text-slate-500">{purchaseCountLabel(record.purchasesCount)}</p>
               </button>
             ))}
           </div>
@@ -389,8 +389,8 @@ function ConsentBadge({ status }: { status: CustomerRecord["marketingConsent"] }
 function LoadingState() { return <p className="rounded-lg bg-slate-50 p-6 text-center text-sm text-slate-500">Carico analisi clienti...</p>; }
 function EmptyState() { return <p className="p-8 text-center text-sm text-slate-500">Nessun cliente corrisponde ai filtri selezionati.</p>; }
 function consentLabel(status: CustomerRecord["marketingConsent"]) { return status === "granted" ? "Consenso attivo" : status === "withdrawn" ? "Revocato" : "Non presente"; }
+function purchaseCountLabel(value: number) { return `${value} ${value === 1 ? "acquisto" : "acquisti"}`; }
 function formatDate(value: string | null) { return value ? new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(new Date(value)) : "Mai"; }
 function centsForCsv(value: number) { return (value / 100).toFixed(2).replace(".", ","); }
 function csvCell(value: string | number) { return `"${String(value).replaceAll('"', '""')}"`; }
 function resolvePeriod(period: Period, from: string, to: string) { if (period === "custom") return { from, to }; if (period === "all") return { from: "", to: "" }; const days = period === "30d" ? 30 : 90; const date = new Date(); date.setUTCDate(date.getUTCDate() - days); return { from: date.toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10) }; }
-

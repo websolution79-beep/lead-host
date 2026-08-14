@@ -281,7 +281,11 @@ export async function GET(request: NextRequest) {
       if (sort === "topups_desc") {
         return b.topUpCents - a.topUpCents || b.netSpentCents - a.netSpentCents;
       }
-      return b.netSpentCents - a.netSpentCents || b.purchasesCount - a.purchasesCount;
+      return (
+        b.netSpentCents - a.netSpentCents ||
+        b.purchasesCount - a.purchasesCount ||
+        a.rank - b.rank
+      );
     });
 
     const summary = records.reduce(

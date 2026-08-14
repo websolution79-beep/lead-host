@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:billing": "tsx --test src/lib/billing/*.test.ts"
+    "test:billing": "tsx --test src/lib/billing/*.test.ts",
+    "test:backup": "node --test scripts/backup/*.test.mjs",
+    "backup:generate-key": "node scripts/backup/generate-key.mjs",
+    "backup:storage": "node scripts/backup/backup-storage.mjs",
+    "backup:verify": "node scripts/backup/verify-r2-backup.mjs",
+    "backup:restore-storage": "node scripts/backup/restore-storage.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
@@ -23,6 +28,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1110.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",

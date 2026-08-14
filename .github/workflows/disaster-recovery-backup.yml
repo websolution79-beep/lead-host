@@ -1,0 +1,168 @@
+name: Disaster recovery backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "27 2 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lead-host-disaster-recovery-backup
+  cancel-in-progress: false
+
+jobs:
+  database:
+    name: Database cifrato
+    if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.BACKUP_SUPABASE_DB_URL }}
+      R2_ACCOUNT_ID: ${{ secrets.BACKUP_R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.BACKUP_R2_BUCKET }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      BACKUP_PREFIX: lead-host
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dipendenze backup
+        run: npm ci --ignore-scripts
+
+      - name: Client PostgreSQL
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Verifica configurazione
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_DB_URL R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET BACKUP_ENCRYPTION_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Secret obbligatorio mancante: ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Dump consistente e verifica
+        id: dump
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          timestamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          workdir="${RUNNER_TEMP}/lead-host-backup"
+          mkdir -p "$workdir"
+          plain_file="${workdir}/${timestamp}.dump"
+          encrypted_file="${plain_file}.enc"
+
+          PGOPTIONS='-c statement_timeout=0' pg_dump "$SUPABASE_DB_URL" \
+            --format=custom \
+            --compress=9 \
+            --no-owner \
+            --no-privileges \
+            --lock-wait-timeout=5s \
+            --file="$plain_file"
+
+          test -s "$plain_file"
+          pg_restore --list "$plain_file" > "${workdir}/${timestamp}.contents.txt"
+          test -s "${workdir}/${timestamp}.contents.txt"
+          node scripts/backup/encrypt-file.mjs encrypt "$plain_file" "$encrypted_file"
+          test -s "$encrypted_file"
+
+          echo "timestamp=$timestamp" >> "$GITHUB_OUTPUT"
+          echo "plain_file=$plain_file" >> "$GITHUB_OUTPUT"
+          echo "encrypted_file=$encrypted_file" >> "$GITHUB_OUTPUT"
+
+      - name: Carica database su R2
+        env:
+          BACKUP_TIMESTAMP: ${{ steps.dump.outputs.timestamp }}
+          BACKUP_PLAIN_FILE: ${{ steps.dump.outputs.plain_file }}
+          BACKUP_ENCRYPTED_FILE: ${{ steps.dump.outputs.encrypted_file }}
+        run: node scripts/backup/upload-database-backup.mjs
+
+      - name: Elimina temporanei locali
+        if: always()
+        shell: bash
+        run: rm -rf "${RUNNER_TEMP}/lead-host-backup"
+
+  storage:
+    name: Supabase Storage incrementale
+    if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.BACKUP_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.BACKUP_SUPABASE_SERVICE_ROLE_KEY }}
+      R2_ACCOUNT_ID: ${{ secrets.BACKUP_R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.BACKUP_R2_BUCKET }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      BACKUP_PREFIX: lead-host
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dipendenze backup
+        run: npm ci --ignore-scripts
+
+      - name: Verifica configurazione
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET BACKUP_ENCRYPTION_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Secret obbligatorio mancante: ${name}"
+              exit 1
+            fi
+          done
+
+      - name: Timestamp backup
+        id: timestamp
+        shell: bash
+        run: echo "value=$(date -u +'%Y-%m-%dT%H-%M-%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Copia incrementale cifrata
+        env:
+          BACKUP_TIMESTAMP: ${{ steps.timestamp.outputs.value }}
+        run: node scripts/backup/backup-storage.mjs
+
+  verify:
+    name: Verifica backup esterno
+    needs: [database, storage]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.BACKUP_R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.BACKUP_R2_BUCKET }}
+      BACKUP_PREFIX: lead-host
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Dipendenze backup
+        run: npm ci --ignore-scripts
+      - name: Controlla manifesti e oggetti
+        run: node scripts/backup/verify-r2-backup.mjs

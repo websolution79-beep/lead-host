@@ -1,0 +1,63 @@
+name: Repository mirror backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    if: github.event_name == 'workflow_dispatch' || vars.BACKUP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.BACKUP_R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.BACKUP_R2_BUCKET }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      BACKUP_PREFIX: lead-host
+    steps:
+      - name: Checkout strumenti
+        uses: actions/checkout@v4
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Dipendenze backup
+        run: npm ci --ignore-scripts
+      - name: Crea mirror cifrato
+        id: mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          timestamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          workdir="${RUNNER_TEMP}/lead-host-git"
+          mkdir -p "$workdir"
+          git clone --mirror "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${workdir}/lead-host.git"
+          tar -C "$workdir" -czf "${workdir}/${timestamp}.git.tar.gz" lead-host.git
+          node scripts/backup/encrypt-file.mjs encrypt "${workdir}/${timestamp}.git.tar.gz" "${workdir}/${timestamp}.git.tar.gz.enc"
+          echo "timestamp=$timestamp" >> "$GITHUB_OUTPUT"
+          echo "file=${workdir}/${timestamp}.git.tar.gz.enc" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Carica mirror
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp "${{ steps.mirror.outputs.file }}" \
+            "s3://${R2_BUCKET}/${BACKUP_PREFIX}/repository/weekly/${{ steps.mirror.outputs.timestamp }}.git.tar.gz.enc" \
+            --endpoint-url "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+      - name: Elimina temporanei locali
+        if: always()
+        run: rm -rf "${RUNNER_TEMP}/lead-host-git"
+

@@ -30,6 +30,11 @@ const patchSchema = z.discriminatedUnion("action", [
     action: z.literal("claim_manager"),
     profileId: z.string().uuid(),
   }),
+  z.object({
+    action: z.literal("update_internal_notes"),
+    profileId: z.string().uuid(),
+    notes: z.string().max(5000),
+  }),
 ]);
 
 const managedPropertiesFilterSchema = z.enum([
@@ -73,14 +78,18 @@ export async function GET(request: NextRequest) {
     if (detailProfileId) {
       const parsedProfileId = z.string().uuid().parse(detailProfileId);
       await ensurePropertyManager(supabase, parsedProfileId);
-      await ensurePrimeScope({
+      const assignedManagerId = await ensurePrimeScope({
         supabase,
         profileId: parsedProfileId,
         isSuperAdmin,
         teamMemberId,
         allowUnassigned: true,
       });
-      const detail = await loadPrimePropertyManagerDetail(supabase, parsedProfileId);
+      const detail = await loadPrimePropertyManagerDetail(
+        supabase,
+        parsedProfileId,
+        isSuperAdmin || assignedManagerId === teamMemberId,
+      );
       return NextResponse.json(
         { detail },
         { headers: { "Cache-Control": "private, no-store" } },
@@ -307,6 +316,52 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle();
     if (beforeResult.error) throw beforeResult.error;
 
+    if (payload.action === "update_internal_notes") {
+      if (!beforeResult.data) {
+        throw new AdminApiError(404, "Account PRIME non trovato.");
+      }
+      const previousNotesResult = await supabase
+        .from("prime_internal_notes")
+        .select("id,notes")
+        .eq("profile_id", payload.profileId)
+        .maybeSingle();
+      if (previousNotesResult.error) throw previousNotesResult.error;
+
+      const normalizedNotes = payload.notes.trim();
+      const savedNotesResult = await supabase
+        .from("prime_internal_notes")
+        .upsert(
+          {
+            prime_account_id: beforeResult.data.id,
+            profile_id: payload.profileId,
+            notes: normalizedNotes,
+            updated_by: profile.id,
+          },
+          { onConflict: "profile_id" },
+        )
+        .select("id,notes,updated_at")
+        .single();
+      if (savedNotesResult.error) throw savedNotesResult.error;
+
+      await writeAdminAuditLog({
+        supabase,
+        request,
+        actorProfileId: profile.id,
+        isSuperAdmin,
+        entityType: "prime_internal_note",
+        entityId: savedNotesResult.data.id,
+        action: "prime.update_internal_notes",
+        before: { characters: previousNotesResult.data?.notes.length ?? 0 },
+        after: { characters: normalizedNotes.length },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        internalNotes: normalizedNotes,
+        updatedAt: savedNotesResult.data.updated_at,
+      });
+    }
+
     if (payload.action === "claim_manager") {
       if (isSuperAdmin || !teamMemberId) {
         throw new AdminApiError(422, "Usa l'assegnazione amministrativa per questo profilo.");
@@ -441,7 +496,7 @@ async function ensurePrimeScope({
   teamMemberId: string | null;
   allowUnassigned?: boolean;
 }) {
-  if (isSuperAdmin) return;
+  if (isSuperAdmin) return null;
   if (!teamMemberId) throw new AdminApiError(403, "Portafoglio PRIME non disponibile.");
 
   const { data, error } = await supabase
@@ -450,13 +505,14 @@ async function ensurePrimeScope({
     .eq("profile_id", profileId)
     .maybeSingle();
   if (error) throw error;
-  if (!data?.account_manager_member_id && allowUnassigned) return;
+  if (!data?.account_manager_member_id && allowUnassigned) return null;
   if (!data?.account_manager_member_id) {
     throw new AdminApiError(403, "Prendi prima in carico questo Property Manager.");
   }
   if (data?.account_manager_member_id && data.account_manager_member_id !== teamMemberId) {
     throw new AdminApiError(403, "Questo Property Manager non appartiene al tuo portafoglio.");
   }
+  return data.account_manager_member_id;
 }
 
 function matchesManagedProperties(
@@ -535,8 +591,9 @@ async function loadPrimeManagers(
 async function loadPrimePropertyManagerDetail(
   supabase: Awaited<ReturnType<typeof requireAdminPermission>>["supabase"],
   profileId: string,
+  includeInternalNotes: boolean,
 ) {
-  const [profileResult, pmProfileResult, walletResult, billingResult] =
+  const [profileResult, pmProfileResult, walletResult, billingResult, internalNotesResult] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -554,12 +611,20 @@ async function loadPrimePropertyManagerDetail(
         .select("*")
         .eq("profile_id", profileId)
         .maybeSingle(),
+      includeInternalNotes
+        ? supabase
+            .from("prime_internal_notes")
+            .select("notes,updated_at")
+            .eq("profile_id", profileId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   if (profileResult.error) throw profileResult.error;
   if (pmProfileResult.error) throw pmProfileResult.error;
   if (walletResult.error) throw walletResult.error;
   if (billingResult.error) throw billingResult.error;
+  if (internalNotesResult.error) throw internalNotesResult.error;
 
   const pmProfile = pmProfileResult.data;
   const [transactionsResult, purchasesResult, reportsResult] = await Promise.all([
@@ -613,6 +678,8 @@ async function loadPrimePropertyManagerDetail(
     propertyManagerProfile: pmProfile,
     wallet: walletResult.data,
     billingProfile: billingResult.data,
+    internalNotes: internalNotesResult.data?.notes ?? "",
+    internalNotesUpdatedAt: internalNotesResult.data?.updated_at ?? null,
     auth: {
       emailConfirmedAt: authUserResult.data.user?.email_confirmed_at ?? null,
       lastSignInAt: authUserResult.data.user?.last_sign_in_at ?? null,

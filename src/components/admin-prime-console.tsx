@@ -156,6 +156,8 @@ type PrimePmDetail = {
     lastSignInAt: string | null;
     metadata: Record<string, unknown>;
   };
+  internalNotes: string;
+  internalNotesUpdatedAt: string | null;
   walletTransactions: Array<{
     id: string;
     type: string;
@@ -347,6 +349,39 @@ export function AdminPrimeConsole() {
       setError(errorMessage(requestError));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveInternalNotes(row: PrimeRow, notes: string) {
+    try {
+      const token = await getToken();
+      if (!token) return "Sessione amministrativa non disponibile.";
+      const response = await fetch("/api/admin/prime", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "update_internal_notes",
+          profileId: row.profile.id,
+          notes,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        internalNotes?: string;
+        updatedAt?: string;
+      };
+      if (!response.ok) return payload.error ?? "Non riesco a salvare le note interne.";
+      setSelectedDetail((current) => current ? {
+        ...current,
+        internalNotes: payload.internalNotes ?? notes.trim(),
+        internalNotesUpdatedAt: payload.updatedAt ?? new Date().toISOString(),
+      } : current);
+      return null;
+    } catch {
+      return "Connessione non disponibile. Riprova tra poco.";
     }
   }
 
@@ -624,6 +659,7 @@ export function AdminPrimeConsole() {
             (data.access.isSuperAdmin ||
               selectedRow.account?.account_manager_member_id === data.access.teamMemberId),
           )}
+          onSaveNotes={(notes) => saveInternalNotes(selectedRow, notes)}
           onClose={() => {
             setSelectedProfileId(null);
             setSelectedDetail(null);
@@ -762,7 +798,7 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: number
   );
 }
 
-function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction }: { row: PrimeRow; detail: PrimePmDetail | null; loading: boolean; canWrite: boolean; onClose: () => void; onAction: (action: AccessAction) => void }) {
+function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, onSaveNotes }: { row: PrimeRow; detail: PrimePmDetail | null; loading: boolean; canWrite: boolean; onClose: () => void; onAction: (action: AccessAction) => void; onSaveNotes: (notes: string) => Promise<string | null> }) {
   return (
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={`Dettaglio PRIME di ${displayName(row)}`}>
       <div className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
@@ -816,6 +852,14 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction }:
             </section>
           ) : detail ? (
             <>
+              {canWrite && row.account ? (
+                <PrimeNotesSection
+                  key={`${row.profile.id}-${detail.internalNotesUpdatedAt ?? "new"}`}
+                  initialNotes={detail.internalNotes}
+                  updatedAt={detail.internalNotesUpdatedAt}
+                  onSave={onSaveNotes}
+                />
+              ) : null}
               <section className="rounded-lg border border-slate-200 p-5">
                 <h3 className="font-semibold text-ink">Dati Property Manager</h3>
                 <dl className="mt-5 grid gap-4 text-sm">
@@ -909,6 +953,77 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction }:
         </div>
       </div>
     </div>
+  );
+}
+
+function PrimeNotesSection({
+  initialNotes,
+  updatedAt,
+  onSave,
+}: {
+  initialNotes: string;
+  updatedAt: string | null;
+  onSave: (notes: string) => Promise<string | null>;
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [notesError, setNotesError] = useState("");
+  const [notesSaved, setNotesSaved] = useState(false);
+  const hasChanges = notes.trim() !== initialNotes.trim();
+
+  async function submitNotes(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingNotes(true);
+    setNotesError("");
+    setNotesSaved(false);
+    const error = await onSave(notes);
+    if (error) setNotesError(error);
+    else setNotesSaved(true);
+    setSavingNotes(false);
+  }
+
+  return (
+    <section className="rounded-lg border border-amber-200 bg-amber-50/50 p-5 lg:col-span-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-ink">Note interne PRIME</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Visibili soltanto al Super Admin e all&apos;Account Manager assegnato.
+          </p>
+        </div>
+        {updatedAt ? (
+          <p className="text-xs font-semibold text-slate-500">
+            Aggiornate {formatDateTime(updatedAt)}
+          </p>
+        ) : null}
+      </div>
+      <form className="mt-4" onSubmit={submitNotes}>
+        <textarea
+          className="min-h-36 w-full resize-y rounded-lg border border-amber-200 bg-white p-3 text-sm leading-6 text-ink outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+          value={notes}
+          maxLength={5000}
+          onChange={(event) => {
+            setNotes(event.target.value);
+            setNotesSaved(false);
+          }}
+          placeholder="Aggiungi informazioni utili sulle conversazioni, esigenze del PM e prossime attività..."
+        />
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs text-slate-500">{notes.length}/5000 caratteri</p>
+            {notesError ? <p className="mt-1 text-sm font-semibold text-red-700">{notesError}</p> : null}
+            {notesSaved ? <p className="mt-1 text-sm font-semibold text-emerald-700">Note interne salvate.</p> : null}
+          </div>
+          <button
+            className="min-h-11 rounded-lg bg-ink px-5 text-sm font-semibold text-white disabled:opacity-40"
+            type="submit"
+            disabled={savingNotes || !hasChanges}
+          >
+            {savingNotes ? "Salvataggio..." : "Salva note"}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }
 

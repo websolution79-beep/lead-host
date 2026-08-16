@@ -713,6 +713,28 @@ export type Database = {
         >;
         Relationships: [];
       };
+      prime_internal_notes: {
+        Row: {
+          id: string;
+          prime_account_id: string;
+          profile_id: string;
+          notes: string;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          prime_account_id: string;
+          profile_id: string;
+          notes?: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["prime_internal_notes"]["Insert"]>;
+        Relationships: [];
+      };
       addon_products: {
         Row: {
           id: string;

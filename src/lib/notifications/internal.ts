@@ -128,6 +128,63 @@ export async function createNewLeadInternalNotifications({
   return { created: rows.length, skipped: activeRecipients.length - rows.length };
 }
 
+export async function createPrimeLeadInternalNotification({
+  profileId,
+  propertyManagerId,
+  leadId,
+  leadTitle,
+  city,
+  accessUntil,
+}: {
+  profileId: string;
+  propertyManagerId: string;
+  leadId: string;
+  leadTitle: string;
+  city: string | null;
+  accessUntil: string;
+}) {
+  const supabase = createServiceSupabaseClient();
+  const notifications = getNotificationsTable(supabase);
+  const existing = await notifications
+    .select("profile_id")
+    .eq("event_type", "prime.lead_assigned")
+    .eq("profile_id", profileId)
+    .contains("metadata", { lead_id: leadId });
+
+  if (existing.error) {
+    console.warn("PRIME notification duplicate check failed:", existing.error.message);
+    return { status: "failed" as const, error: existing.error.message };
+  }
+
+  if (existing.data?.length) {
+    return { status: "skipped" as const, reason: "already_created" as const };
+  }
+
+  const { error } = await notifications.insert(
+    toInsertRow({
+      profileId,
+      propertyManagerId,
+      eventType: "prime.lead_assigned",
+      title: "Nuova opportunità nella tua Prime Zone",
+      body: `${leadTitle}${city ? ` a ${city}` : ""}. Questa opportunità è riservata al tuo account PRIME per un periodo limitato.`,
+      metadata: {
+        lead_id: leadId,
+        lead_title: leadTitle,
+        city,
+        access_until: accessUntil,
+        href: `/app/prime/${leadId}`,
+      },
+    }),
+  );
+
+  if (error) {
+    console.warn("Internal PRIME notification not persisted:", error.message);
+    return { status: "failed" as const, error: error.message };
+  }
+
+  return { status: "created" as const };
+}
+
 export async function createLeadPurchaseInternalNotification({
   profileId,
   propertyManagerId,

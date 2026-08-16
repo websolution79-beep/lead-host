@@ -12,6 +12,7 @@ export const transactionalEmailTemplateIds = [
   "admin.lead_purchased",
   "wallet.top_up",
   "lead.new_available",
+  "prime.lead_assigned",
   "lead.digest",
   "owner.completion_requested",
   "admin.support_request_pending",
@@ -178,6 +179,28 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     ctaLabel: "Vedi marketplace",
     ctaUrl: "/app/marketplace",
     variables: ["lead_title", "city", "city_suffix", "shared_price", "exclusive_price"],
+  },
+  {
+    id: "prime.lead_assigned",
+    label: "Nuova opportunità PRIME",
+    description:
+      "Invio esclusivo al Property Manager quando un lead viene assegnato alla sua Prime Zone.",
+    enabled: true,
+    subject: "Nuova opportunità nella tua Prime Zone: {{lead_title}}",
+    preview: "Una nuova opportunità è stata riservata al tuo account PRIME.",
+    title: "Nuova opportunità nella tua Prime Zone.",
+    body:
+      "Il team Lead Host ti ha riservato {{lead_title}}{{city_suffix}}. Puoi visualizzarla e acquistarla in esclusiva prima della pubblicazione nel Marketplace.",
+    extra: "Accesso riservato fino al {{access_until}}.",
+    ctaLabel: "Apri la Prime Zone",
+    ctaUrl: "{{prime_lead_url}}",
+    variables: [
+      "lead_title",
+      "city",
+      "city_suffix",
+      "access_until",
+      "prime_lead_url",
+    ],
   },
   {
     id: "lead.digest",

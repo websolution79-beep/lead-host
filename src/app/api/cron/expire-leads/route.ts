@@ -4,6 +4,7 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { notifyPublicLeadPublication } from "@/lib/leads/public-publication";
+import { notifyPrimeLeadAssignment } from "@/lib/prime/notifications";
 
 type ExpireLeadsResult = {
   expired_count: number;
@@ -101,6 +102,31 @@ export async function GET(request: NextRequest) {
     (result) => result.status === "fulfilled" && result.value.completed,
   ).length;
   const notificationsPending = notificationResults.length - notificationsCompleted;
+  const { data: pendingPrimeAssignments, error: pendingPrimeAssignmentError } =
+    await serviceSupabase
+      .from("leads")
+      .select("id")
+      .eq("visibility_mode", "prime_private")
+      .is("prime_notification_sent_at", null)
+      .gt("prime_access_until", new Date().toISOString())
+      .order("prime_assigned_at", { ascending: true })
+      .limit(20);
+
+  if (pendingPrimeAssignmentError && !primeMigrationMissing) {
+    return NextResponse.json(
+      { error: pendingPrimeAssignmentError.message ?? "Notifiche assegnazione PRIME non caricate." },
+      { status: 500 },
+    );
+  }
+
+  const primeAssignmentResults = await Promise.allSettled(
+    (pendingPrimeAssignments ?? []).map((lead) =>
+      notifyPrimeLeadAssignment(lead.id),
+    ),
+  );
+  const primeAssignmentsCompleted = primeAssignmentResults.filter(
+    (result) => result.status === "fulfilled" && result.value.completed,
+  ).length;
 
   if (
     data.expired_count > 0 ||
@@ -117,6 +143,9 @@ export async function GET(request: NextRequest) {
     primeReleased: releasedPrimeLeads.length,
     primeNotificationsCompleted: notificationsCompleted,
     primeNotificationsPending: notificationsPending,
+    primeAssignmentsCompleted,
+    primeAssignmentsPending:
+      primeAssignmentResults.length - primeAssignmentsCompleted,
     primeLifecycleReady: !primeMigrationMissing,
   });
 }

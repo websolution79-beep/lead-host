@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { notifyPublicLeadPublication } from "@/lib/leads/public-publication";
+import { notifyPrimeLeadAssignment } from "@/lib/prime/notifications";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 type ReleasedPrimeLead = { id: string };
@@ -70,6 +71,28 @@ export async function POST(request: NextRequest) {
   const notificationsCompleted = notificationResults.filter(
     (result) => result.status === "fulfilled" && result.value.completed,
   ).length;
+  const { data: pendingPrimeNotifications, error: pendingPrimeError } =
+    await supabase
+      .from("leads")
+      .select("id")
+      .eq("visibility_mode", "prime_private")
+      .is("prime_notification_sent_at", null)
+      .gt("prime_access_until", new Date().toISOString())
+      .order("prime_assigned_at", { ascending: true })
+      .limit(5);
+
+  if (pendingPrimeError) {
+    return NextResponse.json({ error: pendingPrimeError.message }, { status: 500 });
+  }
+
+  const primeNotificationResults = await Promise.allSettled(
+    (pendingPrimeNotifications ?? []).map((lead) =>
+      notifyPrimeLeadAssignment(lead.id),
+    ),
+  );
+  const primeNotificationsCompleted = primeNotificationResults.filter(
+    (result) => result.status === "fulfilled" && result.value.completed,
+  ).length;
 
   if ((released ?? []).length > 0) {
     revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");
@@ -81,5 +104,8 @@ export async function POST(request: NextRequest) {
     notificationsCompleted,
     notificationsPending:
       notificationResults.length - notificationsCompleted,
+    primeAssignmentsCompleted: primeNotificationsCompleted,
+    primeAssignmentsPending:
+      primeNotificationResults.length - primeNotificationsCompleted,
   });
 }

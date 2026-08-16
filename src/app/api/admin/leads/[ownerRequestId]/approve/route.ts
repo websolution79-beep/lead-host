@@ -12,6 +12,7 @@ import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import type { Database } from "@/lib/supabase/database.types";
 import { hasAdminPermission } from "@/lib/admin/permissions";
 import { notifyPublicLeadPublication } from "@/lib/leads/public-publication";
+import { notifyPrimeLeadAssignment } from "@/lib/prime/notifications";
 
 type RouteContext = {
   params: Promise<{
@@ -320,6 +321,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (result && !result.completed) {
           console.warn("Public lead publication notifications incomplete:", result);
+        }
+      });
+    } else {
+      after(async () => {
+        const result = await notifyPrimeLeadAssignment(leadId).catch(
+          (notificationError) => {
+            console.warn(
+              "PRIME lead assignment notifications failed:",
+              notificationError,
+            );
+            return null;
+          },
+        );
+
+        if (result && !result.completed) {
+          console.warn("PRIME lead assignment notifications incomplete:", result);
         }
       });
     }

@@ -622,6 +622,8 @@ export type Database = {
           addon_product_id: string;
           addon_subscription_id: string | null;
           account_manager_member_id: string | null;
+          account_manager_assigned_at: string | null;
+          account_manager_assigned_by: string | null;
           status: "inactive" | "active" | "past_due" | "suspended" | "cancelled";
           access_source: "none" | "stripe" | "manual";
           prime_started_at: string | null;
@@ -651,6 +653,8 @@ export type Database = {
           addon_product_id: string;
           addon_subscription_id?: string | null;
           account_manager_member_id?: string | null;
+          account_manager_assigned_at?: string | null;
+          account_manager_assigned_by?: string | null;
           status?: "inactive" | "active" | "past_due" | "suspended" | "cancelled";
           access_source?: "none" | "stripe" | "manual";
           prime_started_at?: string | null;
@@ -2580,6 +2584,14 @@ export type Database = {
       };
       ensure_prime_account: {
         Args: { p_profile_id: string };
+        Returns: string;
+      };
+      claim_prime_property_manager: {
+        Args: {
+          p_profile_id: string;
+          p_member_id: string;
+          p_actor_profile_id: string;
+        };
         Returns: string;
       };
       consume_public_form_rate_limit: {

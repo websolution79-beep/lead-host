@@ -85,6 +85,7 @@ type PrimeResponse = {
     isSuperAdmin: boolean;
     canWrite: boolean;
     canAssignManager: boolean;
+    teamMemberId: string | null;
   };
   stats: {
     total: number;
@@ -104,10 +105,87 @@ type PrimeResponse = {
   error?: string;
 };
 
+type PrimePmDetail = {
+  profile: PrimeRow["profile"] & {
+    avatar_url: string | null;
+    updated_at: string;
+  };
+  propertyManagerProfile: {
+    company_name: string | null;
+    vat_number: string | null;
+    website: string | null;
+    managed_properties_count: number | null;
+    managed_properties_range: string | null;
+    primary_city: string | null;
+    years_experience: number | null;
+    business_description: string | null;
+    operating_model: string | null;
+    verification_status: string;
+  } | null;
+  wallet: {
+    balance_cents: number;
+    currency: string;
+  } | null;
+  billingProfile: {
+    subject_type: "individual" | "company";
+    first_name: string | null;
+    last_name: string | null;
+    fiscal_code: string | null;
+    company_name: string | null;
+    vat_number: string | null;
+    company_fiscal_code: string | null;
+    address_line: string | null;
+    postal_code: string | null;
+    city: string | null;
+    province: string | null;
+    country: string;
+    sdi_code: string | null;
+    pec: string | null;
+    invoice_email: string | null;
+  } | null;
+  auth: {
+    emailConfirmedAt: string | null;
+    lastSignInAt: string | null;
+    metadata: Record<string, unknown>;
+  };
+  walletTransactions: Array<{
+    id: string;
+    type: string;
+    status: string;
+    amount_cents: number;
+    description: string | null;
+    provider: string | null;
+    provider_reference: string | null;
+    created_at: string;
+  }>;
+  leadPurchases: Array<{
+    id: string;
+    leadTitle: string;
+    mode: string;
+    status: string;
+    amount_cents: number;
+    created_at: string;
+  }>;
+  reports: Array<{
+    id: string;
+    subject: string;
+    reason: string | null;
+    details: string | null;
+    status: string;
+    created_at: string;
+  }>;
+  stats: {
+    completedPurchases: number;
+    totalSpentCents: number;
+    topUpsCents: number;
+    openReports: number;
+  };
+};
+
 type AccessAction = "activate" | "suspend" | "deactivate";
 
 const emptyResponse: PrimeResponse = {
-  access: { isSuperAdmin: false, canWrite: false, canAssignManager: false },
+  access: { isSuperAdmin: false, canWrite: false, canAssignManager: false, teamMemberId: null },
   stats: { total: 0, eligible: 0, active: 0, pastDue: 0, suspended: 0 },
   managers: [],
   propertyManagers: [],
@@ -119,8 +197,11 @@ export function AdminPrimeConsole() {
   const [data, setData] = useState<PrimeResponse>(emptyResponse);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [scope, setScope] = useState("unassigned");
   const [page, setPage] = useState(1);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<PrimePmDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [actionDraft, setActionDraft] = useState<{
     row: PrimeRow;
     action: AccessAction;
@@ -149,6 +230,7 @@ export function AdminPrimeConsole() {
 
     const query = new URLSearchParams({ page: String(page) });
     if (search) query.set("search", search);
+    query.set("scope", scope);
     const response = await fetch(`/api/admin/prime?${query}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -160,7 +242,7 @@ export function AdminPrimeConsole() {
       setData(payload);
     }
     setLoading(false);
-  }, [getToken, page, search]);
+  }, [getToken, page, scope, search]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadPrime(), 0);
@@ -184,6 +266,48 @@ export function AdminPrimeConsole() {
     });
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) throw new Error(payload.error ?? "Operazione PRIME non riuscita.");
+  }
+
+  async function claimManager(row: PrimeRow) {
+    if (!window.confirm(`Prendere in carico ${displayName(row)}? Da quel momento sarà visibile soltanto nel tuo portafoglio e al Super Admin.`)) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await patch({ action: "claim_manager", profileId: row.profile.id });
+      setSuccess(`${displayName(row)} è stato aggiunto al tuo portafoglio.`);
+      await loadPrime();
+    } catch (requestError) {
+      setError(errorMessage(requestError));
+      await loadPrime();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openDetail(row: PrimeRow) {
+    setSelectedProfileId(row.profile.id);
+    setSelectedDetail(null);
+    setDetailLoading(true);
+    setError("");
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Sessione amministrativa non disponibile.");
+      const response = await fetch(`/api/admin/prime?profileId=${row.profile.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as { detail?: PrimePmDetail; error?: string };
+      if (!response.ok || !payload.detail) {
+        throw new Error(payload.error ?? "Dettaglio Property Manager non disponibile.");
+      }
+      setSelectedDetail(payload.detail);
+    } catch (requestError) {
+      setSelectedProfileId(null);
+      setError(errorMessage(requestError));
+    } finally {
+      setDetailLoading(false);
+    }
   }
 
   async function toggleEligibility(row: PrimeRow) {
@@ -309,6 +433,31 @@ export function AdminPrimeConsole() {
             </button>
           </form>
         </div>
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
+          {(data.access.isSuperAdmin
+            ? [
+                ["all", "Tutti"],
+                ["unassigned", "Non assegnati"],
+                ["assigned", "Assegnati"],
+              ]
+            : [
+                ["unassigned", "PM da contattare"],
+                ["mine", "Il mio portafoglio"],
+              ]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              className={`min-h-10 shrink-0 rounded-lg px-4 text-sm font-semibold transition ${scope === value ? "bg-green text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+              type="button"
+              onClick={() => {
+                setPage(1);
+                setScope(value);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </section>
 
       {error ? <Notice tone="error">{error}</Notice> : null}
@@ -368,14 +517,26 @@ export function AdminPrimeConsole() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 xl:justify-end">
-                  <button
-                    className="min-h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:border-green/40 hover:text-green"
-                    type="button"
-                    onClick={() => setSelectedProfileId(row.profile.id)}
-                  >
-                    Dettaglio
-                  </button>
-                  {data.access.canWrite ? (
+                  {data.access.isSuperAdmin || row.account?.account_manager_member_id === data.access.teamMemberId ? (
+                    <button
+                      className="min-h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:border-green/40 hover:text-green"
+                      type="button"
+                      onClick={() => void openDetail(row)}
+                    >
+                      Dettaglio completo
+                    </button>
+                  ) : null}
+                  {!data.access.isSuperAdmin && !row.account?.account_manager_member_id && data.access.canWrite ? (
+                    <button
+                      className="min-h-10 rounded-lg bg-green px-4 text-sm font-semibold text-white shadow-sm"
+                      type="button"
+                      onClick={() => void claimManager(row)}
+                      disabled={saving}
+                    >
+                      Prendi in carico
+                    </button>
+                  ) : null}
+                  {data.access.canWrite && (data.access.isSuperAdmin || row.account?.account_manager_member_id === data.access.teamMemberId) ? (
                     <button
                       className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${row.eligibility?.is_enabled ? "border border-red-200 bg-red-50 text-red-700" : "bg-blue-600 text-white"}`}
                       type="button"
@@ -409,8 +570,13 @@ export function AdminPrimeConsole() {
       {selectedRow ? (
         <PrimeDetailModal
           row={selectedRow}
+          detail={selectedDetail}
+          loading={detailLoading}
           canWrite={data.access.canWrite}
-          onClose={() => setSelectedProfileId(null)}
+          onClose={() => {
+            setSelectedProfileId(null);
+            setSelectedDetail(null);
+          }}
           onAction={(action) => setActionDraft({ row: selectedRow, action, reason: "", expiresOn: "" })}
         />
       ) : null}
@@ -447,7 +613,7 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: number
   );
 }
 
-function PrimeDetailModal({ row, canWrite, onClose, onAction }: { row: PrimeRow; canWrite: boolean; onClose: () => void; onAction: (action: AccessAction) => void }) {
+function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction }: { row: PrimeRow; detail: PrimePmDetail | null; loading: boolean; canWrite: boolean; onClose: () => void; onAction: (action: AccessAction) => void }) {
   return (
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={`Dettaglio PRIME di ${displayName(row)}`}>
       <div className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
@@ -494,6 +660,93 @@ function PrimeDetailModal({ row, canWrite, onClose, onAction }: { row: PrimeRow;
               )) : <p className="text-sm text-slate-500">Nessuna operazione PRIME registrata.</p>}
             </div>
           </section>
+
+          {loading ? (
+            <section className="rounded-lg border border-slate-200 p-8 text-center text-sm font-semibold text-slate-500 lg:col-span-2">
+              Carico tutti i dati del Property Manager...
+            </section>
+          ) : detail ? (
+            <>
+              <section className="rounded-lg border border-slate-200 p-5">
+                <h3 className="font-semibold text-ink">Dati Property Manager</h3>
+                <dl className="mt-5 grid gap-4 text-sm">
+                  <Detail label="Email">{detail.profile.email}</Detail>
+                  <Detail label="Telefono">{detail.profile.phone ?? "Non indicato"}</Detail>
+                  <Detail label="Città principale">{detail.propertyManagerProfile?.primary_city ?? "Non indicata"}</Detail>
+                  <Detail label="Immobili gestiti">{managedPropertiesLabel(detail.propertyManagerProfile?.managed_properties_range)}</Detail>
+                  <Detail label="Azienda">{detail.propertyManagerProfile?.company_name ?? "Non indicata"}</Detail>
+                  <Detail label="Partita IVA">{detail.propertyManagerProfile?.vat_number ?? "Non indicata"}</Detail>
+                  <Detail label="Sito web">{detail.propertyManagerProfile?.website ?? "Non indicato"}</Detail>
+                  <Detail label="Email confermata">{formatDate(detail.auth.emailConfirmedAt)}</Detail>
+                  <Detail label="Ultimo accesso">{formatDateTimeOptional(detail.auth.lastSignInAt)}</Detail>
+                </dl>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 p-5">
+                <h3 className="font-semibold text-ink">Wallet e attività</h3>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <Metric label="Saldo Wallet" value={formatMoney(detail.wallet?.balance_cents ?? 0)} />
+                  <Metric label="Ricariche" value={formatMoney(detail.stats.topUpsCents)} />
+                  <Metric label="Lead acquistati" value={String(detail.stats.completedPurchases)} />
+                  <Metric label="Spesa Lead" value={formatMoney(detail.stats.totalSpentCents)} />
+                  <Metric label="Assistenze aperte" value={String(detail.stats.openReports)} />
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 p-5 lg:col-span-2">
+                <h3 className="font-semibold text-ink">Dati di fatturazione</h3>
+                {detail.billingProfile ? (
+                  <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+                    <Detail label="Tipologia">{detail.billingProfile.subject_type === "company" ? "Società" : "Persona fisica"}</Detail>
+                    <Detail label="Intestatario">{billingName(detail.billingProfile)}</Detail>
+                    <Detail label="Codice fiscale">{detail.billingProfile.fiscal_code ?? detail.billingProfile.company_fiscal_code ?? "Non indicato"}</Detail>
+                    <Detail label="Partita IVA">{detail.billingProfile.vat_number ?? "Non indicata"}</Detail>
+                    <Detail label="Indirizzo">{billingAddress(detail.billingProfile)}</Detail>
+                    <Detail label="Email fatture">{detail.billingProfile.invoice_email ?? "Non indicata"}</Detail>
+                    {detail.billingProfile.subject_type === "company" ? (
+                      <>
+                        <Detail label="Codice SDI">{detail.billingProfile.sdi_code ?? "Non indicato"}</Detail>
+                        <Detail label="PEC">{detail.billingProfile.pec ?? "Non indicata"}</Detail>
+                      </>
+                    ) : null}
+                  </dl>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-500">Dati di fatturazione non ancora inseriti.</p>
+                )}
+              </section>
+
+              <ActivitySection
+                title="Movimenti Wallet"
+                empty="Nessun movimento Wallet."
+                items={detail.walletTransactions.map((transaction) => ({
+                  id: transaction.id,
+                  title: transaction.description ?? transactionLabel(transaction.type),
+                  meta: `${formatDateTime(transaction.created_at)} · ${transaction.status}`,
+                  value: formatSignedMoney(transaction.amount_cents),
+                }))}
+              />
+              <ActivitySection
+                title="Lead acquistati"
+                empty="Nessun Lead acquistato."
+                items={detail.leadPurchases.map((purchase) => ({
+                  id: purchase.id,
+                  title: purchase.leadTitle,
+                  meta: `${formatDateTime(purchase.created_at)} · ${purchase.mode} · ${purchase.status}`,
+                  value: formatMoney(purchase.amount_cents),
+                }))}
+              />
+              <ActivitySection
+                title="Assistenza"
+                empty="Nessuna richiesta di assistenza."
+                items={detail.reports.map((report) => ({
+                  id: report.id,
+                  title: report.subject,
+                  meta: `${formatDateTime(report.created_at)} · ${report.status}`,
+                  value: report.reason ?? "",
+                }))}
+              />
+            </>
+          ) : null}
         </div>
       </div>
     </div>
@@ -523,6 +776,60 @@ function AccessActionModal({ draft, saving, onChange, onClose, onSubmit }: { dra
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3"><dt className="text-slate-500">{label}</dt><dd className="text-right font-semibold text-slate-800">{children}</dd></div>;
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-[11px] font-bold uppercase text-slate-400">{label}</p>
+      <p className="mt-2 break-words text-lg font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function ActivitySection({
+  title,
+  empty,
+  items,
+}: {
+  title: string;
+  empty: string;
+  items: Array<{ id: string; title: string; meta: string; value: string }>;
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 p-5 lg:col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold text-ink">{title}</h3>
+        {items.length ? (
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
+            {items.length}
+          </span>
+        ) : null}
+      </div>
+      {items.length ? (
+        <div className="mt-4 grid gap-2">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+            >
+              <div className="min-w-0">
+                <p className="break-words text-sm font-semibold text-slate-800">{item.title}</p>
+                <p className="mt-1 break-words text-xs text-slate-500">{item.meta}</p>
+              </div>
+              {item.value ? (
+                <p className="break-words text-sm font-semibold text-slate-700 sm:max-w-56 sm:text-right">
+                  {item.value}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-slate-500">{empty}</p>
+      )}
+    </section>
+  );
 }
 
 function StatusBadge({ status }: { status: PrimeStatus }) {
@@ -558,8 +865,57 @@ function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+function formatDateTimeOptional(value: string | null | undefined) {
+  return value ? formatDateTime(value) : "Non disponibile";
+}
+
+function formatSignedMoney(cents: number) {
+  const value = formatMoney(Math.abs(cents));
+  if (cents > 0) return `+ ${value}`;
+  if (cents < 0) return `- ${value}`;
+  return value;
+}
+
+function managedPropertiesLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    starting_now: "Sto iniziando ora",
+    one_to_three: "Gestisco da 1 a 3 immobili",
+    four_to_ten: "Gestisco da 4 a 10 immobili",
+    more_than_ten: "Gestisco più di 10 immobili",
+  };
+  if (!value) return "Non indicato";
+  return labels[value] ?? value;
+}
+
+function billingName(billing: NonNullable<PrimePmDetail["billingProfile"]>) {
+  if (billing.subject_type === "company") {
+    return billing.company_name ?? "Non indicato";
+  }
+  return [billing.first_name, billing.last_name].filter(Boolean).join(" ") || "Non indicato";
+}
+
+function billingAddress(billing: NonNullable<PrimePmDetail["billingProfile"]>) {
+  return [
+    billing.address_line,
+    [billing.postal_code, billing.city].filter(Boolean).join(" "),
+    billing.province,
+    billing.country,
+  ].filter(Boolean).join(", ") || "Non indicato";
+}
+
+function transactionLabel(type: string) {
+  const labels: Record<string, string> = {
+    top_up: "Ricarica Wallet",
+    lead_purchase: "Acquisto Lead",
+    refund: "Riaccredito",
+    bonus: "Credito bonus",
+    adjustment: "Rettifica Wallet",
+  };
+  return labels[type] ?? type.replaceAll("_", " ");
+}
+
 function eventLabel(value: string) {
-  return ({ eligibility_enabled: "Offerta abilitata", eligibility_disabled: "Offerta disabilitata", manual_activate: "Accesso attivato manualmente", manual_suspend: "Accesso sospeso", manual_deactivate: "Accesso disattivato", account_manager_assigned: "Account Manager assegnato", account_manager_unassigned: "Account Manager rimosso" } as Record<string, string>)[value] ?? value.replaceAll("_", " ");
+  return ({ eligibility_enabled: "Offerta abilitata", eligibility_disabled: "Offerta disabilitata", manual_activate: "Accesso attivato manualmente", manual_suspend: "Accesso sospeso", manual_deactivate: "Accesso disattivato", account_manager_assigned: "Account Manager assegnato", account_manager_unassigned: "Account Manager rimosso", account_manager_claimed: "Property Manager preso in carico" } as Record<string, string>)[value] ?? value.replaceAll("_", " ");
 }
 
 function accessActionTitle(action: AccessAction) {

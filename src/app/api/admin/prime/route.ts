@@ -26,6 +26,10 @@ const patchSchema = z.discriminatedUnion("action", [
     profileId: z.string().uuid(),
     memberId: z.string().uuid().nullable(),
   }),
+  z.object({
+    action: z.literal("claim_manager"),
+    profileId: z.string().uuid(),
+  }),
 ]);
 
 type ProfileRow = {
@@ -55,7 +59,27 @@ export async function GET(request: NextRequest) {
   try {
     const context = await requireAdminPermission(request, "prime", "read");
     const { supabase, isSuperAdmin, teamMemberId, permissions } = context;
+    const detailProfileId = request.nextUrl.searchParams.get("profileId");
+
+    if (detailProfileId) {
+      const parsedProfileId = z.string().uuid().parse(detailProfileId);
+      await ensurePropertyManager(supabase, parsedProfileId);
+      await ensurePrimeScope({
+        supabase,
+        profileId: parsedProfileId,
+        isSuperAdmin,
+        teamMemberId,
+      });
+      const detail = await loadPrimePropertyManagerDetail(supabase, parsedProfileId);
+      return NextResponse.json(
+        { detail },
+        { headers: { "Cache-Control": "private, no-store" } },
+      );
+    }
+
     const search = normalizeSearch(request.nextUrl.searchParams.get("search"));
+    const scope = request.nextUrl.searchParams.get("scope") ??
+      (isSuperAdmin ? "all" : "unassigned");
     const requestedPage = Number(request.nextUrl.searchParams.get("page") ?? "1");
     const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1;
     const pageSize = 25;
@@ -76,14 +100,22 @@ export async function GET(request: NextRequest) {
         throw new AdminApiError(403, "Portafoglio PRIME non disponibile.");
       }
 
-      const { data: assignedAccounts, error: assignedError } = await supabase
+      const { data: portfolioAccounts, error: assignedError } = await supabase
         .from("prime_accounts")
-        .select("profile_id")
-        .eq("account_manager_member_id", teamMemberId);
+        .select("profile_id,account_manager_member_id")
+        .in("profile_id", availableProfileIds);
 
       if (assignedError) throw assignedError;
-      const assignedIds = new Set((assignedAccounts ?? []).map((row) => row.profile_id));
-      availableProfileIds = availableProfileIds.filter((id) => assignedIds.has(id));
+      const managerByProfileId = new Map(
+        (portfolioAccounts ?? []).map((row) => [
+          row.profile_id,
+          row.account_manager_member_id,
+        ]),
+      );
+      availableProfileIds = availableProfileIds.filter((id) => {
+        const managerId = managerByProfileId.get(id) ?? null;
+        return managerId === null || managerId === teamMemberId;
+      });
     }
 
     const [profilesResult, pmProfilesResult, walletsResult, eligibilitiesResult, accountsResult] =
@@ -139,7 +171,7 @@ export async function GET(request: NextRequest) {
       (accountsResult.data ?? []).map((row) => [row.profile_id, row]),
     );
 
-    const allRows = ((profilesResult.data ?? []) as ProfileRow[])
+    const visibleRows = ((profilesResult.data ?? []) as ProfileRow[])
       .map((profile) => {
         const pmProfile = pmProfilesById.get(profile.id);
         const wallet = walletsById.get(profile.id);
@@ -154,6 +186,13 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter((row) => matchesSearch(row, search))
+      .filter((row) => {
+        const managerId = row.account?.account_manager_member_id ?? null;
+        if (scope === "unassigned") return managerId === null;
+        if (scope === "mine") return Boolean(teamMemberId && managerId === teamMemberId);
+        if (scope === "assigned") return managerId !== null;
+        return true;
+      })
       .sort((left, right) => {
         const leftRank = primeRank(left.account?.status);
         const rightRank = primeRank(right.account?.status);
@@ -161,11 +200,11 @@ export async function GET(request: NextRequest) {
         return profileName(left.profile).localeCompare(profileName(right.profile), "it");
       });
 
-    const total = allRows.length;
+    const total = visibleRows.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
     const offset = (safePage - 1) * pageSize;
-    const pageRows = allRows.slice(offset, offset + pageSize);
+    const pageRows = visibleRows.slice(offset, offset + pageSize);
     const pageProfileIds = pageRows.map((row) => row.profile.id);
 
     const { managers, managersById } = await loadPrimeManagers(supabase);
@@ -192,13 +231,14 @@ export async function GET(request: NextRequest) {
           isSuperAdmin,
           canWrite: isSuperAdmin || permissions.prime === "write",
           canAssignManager: isSuperAdmin,
+          teamMemberId,
         },
         stats: {
-          total: allRows.length,
-          eligible: allRows.filter((row) => row.eligibility?.is_enabled).length,
-          active: allRows.filter((row) => row.account?.status === "active").length,
-          pastDue: allRows.filter((row) => row.account?.status === "past_due").length,
-          suspended: allRows.filter((row) => row.account?.status === "suspended").length,
+          total: visibleRows.length,
+          eligible: visibleRows.filter((row) => row.eligibility?.is_enabled).length,
+          active: visibleRows.filter((row) => row.account?.status === "active").length,
+          pastDue: visibleRows.filter((row) => row.account?.status === "past_due").length,
+          suspended: visibleRows.filter((row) => row.account?.status === "suspended").length,
         },
         managers,
         propertyManagers: pageRows.map((row) => ({
@@ -229,12 +269,14 @@ export async function PATCH(request: NextRequest) {
     const { supabase, profile, isSuperAdmin, teamMemberId } = context;
 
     await ensurePropertyManager(supabase, payload.profileId);
-    await ensurePrimeScope({
-      supabase,
-      profileId: payload.profileId,
-      isSuperAdmin,
-      teamMemberId,
-    });
+    if (payload.action !== "claim_manager") {
+      await ensurePrimeScope({
+        supabase,
+        profileId: payload.profileId,
+        isSuperAdmin,
+        teamMemberId,
+      });
+    }
 
     if (payload.action === "assign_manager" && !isSuperAdmin) {
       throw new AdminApiError(
@@ -250,7 +292,22 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle();
     if (beforeResult.error) throw beforeResult.error;
 
-    if (payload.action === "set_eligibility") {
+    if (payload.action === "claim_manager") {
+      if (isSuperAdmin || !teamMemberId) {
+        throw new AdminApiError(422, "Usa l'assegnazione amministrativa per questo profilo.");
+      }
+      const { error } = await supabase.rpc("claim_prime_property_manager", {
+        p_profile_id: payload.profileId,
+        p_member_id: teamMemberId,
+        p_actor_profile_id: profile.id,
+      });
+      if (error) {
+        if (error.message.includes("gia stato preso in carico")) {
+          throw new AdminApiError(409, "Questo Property Manager è già stato preso in carico.");
+        }
+        throw error;
+      }
+    } else if (payload.action === "set_eligibility") {
       const { error } = await supabase.rpc("admin_set_prime_eligibility", {
         p_profile_id: payload.profileId,
         p_enabled: payload.enabled,
@@ -437,5 +494,113 @@ async function loadPrimeManagers(
   return {
     managers,
     managersById: new Map(managers.map((manager) => [manager.memberId, manager])),
+  };
+}
+
+async function loadPrimePropertyManagerDetail(
+  supabase: Awaited<ReturnType<typeof requireAdminPermission>>["supabase"],
+  profileId: string,
+) {
+  const [profileResult, pmProfileResult, walletResult, billingResult] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", profileId)
+        .single(),
+      supabase
+        .from("property_manager_profiles")
+        .select("*")
+        .eq("profile_id", profileId)
+        .maybeSingle(),
+      supabase.from("wallets").select("*").eq("profile_id", profileId).maybeSingle(),
+      supabase
+        .from("billing_profiles")
+        .select("*")
+        .eq("profile_id", profileId)
+        .maybeSingle(),
+    ]);
+
+  if (profileResult.error) throw profileResult.error;
+  if (pmProfileResult.error) throw pmProfileResult.error;
+  if (walletResult.error) throw walletResult.error;
+  if (billingResult.error) throw billingResult.error;
+
+  const pmProfile = pmProfileResult.data;
+  const [transactionsResult, purchasesResult, reportsResult] = await Promise.all([
+    supabase
+      .from("wallet_transactions")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    pmProfile
+      ? supabase
+          .from("lead_purchases")
+          .select("*")
+          .eq("property_manager_id", pmProfile.id)
+          .order("created_at", { ascending: false })
+          .limit(100)
+      : Promise.resolve({ data: [], error: null }),
+    pmProfile
+      ? supabase
+          .from("reports")
+          .select("id,subject,reason,details,status,created_at,reviewed_at")
+          .eq("property_manager_id", pmProfile.id)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (transactionsResult.error) throw transactionsResult.error;
+  if (purchasesResult.error) throw purchasesResult.error;
+  if (reportsResult.error) throw reportsResult.error;
+
+  const purchases = purchasesResult.data ?? [];
+  const leadIds = Array.from(new Set(purchases.map((purchase) => purchase.lead_id)));
+  const leadsResult = leadIds.length
+    ? await supabase.from("leads").select("id,title").in("id", leadIds)
+    : { data: [], error: null };
+  if (leadsResult.error) throw leadsResult.error;
+  const leadTitleById = new Map((leadsResult.data ?? []).map((lead) => [lead.id, lead.title]));
+
+  const authUserResult = profileResult.data.auth_user_id
+    ? await supabase.auth.admin.getUserById(profileResult.data.auth_user_id)
+    : { data: { user: null }, error: null };
+  if (authUserResult.error) throw authUserResult.error;
+
+  const completedPurchases = purchases.filter((purchase) =>
+    ["paid", "contact_unlocked"].includes(purchase.status),
+  );
+
+  return {
+    profile: profileResult.data,
+    propertyManagerProfile: pmProfile,
+    wallet: walletResult.data,
+    billingProfile: billingResult.data,
+    auth: {
+      emailConfirmedAt: authUserResult.data.user?.email_confirmed_at ?? null,
+      lastSignInAt: authUserResult.data.user?.last_sign_in_at ?? null,
+      metadata: authUserResult.data.user?.user_metadata ?? {},
+    },
+    walletTransactions: transactionsResult.data ?? [],
+    leadPurchases: purchases.map((purchase) => ({
+      ...purchase,
+      leadTitle: leadTitleById.get(purchase.lead_id) ?? "Lead acquistato",
+    })),
+    reports: reportsResult.data ?? [],
+    stats: {
+      completedPurchases: completedPurchases.length,
+      totalSpentCents: completedPurchases.reduce(
+        (total, purchase) => total + purchase.amount_cents,
+        0,
+      ),
+      topUpsCents: (transactionsResult.data ?? [])
+        .filter((transaction) => transaction.type === "top_up" && transaction.status === "completed")
+        .reduce((total, transaction) => total + transaction.amount_cents, 0),
+      openReports: (reportsResult.data ?? []).filter((report) =>
+        ["pending", "reviewing"].includes(report.status),
+      ).length,
+    },
   };
 }

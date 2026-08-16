@@ -56,6 +56,7 @@ type AppNavLink = {
   subitem?: boolean;
   subitemLast?: boolean;
   grouped?: boolean;
+  prime?: boolean;
 };
 
 const pmLinks: AppNavLink[] = [
@@ -101,6 +102,15 @@ const marketingToolLinks: AppNavLink[] = [
     subitemLast: true,
   },
 ];
+
+const primeZoneLink: AppNavLink = {
+  label: "Prime Zone",
+  href: "/app/prime",
+  icon: Crown,
+  category: "Operatività",
+  highlighted: true,
+  prime: true,
+};
 
 const adminLinks: AppNavLink[] = [
   {
@@ -270,18 +280,21 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       (!link.permission ||
         hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
   );
+  const basePmLinks = session.primeAccess?.hasAccess
+    ? [pmLinks[0], primeZoneLink, ...pmLinks.slice(1)]
+    : pmLinks;
+  const marketingInsertIndex = session.primeAccess?.hasAccess ? 3 : 2;
   const pmNavigationLinks = session.marketingAddon?.menuVisible
     ? [
-        pmLinks[0],
-        pmLinks[1],
+        ...basePmLinks.slice(0, marketingInsertIndex),
         {
           ...marketingPreviewLink,
           highlighted: true,
         },
         ...(session.marketingAddon.hasAccess ? marketingToolLinks : []),
-        ...pmLinks.slice(2),
+        ...basePmLinks.slice(marketingInsertIndex),
       ]
-    : pmLinks;
+    : basePmLinks;
   const links =
     section === "admin"
       ? session.isSuperAdmin
@@ -356,6 +369,8 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                       ? item.grouped
                         ? "bg-transparent text-emerald-800"
                         : "bg-green text-white shadow-[0_12px_30px_rgba(4,120,87,0.18)]"
+                    : item.prime
+                      ? "border border-amber-300 bg-amber-50 text-amber-900 shadow-[0_10px_28px_rgba(217,151,20,0.14)] hover:bg-amber-100"
                     : itemIsHighlighted
                       ? item.grouped
                         ? session.marketingAddon?.hasAccess
@@ -368,7 +383,11 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
               <span
                 className={`flex size-8 items-center justify-center rounded-md transition ${
                   itemIsActive && !item.grouped
-                    ? "bg-white/12 text-white"
+                    ? item.prime
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-white/12 text-white"
+                    : item.prime
+                      ? "bg-white text-amber-700 ring-1 ring-amber-300"
                     : itemIsHighlighted || item.grouped
                       ? "bg-white text-emerald-700 ring-1 ring-emerald-200"
                       : "bg-white text-slate-500 ring-1 ring-slate-200 group-hover:text-green"

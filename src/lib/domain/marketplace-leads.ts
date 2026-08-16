@@ -29,6 +29,11 @@ type LeadRow = Pick<
   | "visible_until"
   | "sold_at"
   | "sold_visible_until"
+  | "visibility_mode"
+  | "prime_target_property_manager_id"
+  | "prime_access_started_at"
+  | "prime_access_until"
+  | "prime_access_expired_at"
   | "detail_view_count"
   | "created_at"
   | "updated_at"
@@ -43,9 +48,14 @@ type OwnerRequestVerificationRow = Pick<
   "id" | "owner_verified" | "subletting_available"
 >;
 const LEAD_SELECT_WITH_VIEWS =
-  "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,detail_view_count,created_at,updated_at";
+  "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,visibility_mode,prime_target_property_manager_id,prime_access_started_at,prime_access_until,prime_access_expired_at,detail_view_count,created_at,updated_at";
 const LEGACY_LEAD_SELECT =
-  "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,created_at,updated_at";
+  "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,visibility_mode,prime_target_property_manager_id,prime_access_started_at,prime_access_until,prime_access_expired_at,created_at,updated_at";
+
+export type PrimeZoneLead = MarketplaceLead & {
+  primeAccessStartedAt: string;
+  primeAccessUntil: string;
+};
 export async function getPublishedMarketplaceLeads() {
   return getCachedPublishedMarketplaceLeads();
 }
@@ -66,6 +76,7 @@ async function loadPublishedMarketplaceLeads() {
   let { data: leads, error } = await supabase
     .from("leads")
     .select(LEAD_SELECT_WITH_VIEWS)
+    .eq("visibility_mode", "public")
     .not("published_at", "is", null)
     .or(buildMarketplaceVisibilityFilter(now))
     .order("published_at", { ascending: false });
@@ -74,6 +85,7 @@ async function loadPublishedMarketplaceLeads() {
     const fallback = await supabase
       .from("leads")
       .select(LEGACY_LEAD_SELECT)
+      .eq("visibility_mode", "public")
       .not("published_at", "is", null)
       .or(buildMarketplaceVisibilityFilter(now))
       .order("published_at", { ascending: false });
@@ -103,6 +115,7 @@ export async function getPublishedMarketplaceLeadById(id: string) {
     .from("leads")
     .select(LEAD_SELECT_WITH_VIEWS)
     .eq("id", id)
+    .eq("visibility_mode", "public")
     .or(buildMarketplaceVisibilityFilter(now))
     .maybeSingle();
 
@@ -111,6 +124,7 @@ export async function getPublishedMarketplaceLeadById(id: string) {
       .from("leads")
       .select(LEGACY_LEAD_SELECT)
       .eq("id", id)
+      .eq("visibility_mode", "public")
       .or(buildMarketplaceVisibilityFilter(now))
       .maybeSingle();
 
@@ -133,6 +147,123 @@ export async function getPublishedMarketplaceLeadById(id: string) {
   const [mappedLead] = await mapLeadRowsToMarketplace(supabase, [lead], promotion);
 
   return mappedLead ?? null;
+}
+
+export async function getPrimeZoneLeadsForProfile(profileId: string) {
+  const supabase = createServiceSupabaseClient();
+  const access = await resolvePrimePropertyManagerAccess(supabase, profileId);
+
+  if (!access) return [];
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("leads")
+    .select(LEAD_SELECT_WITH_VIEWS)
+    .eq("visibility_mode", "prime_private")
+    .eq("prime_target_property_manager_id", access.propertyManagerId)
+    .eq("internal_status", "available")
+    .is("exclusive_purchase_id", null)
+    .is("prime_access_expired_at", null)
+    .lte("prime_access_started_at", now)
+    .gt("prime_access_until", now)
+    .order("prime_access_until", { ascending: true });
+
+  if (error) throw error;
+
+  const mapped = await mapLeadRowsToMarketplace(supabase, data ?? [], null);
+  const rowsById = new Map((data ?? []).map((lead) => [lead.id, lead]));
+
+  return mapped.flatMap((lead) => {
+    const row = rowsById.get(lead.id);
+
+    if (!row?.prime_access_started_at || !row.prime_access_until) return [];
+
+    return [{
+      ...lead,
+      expiresAt: row.prime_access_until,
+      primeAccessStartedAt: row.prime_access_started_at,
+      primeAccessUntil: row.prime_access_until,
+    } satisfies PrimeZoneLead];
+  });
+}
+
+export async function getPrimeZoneLeadByIdForProfile(
+  profileId: string,
+  leadId: string,
+) {
+  const supabase = createServiceSupabaseClient();
+  const access = await resolvePrimePropertyManagerAccess(supabase, profileId);
+
+  if (!access) return null;
+
+  const { data: authorized, error: authorizationError } = await supabase.rpc(
+    "profile_can_access_prime_lead",
+    {
+      p_profile_id: profileId,
+      p_lead_id: leadId,
+      p_at: new Date().toISOString(),
+    },
+  );
+
+  if (authorizationError || !authorized) return null;
+
+  const { data: lead, error } = await supabase
+    .from("leads")
+    .select(LEAD_SELECT_WITH_VIEWS)
+    .eq("id", leadId)
+    .eq("visibility_mode", "prime_private")
+    .eq("prime_target_property_manager_id", access.propertyManagerId)
+    .maybeSingle();
+
+  if (error || !lead?.prime_access_started_at || !lead.prime_access_until) {
+    return null;
+  }
+
+  const [mapped] = await mapLeadRowsToMarketplace(supabase, [lead], null);
+
+  if (!mapped) return null;
+
+  return {
+    ...mapped,
+    expiresAt: lead.prime_access_until,
+    primeAccessStartedAt: lead.prime_access_started_at,
+    primeAccessUntil: lead.prime_access_until,
+  } satisfies PrimeZoneLead;
+}
+
+async function resolvePrimePropertyManagerAccess(
+  supabase: ServiceClient,
+  profileId: string,
+) {
+  const now = new Date().toISOString();
+  const [propertyManagerResult, primeAccountResult] = await Promise.all([
+    supabase
+      .from("property_manager_profiles")
+      .select("id")
+      .eq("profile_id", profileId)
+      .maybeSingle(),
+    supabase
+      .from("prime_accounts")
+      .select("status,prime_expires_at")
+      .eq("profile_id", profileId)
+      .eq("status", "active")
+      .or(`prime_expires_at.is.null,prime_expires_at.gt.${now}`)
+      .maybeSingle(),
+  ]);
+
+  if (
+    propertyManagerResult.error ||
+    primeAccountResult.error ||
+    !propertyManagerResult.data ||
+    !primeAccountResult.data
+  ) {
+    return null;
+  }
+
+  return {
+    propertyManagerId: propertyManagerResult.data.id,
+    expiresAt: primeAccountResult.data.prime_expires_at,
+  };
 }
 
 function buildMarketplaceVisibilityFilter(now: string) {
@@ -226,7 +357,10 @@ function mapDbLeadToMarketplaceLead(
   promotion: MarketplacePromotion | null,
 ): MarketplaceLead {
   const now = new Date();
-  const expiresAt = lead.expires_at ?? lead.visible_until ?? lead.created_at;
+  const expiresAt =
+    lead.visibility_mode === "prime_private"
+      ? lead.prime_access_until ?? lead.created_at
+      : lead.expires_at ?? lead.visible_until ?? lead.created_at;
   const isExpired = new Date(expiresAt).getTime() <= now.getTime();
   const internalStatus =
     isExpired && ["available", "one_slot_sold"].includes(lead.internal_status)

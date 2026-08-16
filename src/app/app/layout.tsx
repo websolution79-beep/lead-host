@@ -11,6 +11,7 @@ import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { privatePageRobots } from "@/lib/seo/robots";
 import { getMarketingAddonState } from "@/lib/addons/access";
+import { getPrimeAccessState } from "@/lib/prime/access";
 
 type AppAreaLayoutProps = {
   children: ReactNode;
@@ -50,10 +51,14 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
     redirect("/login?error=role");
   }
 
-  const marketingAddon =
-    session.isSuperAdmin || hasRole(session.roles, "property_manager")
-      ? await getMarketingAddonState(session.profile.id, session.isSuperAdmin)
-      : null;
+  const canLoadPmFeatures =
+    session.isSuperAdmin || hasRole(session.roles, "property_manager");
+  const [marketingAddon, primeAccess] = canLoadPmFeatures
+    ? await Promise.all([
+        getMarketingAddonState(session.profile.id, session.isSuperAdmin),
+        getPrimeAccessState(session.profile.id),
+      ])
+    : [null, null];
 
   return (
     <AppSessionProvider
@@ -73,11 +78,18 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
               hasAccess: marketingAddon.hasAccess,
             }
           : undefined,
+        primeAccess: primeAccess
+          ? {
+              hasAccess: primeAccess.hasAccess,
+              expiresAt: primeAccess.expiresAt,
+            }
+          : undefined,
       }}
     >
       <AppAreaChrome
         section="pm"
         marketingAddon={marketingAddon ?? undefined}
+        primeAccess={primeAccess?.hasAccess ?? false}
       >
         {children}
       </AppAreaChrome>

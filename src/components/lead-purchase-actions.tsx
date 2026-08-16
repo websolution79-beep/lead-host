@@ -23,6 +23,7 @@ type LeadPurchaseActionsProps = {
   exclusiveAvailable: boolean;
   sharedPriceCents: number;
   exclusivePriceCents: number;
+  refreshAfterPurchase?: boolean;
 };
 
 type PurchaseState =
@@ -49,6 +50,7 @@ export function LeadPurchaseActions({
   exclusiveAvailable,
   sharedPriceCents,
   exclusivePriceCents,
+  refreshAfterPurchase = true,
 }: LeadPurchaseActionsProps) {
   const router = useRouter();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
@@ -173,7 +175,7 @@ export function LeadPurchaseActions({
         : null,
     });
     setConfirmation(null);
-    router.refresh();
+    if (refreshAfterPurchase) router.refresh();
   }
 
   if (!sharedAvailable && !exclusiveAvailable) {

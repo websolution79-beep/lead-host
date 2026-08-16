@@ -249,6 +249,29 @@ function walletPurchaseErrorResponse(error: RpcError | null) {
     );
   }
 
+  if (
+    message.includes("prime_access_denied") ||
+    message.includes("prime_access_expired")
+  ) {
+    return NextResponse.json(
+      {
+        error: "Questa opportunità PRIME non è più riservata al tuo account.",
+        code: "PRIME_ACCESS_NOT_AVAILABLE",
+      },
+      { status: 403 },
+    );
+  }
+
+  if (message.includes("prime_exclusive_only")) {
+    return NextResponse.json(
+      {
+        error: "I lead della Prime Zone possono essere acquistati solo in esclusiva.",
+        code: "PRIME_EXCLUSIVE_ONLY",
+      },
+      { status: 409 },
+    );
+  }
+
   if (message.includes("terms_acceptance_required")) {
     return NextResponse.json(
       {

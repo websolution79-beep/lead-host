@@ -18,6 +18,10 @@ export type AppSession = {
     menuVisible: boolean;
     hasAccess: boolean;
   };
+  primeAccess?: {
+    hasAccess: boolean;
+    expiresAt: string | null;
+  };
 };
 
 type AppSessionContextValue = AppSession & {

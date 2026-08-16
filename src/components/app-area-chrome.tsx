@@ -19,6 +19,7 @@ type AppAreaChromeProps = {
   adminPermissions?: AdminPermissionMap;
   isSuperAdmin?: boolean;
   marketingAddon?: MarketingAddonState;
+  primeAccess?: boolean;
 };
 
 const pmLinks = [
@@ -29,6 +30,13 @@ const pmLinks = [
   { label: "Profilo", href: "/app/profilo" },
   { label: "Assistenza", href: "/app/assistenza" },
 ];
+
+const primeZoneLink = {
+  label: "Prime Zone",
+  href: "/app/prime",
+  highlighted: true,
+  prime: true,
+};
 
 const marketingPreviewLink = {
   label: "Marketing",
@@ -153,7 +161,12 @@ export function AppAreaChrome({
   adminPermissions = {},
   isSuperAdmin = false,
   marketingAddon,
+  primeAccess = false,
 }: AppAreaChromeProps) {
+  const basePmLinks = primeAccess
+    ? [pmLinks[0], primeZoneLink, ...pmLinks.slice(1)]
+    : pmLinks;
+  const marketingInsertIndex = primeAccess ? 3 : 2;
   const links =
     section === "admin"
       ? adminLinks.filter(
@@ -165,13 +178,12 @@ export function AppAreaChrome({
         )
       : marketingAddon?.menuVisible
         ? [
-            pmLinks[0],
-            pmLinks[1],
+            ...basePmLinks.slice(0, marketingInsertIndex),
             { ...marketingPreviewLink, highlighted: marketingAddon.hasAccess },
             ...(marketingAddon.hasAccess ? marketingToolLinks : []),
-            ...pmLinks.slice(2),
+            ...basePmLinks.slice(marketingInsertIndex),
           ]
-        : pmLinks;
+        : basePmLinks;
   const homeHref = section === "admin" ? adminHomeHref : "/app/marketplace";
 
   return (

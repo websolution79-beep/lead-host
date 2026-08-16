@@ -157,6 +157,14 @@ const adminLinks: AppNavLink[] = [
     exact: true,
   },
   {
+    label: "Prime Zone",
+    href: "/admin/prime-zone",
+    icon: Crown,
+    category: "Operatività",
+    permission: "prime",
+    exact: true,
+  },
+  {
     label: "Assistenza",
     href: "/admin/segnalazioni",
     icon: ShieldAlert,

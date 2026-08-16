@@ -33,6 +33,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Array<{
   { href: "/admin/leads", permission: "leads" },
   { href: "/admin/acquisizione", permission: "acquisition" },
   { href: "/admin/property-manager", permission: "property_managers" },
+  { href: "/admin/prime-zone", permission: "prime" },
   { href: "/admin/prime", permission: "prime" },
   { href: "/admin/segnalazioni", permission: "support" },
   { href: "/admin/pagamenti", permission: "payments" },
@@ -54,6 +55,7 @@ const ADMIN_API_PERMISSION_ROUTES: Array<{
 }> = [
   { prefix: "/api/admin/wallet-transactions", permissions: ["billing"] },
   { prefix: "/api/admin/property-managers", permissions: ["property_managers"] },
+  { prefix: "/api/admin/prime-zone", permissions: ["prime"] },
   { prefix: "/api/admin/prime", permissions: ["prime"] },
   { prefix: "/api/admin/email-templates", permissions: ["emails"] },
   { prefix: "/api/admin/email-recipients", permissions: ["emails"] },

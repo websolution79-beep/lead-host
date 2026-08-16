@@ -18,7 +18,19 @@ import { formatCents } from "@/lib/config/commercial";
 import { LEAD_EXCLUSIVE_PRICE_CENTS } from "@/lib/domain/lead-state";
 import type { PrimeZoneLead } from "@/lib/domain/marketplace-leads";
 
-export function PrimeLeadCard({ lead }: { lead: PrimeZoneLead }) {
+export function PrimeLeadCard({
+  lead,
+  detailHref,
+  reservedLabel = "Riservato a te",
+  onOpen,
+}: {
+  lead: PrimeZoneLead;
+  detailHref?: string;
+  reservedLabel?: string;
+  onOpen?: () => void;
+}) {
+  const resolvedDetailHref = detailHref ?? (!onOpen ? `/app/prime/${lead.id}` : undefined);
+
   return (
     <article className="flex min-h-[390px] min-w-0 flex-col overflow-hidden rounded-lg border border-amber-300 bg-white p-5 shadow-[0_18px_45px_rgba(146,94,13,0.10)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -29,7 +41,7 @@ export function PrimeLeadCard({ lead }: { lead: PrimeZoneLead }) {
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-900">
             <ShieldCheck size={14} />
-            Riservato a te
+            {reservedLabel}
           </span>
         </div>
         <PrimeCountdown compact expiresAt={lead.primeAccessUntil} />
@@ -38,11 +50,17 @@ export function PrimeLeadCard({ lead }: { lead: PrimeZoneLead }) {
       <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-green">
         {lead.propertyType}
       </p>
-      <Link className="mt-2 block" href={`/app/prime/${lead.id}`}>
+      {resolvedDetailHref ? <Link className="mt-2 block" href={resolvedDetailHref}>
         <h2 className="break-words text-xl font-semibold leading-tight text-ink transition hover:text-green">
           {lead.title}
         </h2>
-      </Link>
+      </Link> : (
+        <button className="mt-2 block text-left" type="button" onClick={onOpen}>
+          <h2 className="break-words text-xl font-semibold leading-tight text-ink transition hover:text-green">
+            {lead.title}
+          </h2>
+        </button>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {lead.ownerVerified ? <VerifiedOwnerBadge /> : <StandardLeadBadge />}
         {lead.sublettingAvailable ? <SublettingAvailableBadge /> : null}
@@ -76,10 +94,17 @@ export function PrimeLeadCard({ lead }: { lead: PrimeZoneLead }) {
             {formatCents(lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS)}
           </p>
         </div>
-        <Link className="btn btn-primary mt-4 w-full" href={`/app/prime/${lead.id}`}>
-          Vedi opportunità
-          <ArrowRight size={17} />
-        </Link>
+        {resolvedDetailHref ? (
+          <Link className="btn btn-primary mt-4 w-full" href={resolvedDetailHref}>
+            Vedi opportunità
+            <ArrowRight size={17} />
+          </Link>
+        ) : (
+          <button className="btn btn-primary mt-4 w-full" type="button" onClick={onOpen}>
+            Vedi opportunità
+            <ArrowRight size={17} />
+          </button>
+        )}
       </div>
     </article>
   );

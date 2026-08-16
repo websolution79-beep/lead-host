@@ -87,6 +87,12 @@ const adminLinks: Array<{
     permission: "prime",
   },
   {
+    label: "Prime Zone",
+    href: "/admin/prime-zone",
+    group: "Operatività",
+    permission: "prime",
+  },
+  {
     label: "Assistenza",
     href: "/admin/segnalazioni",
     group: "Operatività",

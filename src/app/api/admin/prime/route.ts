@@ -32,6 +32,14 @@ const patchSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
+const managedPropertiesFilterSchema = z.enum([
+  "starting_now",
+  "one_to_three",
+  "four_to_ten",
+  "more_than_ten",
+  "not_indicated",
+]);
+
 type ProfileRow = {
   id: string;
   email: string;
@@ -46,6 +54,7 @@ type PmProfileRow = {
   profile_id: string;
   primary_city: string | null;
   managed_properties_range: string | null;
+  managed_properties_count: number | null;
 };
 
 type TeamMemberRow = {
@@ -69,6 +78,7 @@ export async function GET(request: NextRequest) {
         profileId: parsedProfileId,
         isSuperAdmin,
         teamMemberId,
+        allowUnassigned: true,
       });
       const detail = await loadPrimePropertyManagerDetail(supabase, parsedProfileId);
       return NextResponse.json(
@@ -78,6 +88,10 @@ export async function GET(request: NextRequest) {
     }
 
     const search = normalizeSearch(request.nextUrl.searchParams.get("search"));
+    const managedPropertiesFilter = managedPropertiesFilterSchema
+      .optional()
+      .catch(undefined)
+      .parse(request.nextUrl.searchParams.get("managedProperties") || undefined);
     const scope = request.nextUrl.searchParams.get("scope") ??
       (isSuperAdmin ? "all" : "unassigned");
     const requestedPage = Number(request.nextUrl.searchParams.get("page") ?? "1");
@@ -127,7 +141,7 @@ export async function GET(request: NextRequest) {
               .in("id", availableProfileIds),
             supabase
               .from("property_manager_profiles")
-              .select("profile_id,primary_city,managed_properties_range")
+              .select("profile_id,primary_city,managed_properties_range,managed_properties_count")
               .in("profile_id", availableProfileIds),
             supabase
               .from("wallets")
@@ -186,6 +200,7 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter((row) => matchesSearch(row, search))
+      .filter((row) => matchesManagedProperties(row.pmProfile, managedPropertiesFilter))
       .filter((row) => {
         const managerId = row.account?.account_manager_member_id ?? null;
         if (scope === "unassigned") return managerId === null;
@@ -418,25 +433,45 @@ async function ensurePrimeScope({
   profileId,
   isSuperAdmin,
   teamMemberId,
+  allowUnassigned = false,
 }: {
   supabase: Parameters<typeof loadPrimeManagers>[0];
   profileId: string;
   isSuperAdmin: boolean;
   teamMemberId: string | null;
+  allowUnassigned?: boolean;
 }) {
   if (isSuperAdmin) return;
   if (!teamMemberId) throw new AdminApiError(403, "Portafoglio PRIME non disponibile.");
 
   const { data, error } = await supabase
     .from("prime_accounts")
-    .select("id")
+    .select("id,account_manager_member_id")
     .eq("profile_id", profileId)
-    .eq("account_manager_member_id", teamMemberId)
     .maybeSingle();
   if (error) throw error;
-  if (!data) {
+  if (!data?.account_manager_member_id && allowUnassigned) return;
+  if (!data?.account_manager_member_id) {
+    throw new AdminApiError(403, "Prendi prima in carico questo Property Manager.");
+  }
+  if (data?.account_manager_member_id && data.account_manager_member_id !== teamMemberId) {
     throw new AdminApiError(403, "Questo Property Manager non appartiene al tuo portafoglio.");
   }
+}
+
+function matchesManagedProperties(
+  pmProfile: PmProfileRow | null,
+  filter: z.infer<typeof managedPropertiesFilterSchema> | undefined,
+) {
+  if (!filter) return true;
+  const range = pmProfile?.managed_properties_range ?? null;
+  const count = pmProfile?.managed_properties_count ?? null;
+  if (filter === "not_indicated") return !range && count === null;
+  if (range) return range === filter;
+  if (filter === "starting_now") return count === 0;
+  if (filter === "one_to_three") return count !== null && count >= 1 && count <= 3;
+  if (filter === "four_to_ten") return count !== null && count >= 4 && count <= 10;
+  return count !== null && count > 10;
 }
 
 async function loadPrimeManagers(

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Crown,
   Eye,
+  Filter,
   PauseCircle,
   Search,
   ShieldCheck,
@@ -15,6 +16,12 @@ import {
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import {
+  managedPropertiesOptions,
+  type ManagedPropertiesRange,
+} from "@/lib/domain/pm-onboarding";
+
+type ManagedPropertiesFilter = "" | ManagedPropertiesRange | "not_indicated";
 
 type PrimeStatus = "inactive" | "active" | "past_due" | "suspended" | "cancelled";
 
@@ -50,6 +57,7 @@ type PrimeRow = {
     profile_id: string;
     primary_city: string | null;
     managed_properties_range: string | null;
+    managed_properties_count: number | null;
   } | null;
   wallet: {
     profile_id: string;
@@ -197,6 +205,8 @@ export function AdminPrimeConsole() {
   const [data, setData] = useState<PrimeResponse>(emptyResponse);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [managedPropertiesFilter, setManagedPropertiesFilter] =
+    useState<ManagedPropertiesFilter>("");
   const [scope, setScope] = useState("unassigned");
   const [page, setPage] = useState(1);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -230,6 +240,7 @@ export function AdminPrimeConsole() {
 
     const query = new URLSearchParams({ page: String(page) });
     if (search) query.set("search", search);
+    if (managedPropertiesFilter) query.set("managedProperties", managedPropertiesFilter);
     query.set("scope", scope);
     const response = await fetch(`/api/admin/prime?${query}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -242,7 +253,7 @@ export function AdminPrimeConsole() {
       setData(payload);
     }
     setLoading(false);
-  }, [getToken, page, scope, search]);
+  }, [getToken, managedPropertiesFilter, page, scope, search]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadPrime(), 0);
@@ -408,30 +419,14 @@ export function AdminPrimeConsole() {
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
           <div>
             <p className="section-kicker">Portafoglio PRIME</p>
-            <h2 className="mt-2 text-xl font-semibold text-ink">Property Manager selezionati</h2>
+            <h2 className="mt-2 text-xl font-semibold text-ink">Property Manager</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              L&apos;idoneità mostra l&apos;offerta commerciale. L&apos;override manuale concede solo
-              l&apos;accesso PRIME e non genera credito Wallet né pagamenti.
+              Consulta i PM disponibili e prendi in carico quelli che seguirai per Lead Host PRIME.
             </p>
           </div>
-          <form className="flex w-full max-w-xl gap-2" onSubmit={submitSearch}>
-            <label className="relative min-w-0 flex-1">
-              <span className="sr-only">Cerca Property Manager</span>
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-green focus:ring-2 focus:ring-green/10"
-                value={searchDraft}
-                onChange={(event) => setSearchDraft(event.target.value)}
-                placeholder="Nome, email, telefono o città"
-              />
-            </label>
-            <button className="min-h-11 rounded-lg bg-ink px-5 text-sm font-semibold text-white" type="submit">
-              Cerca
-            </button>
-          </form>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
           {(data.access.isSuperAdmin
@@ -458,6 +453,55 @@ export function AdminPrimeConsole() {
             </button>
           ))}
         </div>
+        <form className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)_auto_auto] lg:items-end" onSubmit={submitSearch}>
+          <label className="block min-w-0">
+            <span className="mb-2 block text-sm font-semibold text-ink">Cerca Property Manager</span>
+            <span className="relative block">
+              <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+              <input
+                className="min-h-12 w-full rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-3 text-sm outline-none focus:border-green focus:ring-2 focus:ring-green/10"
+                type="search"
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                placeholder="Nome, email, telefono o città principale"
+              />
+            </span>
+          </label>
+          <label className="block min-w-0">
+            <span className="mb-2 block text-sm font-semibold text-ink">Immobili gestiti</span>
+            <span className="relative block">
+              <Filter className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+              <select
+                className="min-h-12 w-full appearance-none rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-10 text-sm font-semibold text-ink outline-none focus:border-green focus:ring-2 focus:ring-green/10"
+                value={managedPropertiesFilter}
+                onChange={(event) => {
+                  setPage(1);
+                  setManagedPropertiesFilter(event.target.value as ManagedPropertiesFilter);
+                }}
+              >
+                <option value="">Tutti</option>
+                {managedPropertiesOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+                <option value="not_indicated">Non indicato</option>
+              </select>
+            </span>
+          </label>
+          <button className="min-h-12 rounded-lg bg-ink px-5 text-sm font-semibold text-white" type="submit">Cerca</button>
+          <button
+            className="min-h-12 rounded-lg border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            type="button"
+            disabled={!searchDraft && !search && !managedPropertiesFilter}
+            onClick={() => {
+              setSearchDraft("");
+              setSearch("");
+              setManagedPropertiesFilter("");
+              setPage(1);
+            }}
+          >
+            Reset
+          </button>
+        </form>
       </section>
 
       {error ? <Notice tone="error">{error}</Notice> : null}
@@ -468,88 +512,91 @@ export function AdminPrimeConsole() {
           Carico il portafoglio PRIME...
         </section>
       ) : data.propertyManagers.length ? (
-        <section className="grid gap-3">
-          {data.propertyManagers.map((row) => (
-            <article key={row.profile.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(220px,.7fr)_minmax(220px,.8fr)_auto] xl:items-center">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-lg font-semibold text-ink">{displayName(row)}</h3>
-                    <StatusBadge status={row.account?.status ?? "inactive"} />
-                    {row.eligibility?.is_enabled ? (
-                      <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">Offerta abilitata</span>
-                    ) : null}
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="grid gap-3 p-4 md:hidden">
+            {data.propertyManagers.map((row) => (
+              <article key={row.profile.id} className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-ink">{displayName(row)}</p>
+                    <p className="mt-1 break-all text-sm text-slate-500">{row.profile.email}</p>
+                    <p className="mt-1 text-sm text-slate-500">{row.profile.phone ?? "Telefono assente"}</p>
                   </div>
-                  <p className="mt-1 break-all text-sm text-slate-500">{row.profile.email}</p>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {[row.pmProfile?.primary_city, row.profile.phone].filter(Boolean).join(" · ") || "Dati operativi non indicati"}
-                  </p>
+                  <StatusBadge status={row.account?.status ?? "inactive"} />
                 </div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <InfoPill label="Città" value={row.pmProfile?.primary_city ?? "Non indicata"} />
+                  <InfoPill label="Immobili" value={managedPropertiesLabel(row.pmProfile?.managed_properties_range, row.pmProfile?.managed_properties_count)} />
+                  <InfoPill label="Wallet" value={formatMoney(row.wallet?.balance_cents ?? 0)} />
+                  <InfoPill label="Account Manager" value={row.accountManager?.name ?? "Non assegnato"} />
+                </div>
+                {data.access.canAssignManager ? (
+                  <ManagerSelect row={row} managers={data.managers} saving={saving} onChange={assignManager} />
+                ) : null}
+                <div className="mt-4">
+                  <PrimeRowActions
+                    row={row}
+                    access={data.access}
+                    saving={saving}
+                    onDetail={openDetail}
+                    onClaim={claimManager}
+                    onToggleEligibility={toggleEligibility}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
 
-                <div>
-                  <p className="text-[11px] font-bold uppercase text-slate-400">Wallet</p>
-                  <p className="mt-1 text-lg font-semibold text-ink">{formatMoney(row.wallet?.balance_cents ?? 0)}</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {row.account?.access_source === "manual" ? "Override amministrativo" : row.account?.access_source === "stripe" ? "Subscription Stripe" : "Nessun accesso"}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold uppercase text-slate-400" htmlFor={`manager-${row.profile.id}`}>
-                    Account Manager
-                  </label>
-                  {data.access.canAssignManager ? (
-                    <select
-                      id={`manager-${row.profile.id}`}
-                      className="mt-2 min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700"
-                      value={row.account?.account_manager_member_id ?? ""}
-                      onChange={(event) => void assignManager(row, event.target.value)}
-                      disabled={saving}
-                    >
-                      <option value="">Non assegnato</option>
-                      {data.managers.map((manager) => (
-                        <option key={manager.memberId} value={manager.memberId}>{manager.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <p className="mt-2 text-sm font-semibold text-slate-700">{row.accountManager?.name ?? "Non assegnato"}</p>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-2 xl:justify-end">
-                  {data.access.isSuperAdmin || row.account?.account_manager_member_id === data.access.teamMemberId ? (
-                    <button
-                      className="min-h-10 rounded-lg border border-slate-200 px-4 text-sm font-semibold text-slate-700 hover:border-green/40 hover:text-green"
-                      type="button"
-                      onClick={() => void openDetail(row)}
-                    >
-                      Dettaglio completo
-                    </button>
-                  ) : null}
-                  {!data.access.isSuperAdmin && !row.account?.account_manager_member_id && data.access.canWrite ? (
-                    <button
-                      className="min-h-10 rounded-lg bg-green px-4 text-sm font-semibold text-white shadow-sm"
-                      type="button"
-                      onClick={() => void claimManager(row)}
-                      disabled={saving}
-                    >
-                      Prendi in carico
-                    </button>
-                  ) : null}
-                  {data.access.canWrite && (data.access.isSuperAdmin || row.account?.account_manager_member_id === data.access.teamMemberId) ? (
-                    <button
-                      className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${row.eligibility?.is_enabled ? "border border-red-200 bg-red-50 text-red-700" : "bg-blue-600 text-white"}`}
-                      type="button"
-                      onClick={() => void toggleEligibility(row)}
-                      disabled={saving}
-                    >
-                      {row.eligibility?.is_enabled ? "Disabilita offerta" : "Abilita offerta"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            </article>
-          ))}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
+                <tr>
+                  <th className="px-5 py-4 font-semibold">Property Manager</th>
+                  <th className="px-5 py-4 font-semibold">Città principale</th>
+                  <th className="px-5 py-4 font-semibold">Immobili</th>
+                  <th className="px-5 py-4 font-semibold">Wallet</th>
+                  <th className="px-5 py-4 font-semibold">Stato PRIME</th>
+                  <th className="px-5 py-4 font-semibold">Account Manager</th>
+                  <th className="px-5 py-4 font-semibold">Azioni</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {data.propertyManagers.map((row) => (
+                  <tr key={row.profile.id} className="align-top transition hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <p className="font-semibold text-ink">{displayName(row)}</p>
+                      <p className="mt-1 text-slate-500">{row.profile.email}</p>
+                      <p className="mt-1 text-slate-500">{row.profile.phone ?? "Telefono assente"}</p>
+                    </td>
+                    <td className="px-5 py-4 font-medium text-ink">{row.pmProfile?.primary_city ?? "Non indicata"}</td>
+                    <td className="px-5 py-4 text-slate-600">{managedPropertiesLabel(row.pmProfile?.managed_properties_range, row.pmProfile?.managed_properties_count)}</td>
+                    <td className="px-5 py-4 font-semibold text-ink">{formatMoney(row.wallet?.balance_cents ?? 0)}</td>
+                    <td className="px-5 py-4">
+                      <StatusBadge status={row.account?.status ?? "inactive"} />
+                      {row.eligibility?.is_enabled ? <p className="mt-2 text-xs font-semibold text-blue-700">Offerta abilitata</p> : null}
+                    </td>
+                    <td className="min-w-48 px-5 py-4">
+                      {data.access.canAssignManager ? (
+                        <ManagerSelect row={row} managers={data.managers} saving={saving} onChange={assignManager} compact />
+                      ) : (
+                        <span className="font-semibold text-slate-700">{row.accountManager?.name ?? "Non assegnato"}</span>
+                      )}
+                    </td>
+                    <td className="min-w-52 px-5 py-4">
+                      <PrimeRowActions
+                        row={row}
+                        access={data.access}
+                        saving={saving}
+                        onDetail={openDetail}
+                        onClaim={claimManager}
+                        onToggleEligibility={toggleEligibility}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
       ) : (
         <section className="rounded-lg border border-slate-200 bg-white p-10 text-center">
@@ -572,7 +619,11 @@ export function AdminPrimeConsole() {
           row={selectedRow}
           detail={selectedDetail}
           loading={detailLoading}
-          canWrite={data.access.canWrite}
+          canWrite={Boolean(
+            data.access.canWrite &&
+            (data.access.isSuperAdmin ||
+              selectedRow.account?.account_manager_member_id === data.access.teamMemberId),
+          )}
           onClose={() => {
             setSelectedProfileId(null);
             setSelectedDetail(null);
@@ -590,6 +641,104 @@ export function AdminPrimeConsole() {
           onSubmit={submitAccessAction}
         />
       ) : null}
+    </div>
+  );
+}
+
+function ManagerSelect({
+  row,
+  managers,
+  saving,
+  onChange,
+  compact = false,
+}: {
+  row: PrimeRow;
+  managers: PrimeManager[];
+  saving: boolean;
+  onChange: (row: PrimeRow, memberId: string) => Promise<void>;
+  compact?: boolean;
+}) {
+  return (
+    <label className={compact ? "block" : "mt-4 block"}>
+      {!compact ? <span className="text-xs font-bold uppercase text-slate-400">Account Manager</span> : null}
+      <select
+        className={`${compact ? "" : "mt-2"} min-h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700`}
+        value={row.account?.account_manager_member_id ?? ""}
+        onChange={(event) => void onChange(row, event.target.value)}
+        disabled={saving}
+        aria-label={`Account Manager di ${displayName(row)}`}
+      >
+        <option value="">Non assegnato</option>
+        {managers.map((manager) => (
+          <option key={manager.memberId} value={manager.memberId}>{manager.name}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function PrimeRowActions({
+  row,
+  access,
+  saving,
+  onDetail,
+  onClaim,
+  onToggleEligibility,
+}: {
+  row: PrimeRow;
+  access: PrimeResponse["access"];
+  saving: boolean;
+  onDetail: (row: PrimeRow) => Promise<void>;
+  onClaim: (row: PrimeRow) => Promise<void>;
+  onToggleEligibility: (row: PrimeRow) => Promise<void>;
+}) {
+  const isAssignedToCurrentManager =
+    Boolean(access.teamMemberId) &&
+    row.account?.account_manager_member_id === access.teamMemberId;
+  const canManagePrime = access.canWrite && (access.isSuperAdmin || isAssignedToCurrentManager);
+  const canClaim =
+    !access.isSuperAdmin &&
+    access.canWrite &&
+    !row.account?.account_manager_member_id;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-green/40 hover:text-green"
+        type="button"
+        onClick={() => void onDetail(row)}
+      >
+        <Eye size={14} className="mr-1 inline-block" /> Dettaglio
+      </button>
+      {canClaim ? (
+        <button
+          className="min-h-10 rounded-lg bg-green px-3 text-xs font-semibold text-white shadow-sm disabled:opacity-50"
+          type="button"
+          onClick={() => void onClaim(row)}
+          disabled={saving}
+        >
+          Prendi in carico
+        </button>
+      ) : null}
+      {canManagePrime ? (
+        <button
+          className={`min-h-10 rounded-lg px-3 text-xs font-semibold disabled:opacity-50 ${row.eligibility?.is_enabled ? "border border-red-200 bg-red-50 text-red-700" : "bg-blue-600 text-white"}`}
+          type="button"
+          onClick={() => void onToggleEligibility(row)}
+          disabled={saving}
+        >
+          {row.eligibility?.is_enabled ? "Disabilita offerta" : "Abilita offerta"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function InfoPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-slate-50 p-3">
+      <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-700">{value}</p>
     </div>
   );
 }
@@ -673,13 +822,23 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction }:
                   <Detail label="Email">{detail.profile.email}</Detail>
                   <Detail label="Telefono">{detail.profile.phone ?? "Non indicato"}</Detail>
                   <Detail label="Città principale">{detail.propertyManagerProfile?.primary_city ?? "Non indicata"}</Detail>
-                  <Detail label="Immobili gestiti">{managedPropertiesLabel(detail.propertyManagerProfile?.managed_properties_range)}</Detail>
+                  <Detail label="Immobili gestiti">{managedPropertiesLabel(detail.propertyManagerProfile?.managed_properties_range, detail.propertyManagerProfile?.managed_properties_count)}</Detail>
                   <Detail label="Azienda">{detail.propertyManagerProfile?.company_name ?? "Non indicata"}</Detail>
                   <Detail label="Partita IVA">{detail.propertyManagerProfile?.vat_number ?? "Non indicata"}</Detail>
                   <Detail label="Sito web">{detail.propertyManagerProfile?.website ?? "Non indicato"}</Detail>
+                  <Detail label="Anni di esperienza">{detail.propertyManagerProfile?.years_experience?.toString() ?? "Non indicati"}</Detail>
+                  <Detail label="Modello operativo">{detail.propertyManagerProfile?.operating_model ?? "Non indicato"}</Detail>
+                  <Detail label="Stato account">{detail.profile.status === "active" ? "Attivo" : "Sospeso"}</Detail>
+                  <Detail label="Data iscrizione">{formatDate(detail.profile.created_at)}</Detail>
                   <Detail label="Email confermata">{formatDate(detail.auth.emailConfirmedAt)}</Detail>
                   <Detail label="Ultimo accesso">{formatDateTimeOptional(detail.auth.lastSignInAt)}</Detail>
                 </dl>
+                {detail.propertyManagerProfile?.business_description ? (
+                  <div className="mt-5 rounded-lg bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold uppercase text-slate-400">Descrizione attività</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{detail.propertyManagerProfile.business_description}</p>
+                  </div>
+                ) : null}
               </section>
 
               <section className="rounded-lg border border-slate-200 p-5">
@@ -876,15 +1035,19 @@ function formatSignedMoney(cents: number) {
   return value;
 }
 
-function managedPropertiesLabel(value: string | null | undefined) {
+function managedPropertiesLabel(value: string | null | undefined, count?: number | null) {
   const labels: Record<string, string> = {
     starting_now: "Sto iniziando ora",
     one_to_three: "Gestisco da 1 a 3 immobili",
     four_to_ten: "Gestisco da 4 a 10 immobili",
     more_than_ten: "Gestisco più di 10 immobili",
   };
-  if (!value) return "Non indicato";
-  return labels[value] ?? value;
+  if (value) return labels[value] ?? value;
+  if (count === 0) return labels.starting_now;
+  if (count && count <= 3) return labels.one_to_three;
+  if (count && count <= 10) return labels.four_to_ten;
+  if (count && count > 10) return labels.more_than_ten;
+  return "Non indicato";
 }
 
 function billingName(billing: NonNullable<PrimePmDetail["billingProfile"]>) {

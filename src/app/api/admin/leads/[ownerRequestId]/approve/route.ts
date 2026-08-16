@@ -12,6 +12,7 @@ import { notifyNewLeadOnTelegram } from "@/lib/telegram/service";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import type { Database } from "@/lib/supabase/database.types";
+import { hasAdminPermission } from "@/lib/admin/permissions";
 
 type RouteContext = {
   params: Promise<{
@@ -26,6 +27,9 @@ const approveSchema = z.object({
   exclusivePriceCents: z.number().int().min(100).max(200000).optional(),
   ownerVerified: z.boolean().optional(),
   sublettingAvailable: z.boolean().optional(),
+  visibilityMode: z.enum(["public", "prime_private"]).default("public"),
+  primeTargetPropertyManagerId: z.string().uuid().nullable().optional(),
+  primeAccessDurationHours: z.number().int().min(1).max(720).optional(),
 });
 
 type ServiceClient = SupabaseClient<Database>;
@@ -44,8 +48,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const { supabase, profile, isSuperAdmin } =
+    const { supabase, profile, isSuperAdmin, permissions, teamMemberId } =
       await requireSuperAdmin(request);
+    const isPrimePublication = payload.data.visibilityMode === "prime_private";
+
+    if (
+      isPrimePublication &&
+      !isSuperAdmin &&
+      !hasAdminPermission(permissions, "prime", "write")
+    ) {
+      return NextResponse.json(
+        { error: "Non hai il permesso di assegnare lead alla Prime Zone." },
+        { status: 403 },
+      );
+    }
+
+    if (isPrimePublication && !payload.data.primeTargetPropertyManagerId) {
+      return NextResponse.json(
+        { error: "Seleziona il Property Manager PRIME destinatario." },
+        { status: 400 },
+      );
+    }
 
     const ownerRequestResult = await fetchOwnerRequestForApproval(
       supabase,
@@ -188,12 +211,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const { data: publishedLead, error: publishError } = await supabase.rpc(
-      "publish_lead",
-      {
-        p_lead_id: leadId,
-      },
-    );
+    const primeAccessDurationHours =
+      payload.data.primeAccessDurationHours ??
+      settings.primeDefaultAccessDurationHours;
+    const primeAccessUntil = new Date(
+      Date.now() + primeAccessDurationHours * 60 * 60 * 1000,
+    ).toISOString();
+    const { data: publishedLead, error: publishError } = isPrimePublication
+      ? await supabase.rpc("assign_lead_to_prime", {
+          p_lead_id: leadId,
+          p_target_property_manager_id:
+            payload.data.primeTargetPropertyManagerId!,
+          p_access_until: primeAccessUntil,
+          p_actor_profile_id: profile.id,
+          p_actor_team_member_id: teamMemberId,
+          p_actor_role: isSuperAdmin ? "super_admin" : "account_manager",
+        })
+      : await supabase.rpc("publish_lead", {
+          p_lead_id: leadId,
+        });
 
     if (publishError || !publishedLead) {
       throw publishError ?? new Error("Lead non pubblicato.");
@@ -241,7 +277,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       isSuperAdmin,
       entityType: "owner_request",
       entityId: ownerRequestId,
-      action: "lead.approved_and_published",
+      action: isPrimePublication
+        ? "lead.approved_to_prime_zone"
+        : "lead.approved_and_published",
       before: {
         status: ownerRequest.status,
         qualification_notes: ownerRequest.qualification_notes,
@@ -255,6 +293,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         pricing_source: suggestedPricing.label,
         owner_verified: ownerVerified,
         subletting_available: sublettingAvailable,
+        visibility_mode: payload.data.visibilityMode,
+        prime_target_property_manager_id:
+          payload.data.primeTargetPropertyManagerId ?? null,
+        prime_access_duration_hours: isPrimePublication
+          ? primeAccessDurationHours
+          : null,
+        prime_access_until: isPrimePublication ? primeAccessUntil : null,
       },
     });
 
@@ -262,7 +307,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Lead publication must not wait for one request per PM or for Telegram.
     // `after` keeps the post-publication notifications independent from the admin UI.
-    after(async () => {
+    if (!isPrimePublication) after(async () => {
       const notificationResults = await Promise.allSettled([
         notifyImmediateNewLead({
           id: leadId,
@@ -297,7 +342,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     });
 
-    return NextResponse.json({ status: "published", lead: publishedLead });
+    return NextResponse.json({
+      status: isPrimePublication ? "prime_private" : "published",
+      lead: publishedLead,
+    });
   } catch (error) {
     return adminApiErrorResponse(error);
   }

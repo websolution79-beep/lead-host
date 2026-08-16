@@ -8,6 +8,7 @@ import {
   Plus,
   Save,
   Settings2,
+  Crown,
   Trash2,
   UserPlus,
   WalletCards,
@@ -34,6 +35,7 @@ type ActiveTab =
   | "wallet"
   | "lead_prices"
   | "geo_rules"
+  | "prime"
   | "promotions";
 
 const emptySettings: CommercialSettings = {
@@ -49,6 +51,7 @@ const emptySettings: CommercialSettings = {
   maxSharedBuyers: 2,
   unavailableVisibilityDays: 7,
   soldVisibilityDays: 7,
+  primeDefaultAccessDurationHours: 12,
   priceRules: [],
 };
 
@@ -204,7 +207,7 @@ export function AdminCommercialSettings() {
         ) : null}
       </section>
 
-      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-6">
         <TabButton
           active={activeTab === "registrations"}
           icon={UserPlus}
@@ -228,6 +231,12 @@ export function AdminCommercialSettings() {
           icon={MapPin}
           label="Regole prezzi"
           onClick={() => setActiveTab("geo_rules")}
+        />
+        <TabButton
+          active={activeTab === "prime"}
+          icon={Crown}
+          label="Prime Zone"
+          onClick={() => setActiveTab("prime")}
         />
         <TabButton
           active={activeTab === "promotions"}
@@ -259,6 +268,10 @@ export function AdminCommercialSettings() {
           onUpsertRule={upsertRule}
           onDeleteRule={deleteRule}
         />
+      ) : null}
+
+      {!loading && activeTab === "prime" ? (
+        <PrimeZoneSettings settings={settings} onChange={updateSettings} />
       ) : null}
 
       {!loading && activeTab === "promotions" ? (
@@ -792,6 +805,56 @@ function EuroField({
         Puoi usare la virgola per i centesimi, ad esempio 19,90.
       </span>
     </label>
+  );
+}
+
+function PrimeZoneSettings({
+  settings,
+  onChange,
+}: {
+  settings: CommercialSettings;
+  onChange: (update: Partial<CommercialSettings>) => void;
+}) {
+  return (
+    <section className="card p-6">
+      <div className="flex items-center gap-3">
+        <span className="flex size-11 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+          <Crown size={22} />
+        </span>
+        <div>
+          <p className="section-kicker">Lead Host PRIME</p>
+          <h2 className="text-xl font-semibold text-ink">Impostazioni Prime Zone</h2>
+        </div>
+      </div>
+
+      <div className="mt-6 max-w-xl">
+        <label className="grid gap-2 text-sm font-semibold text-ink">
+          Durata predefinita accesso esclusivo
+          <div className="flex min-h-12 items-center rounded-lg border border-ink/12 bg-white px-4 focus-within:border-green">
+            <input
+              className="min-h-10 min-w-0 flex-1 bg-transparent outline-none"
+              inputMode="numeric"
+              min={1}
+              max={720}
+              value={settings.primeDefaultAccessDurationHours}
+              onChange={(event) =>
+                onChange({
+                  primeDefaultAccessDurationHours: Math.min(
+                    720,
+                    Math.max(1, Number.parseInt(event.target.value, 10) || 1),
+                  ),
+                })
+              }
+            />
+            <span className="text-sm font-semibold text-muted">ore</span>
+          </div>
+          <span className="text-xs font-medium leading-5 text-muted">
+            Viene proposta durante l&apos;assegnazione del lead. Admin e Account Manager
+            possono modificarla per il singolo caso.
+          </span>
+        </label>
+      </div>
+    </section>
   );
 }
 

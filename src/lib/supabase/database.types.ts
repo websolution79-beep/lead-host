@@ -2694,6 +2694,17 @@ export type Database = {
         };
         Returns: boolean;
       };
+      assign_lead_to_prime: {
+        Args: {
+          p_lead_id: string;
+          p_target_property_manager_id: string;
+          p_access_until: string;
+          p_actor_profile_id: string;
+          p_actor_team_member_id?: string | null;
+          p_actor_role?: "super_admin" | "account_manager";
+        };
+        Returns: Database["public"]["Tables"]["leads"]["Row"];
+      };
       consume_public_form_rate_limit: {
         Args: {
           p_fingerprint_hash: string;

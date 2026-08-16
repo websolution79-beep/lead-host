@@ -28,6 +28,7 @@ export type CommercialSettings = {
   maxSharedBuyers: number;
   unavailableVisibilityDays: number;
   soldVisibilityDays: number;
+  primeDefaultAccessDurationHours: number;
   priceRules: LeadPriceRule[];
 };
 
@@ -54,6 +55,7 @@ const SETTINGS_KEYS = {
   maxSharedBuyers: "lead.max_shared_buyers",
   unavailableVisibilityDays: "lead.unavailable_visibility_days",
   soldVisibilityDays: "lead.sold_visibility_days",
+  primeDefaultAccessDurationHours: "prime.default_access_duration_hours",
   priceRules: "lead.price_rules",
 } as const;
 
@@ -70,6 +72,7 @@ export const defaultCommercialSettings: CommercialSettings = {
   maxSharedBuyers: commercialRules.maxSharedBuyers,
   unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
   soldVisibilityDays: commercialRules.soldVisibilityDays,
+  primeDefaultAccessDurationHours: 12,
   priceRules: [],
 };
 
@@ -165,6 +168,10 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
       values.get(SETTINGS_KEYS.soldVisibilityDays),
       defaultCommercialSettings.soldVisibilityDays,
     ),
+    primeDefaultAccessDurationHours: parsePositiveInteger(
+      values.get(SETTINGS_KEYS.primeDefaultAccessDurationHours),
+      defaultCommercialSettings.primeDefaultAccessDurationHours,
+    ),
     priceRules: parsePriceRules(values.get(SETTINGS_KEYS.priceRules)),
   };
 
@@ -242,6 +249,11 @@ export async function saveCommercialSettings({
     {
       key: SETTINGS_KEYS.soldVisibilityDays,
       value: settings.soldVisibilityDays,
+      updated_by: profileId,
+    },
+    {
+      key: SETTINGS_KEYS.primeDefaultAccessDurationHours,
+      value: settings.primeDefaultAccessDurationHours,
       updated_by: profileId,
     },
     {

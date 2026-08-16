@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock3,
+  Crown,
   Eye,
   ListChecks,
   Pencil,
@@ -46,6 +47,7 @@ type AdminLeadsResponse = {
     duplicates: number;
     newLeads: number;
     pending: number;
+    prime: number;
     published: number;
     sold: number;
     expired: number;
@@ -59,6 +61,7 @@ type FilterState =
   | "duplicates"
   | "new"
   | "pending"
+  | "prime"
   | "published"
   | "sold"
   | "expired"
@@ -70,6 +73,27 @@ type ApprovalPriceDraft = {
   ownerVerified: boolean;
   sublettingAvailable: boolean;
   pricesCustomized: boolean;
+  visibilityMode: "public" | "prime_private";
+  primeTargetPropertyManagerId: string | null;
+  primeAccessDurationHours: number;
+};
+
+type PrimeTarget = {
+  propertyManagerId: string;
+  profileId: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  primaryCity: string | null;
+  primeStatus: string;
+  primeExpiresAt: string | null;
+  walletBalanceCents: number;
+  walletCurrency: string;
+  accountManager: {
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+  } | null;
 };
 
 export function AdminLeadsConsole() {
@@ -84,6 +108,10 @@ export function AdminLeadsConsole() {
       "telegram_manual_publish",
       "write",
     );
+  const canPublishToPrime =
+    Boolean(session.isSuperAdmin) ||
+    (hasAdminPermission(session.adminPermissions ?? {}, "leads", "write") &&
+      hasAdminPermission(session.adminPermissions ?? {}, "prime", "write"));
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
@@ -91,6 +119,7 @@ export function AdminLeadsConsole() {
     duplicates: 0,
     newLeads: 0,
     pending: 0,
+    prime: 0,
     published: 0,
     sold: 0,
     expired: 0,
@@ -113,6 +142,9 @@ export function AdminLeadsConsole() {
   const [approvalDrafts, setApprovalDrafts] = useState<Record<string, ApprovalPriceDraft>>(
     {},
   );
+  const [primeTargets, setPrimeTargets] = useState<PrimeTarget[]>([]);
+  const [primeTargetsLoaded, setPrimeTargetsLoaded] = useState(false);
+  const [primeTargetsLoading, setPrimeTargetsLoading] = useState(false);
 
   const filteredRecords = records.filter((record) => {
     if (filter === "completion" && record.requestStatus !== "waiting_for_completion") {
@@ -121,6 +153,9 @@ export function AdminLeadsConsole() {
     if (filter === "duplicates" && !hasActionableDuplicateWarning(record)) return false;
     if (filter === "new" && !isNewLead(record)) return false;
     if (filter === "pending" && !isPendingLead(record)) return false;
+    if (filter === "prime" && record.lead?.visibilityMode !== "prime_private") {
+      return false;
+    }
     if (filter === "published" && !isVisibleAdminMarketplaceLead(record)) return false;
     if (filter === "sold" && !hasCompletedLeadPurchase(record)) return false;
     if (filter === "expired" && !isExpiredAdminLead(record)) return false;
@@ -196,6 +231,7 @@ export function AdminLeadsConsole() {
         duplicates: 0,
         newLeads: 0,
         pending: 0,
+        prime: 0,
         published: 0,
         sold: 0,
         expired: 0,
@@ -210,6 +246,37 @@ export function AdminLeadsConsole() {
     setLoading(false);
   }, [getAccessToken]);
 
+  const loadPrimeTargets = useCallback(async () => {
+    if (!canPublishToPrime || primeTargetsLoaded || primeTargetsLoading) return;
+
+    setPrimeTargetsLoading(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sessione non disponibile.");
+      const response = await fetch("/api/admin/leads/prime-targets", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        targets?: PrimeTarget[];
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "PM PRIME non disponibili.");
+      }
+      setPrimeTargets(payload.targets ?? []);
+      setPrimeTargetsLoaded(true);
+    } catch (targetError) {
+      setError(
+        targetError instanceof Error
+          ? targetError.message
+          : "Non riesco a caricare i PM PRIME.",
+      );
+    } finally {
+      setPrimeTargetsLoading(false);
+    }
+  }, [canPublishToPrime, getAccessToken, primeTargetsLoaded, primeTargetsLoading]);
+
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       void loadRecords();
@@ -220,6 +287,14 @@ export function AdminLeadsConsole() {
 
   async function approve(record: AdminLeadRecord) {
     const priceDraft = getApprovalDraft(record);
+
+    if (
+      priceDraft.visibilityMode === "prime_private" &&
+      !priceDraft.primeTargetPropertyManagerId
+    ) {
+      setError("Seleziona il Property Manager destinatario della Prime Zone.");
+      return;
+    }
 
     setActionLoading(record.ownerRequestId);
     setError(null);
@@ -240,10 +315,17 @@ export function AdminLeadsConsole() {
             exclusivePriceCents: priceDraft.exclusivePriceCents,
             ownerVerified: priceDraft.ownerVerified,
             sublettingAvailable: priceDraft.sublettingAvailable,
+            visibilityMode: priceDraft.visibilityMode,
+            primeTargetPropertyManagerId:
+              priceDraft.primeTargetPropertyManagerId,
+            primeAccessDurationHours: priceDraft.primeAccessDurationHours,
           }),
         },
       );
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        status?: "published" | "prime_private";
+      };
 
       if (!response.ok) {
         setError(payload.error ?? "Approvazione non completata.");
@@ -251,7 +333,7 @@ export function AdminLeadsConsole() {
       }
 
       setSelectedId(null);
-      setFilter("published");
+      setFilter(payload.status === "prime_private" ? "prime" : "published");
       void loadRecords();
     } catch (approvalError) {
       setError(
@@ -278,6 +360,9 @@ export function AdminLeadsConsole() {
   function selectRecord(record: AdminLeadRecord) {
     setSelectedId(record.ownerRequestId);
     setActionReason("");
+    if (canPublishToPrime && !primeTargetsLoaded) {
+      void loadPrimeTargets();
+    }
     if (record.lead?.publishedAt) {
       void recordPublishedLeadView(record.lead.id);
     }
@@ -289,6 +374,9 @@ export function AdminLeadsConsole() {
         ownerVerified: record.ownerVerified,
         sublettingAvailable: record.sublettingAvailable,
         pricesCustomized: Boolean(record.lead),
+        visibilityMode: "public",
+        primeTargetPropertyManagerId: null,
+        primeAccessDurationHours: record.primeDefaultAccessDurationHours,
       },
     }));
   }
@@ -313,6 +401,9 @@ export function AdminLeadsConsole() {
         ownerVerified: record.ownerVerified,
         sublettingAvailable: record.sublettingAvailable,
         pricesCustomized: Boolean(record.lead),
+        visibilityMode: "public",
+        primeTargetPropertyManagerId: null,
+        primeAccessDurationHours: record.primeDefaultAccessDurationHours,
       }
     );
   }
@@ -495,6 +586,7 @@ export function AdminLeadsConsole() {
         />
         <StatCard icon={ListChecks} label="Nuovi Lead" value={stats.newLeads} tone="green" />
         <StatCard icon={Clock3} label="Pending" value={stats.pending} tone="amber" />
+        <StatCard icon={Crown} label="Prime Zone" value={stats.prime} tone="amber" />
         <StatCard
           icon={BadgeCheck}
           label="Pubblicati"
@@ -534,6 +626,7 @@ export function AdminLeadsConsole() {
                 ["duplicates", "Duplicati"],
                 ["new", "Nuovi Lead"],
                 ["pending", "Pending"],
+                ["prime", "Prime Zone"],
                 ["published", "Marketplace"],
                 ["sold", "Venduti"],
                 ["expired", "Scaduti"],
@@ -712,6 +805,9 @@ export function AdminLeadsConsole() {
               record={selectedRecord}
               canManage={canManageLeads}
               canManuallyPublishTelegram={canManuallyPublishTelegram}
+              canPublishToPrime={canPublishToPrime}
+              primeTargets={primeTargets}
+              primeTargetsLoading={primeTargetsLoading}
               actionReason={actionReason}
               onActionReasonChange={setActionReason}
               onApprove={requestApproval}
@@ -781,6 +877,9 @@ function LeadDetailPanel({
   record,
   canManage,
   canManuallyPublishTelegram,
+  canPublishToPrime,
+  primeTargets,
+  primeTargetsLoading,
   actionReason,
   onActionReasonChange,
   onApprove,
@@ -797,6 +896,9 @@ function LeadDetailPanel({
   record: AdminLeadRecord;
   canManage: boolean;
   canManuallyPublishTelegram: boolean;
+  canPublishToPrime: boolean;
+  primeTargets: PrimeTarget[];
+  primeTargetsLoading: boolean;
   actionReason: string;
   onActionReasonChange: (value: string) => void;
   onApprove: (record: AdminLeadRecord) => void;
@@ -997,6 +1099,14 @@ function LeadDetailPanel({
 
       {canApprove ? (
         <section className="mt-5 border-t border-slate-200 pt-5">
+          {canPublishToPrime ? (
+            <PrimePublicationSettings
+              draft={approvalDraft}
+              targets={primeTargets}
+              loading={primeTargetsLoading}
+              onChange={onApprovalDraftChange}
+            />
+          ) : null}
           {record.sublettingFeatureAvailable ? (
             <label className="mb-4 flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4">
               <input
@@ -1155,7 +1265,11 @@ function LeadDetailPanel({
             onClick={() => onApprove(record)}
           >
             <CheckCircle2 size={18} />
-            {isBusy ? "Pubblicazione..." : "Approva e pubblica"}
+            {isBusy
+              ? "Pubblicazione..."
+              : approvalDraft.visibilityMode === "prime_private"
+                ? "Approva e assegna in Prime Zone"
+                : "Approva e pubblica"}
           </button>
         ) : null}
 
@@ -1215,6 +1329,223 @@ function LeadDetailPanel({
       </div>
     </aside>
   );
+}
+
+function PrimePublicationSettings({
+  draft,
+  targets,
+  loading,
+  onChange,
+}: {
+  draft: ApprovalPriceDraft;
+  targets: PrimeTarget[];
+  loading: boolean;
+  onChange: (update: Partial<ApprovalPriceDraft>) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleTargets = targets.filter((target) => {
+    if (!normalizedQuery) return true;
+    return [
+      target.firstName,
+      target.lastName,
+      target.email,
+      target.primaryCity,
+      target.accountManager?.firstName,
+      target.accountManager?.lastName,
+      target.accountManager?.email,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery);
+  });
+  const selectedTarget = targets.find(
+    (target) =>
+      target.propertyManagerId === draft.primeTargetPropertyManagerId,
+  );
+  return (
+    <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+      <div className="flex items-start gap-3">
+        <span className="rounded-lg bg-amber-100 p-2 text-amber-700">
+          <Crown size={19} />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-ink">Visibilita iniziale</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Il Marketplace mantiene il flusso attuale. Prime Zone riserva il lead
+            temporaneamente a un solo PM e non invia comunicazioni pubbliche.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <label
+          className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 text-sm font-bold ${
+            draft.visibilityMode === "public"
+              ? "border-green bg-white text-green"
+              : "border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          <input
+            type="radio"
+            name="lead-visibility-mode"
+            checked={draft.visibilityMode === "public"}
+            onChange={() =>
+              onChange({
+                visibilityMode: "public",
+                primeTargetPropertyManagerId: null,
+              })
+            }
+          />
+          Marketplace pubblico
+        </label>
+        <label
+          className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 text-sm font-bold ${
+            draft.visibilityMode === "prime_private"
+              ? "border-amber-400 bg-white text-amber-800"
+              : "border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          <input
+            type="radio"
+            name="lead-visibility-mode"
+            checked={draft.visibilityMode === "prime_private"}
+            onChange={() => onChange({ visibilityMode: "prime_private" })}
+          />
+          Prime Zone
+        </label>
+      </div>
+
+      {draft.visibilityMode === "prime_private" ? (
+        <div className="mt-4 grid gap-4 border-t border-amber-200 pt-4">
+          <label className="grid gap-2 text-sm font-semibold text-ink">
+            Durata accesso esclusivo
+            <div className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-amber-400">
+              <input
+                className="min-h-10 min-w-0 flex-1 bg-transparent outline-none"
+                inputMode="numeric"
+                min={1}
+                max={720}
+                value={draft.primeAccessDurationHours}
+                onChange={(event) =>
+                  onChange({
+                    primeAccessDurationHours: Math.min(
+                      720,
+                      Math.max(
+                        1,
+                        Number.parseInt(event.target.value, 10) || 1,
+                      ),
+                    ),
+                  })
+                }
+              />
+              <span className="text-sm font-semibold text-muted">ore</span>
+            </div>
+            <span className="text-xs font-medium text-muted">
+              Scadenza: {draft.primeAccessDurationHours} ore dopo la conferma.
+            </span>
+          </label>
+
+          <div>
+            <label className="grid gap-2 text-sm font-semibold text-ink">
+              Property Manager PRIME destinatario
+              <span className="relative block">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                  size={16}
+                />
+                <input
+                  className="filter-select min-h-11 pl-10"
+                  placeholder="Cerca nome, email, citta o Account Manager"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </span>
+            </label>
+
+            {loading ? (
+              <p className="mt-3 text-sm text-muted">Carico i PM PRIME attivi...</p>
+            ) : visibleTargets.length ? (
+              <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2">
+                {visibleTargets.map((target) => {
+                  const active =
+                    draft.primeTargetPropertyManagerId ===
+                    target.propertyManagerId;
+                  return (
+                    <button
+                      key={target.propertyManagerId}
+                      className={`w-full rounded-lg border p-3 text-left transition ${
+                        active
+                          ? "border-amber-400 bg-amber-50"
+                          : "border-transparent hover:bg-slate-50"
+                      }`}
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          primeTargetPropertyManagerId:
+                            target.propertyManagerId,
+                        })
+                      }
+                    >
+                      <span className="block text-sm font-bold text-ink">
+                        {formatPrimeTargetName(target)}
+                      </span>
+                      <span className="mt-1 block text-xs text-muted">
+                        {target.email}
+                        {target.primaryCity ? ` · ${target.primaryCity}` : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-white p-3 text-sm text-amber-800">
+                Nessun Property Manager PRIME attivo corrisponde alla ricerca.
+              </p>
+            )}
+          </div>
+
+          {selectedTarget ? (
+            <div className="rounded-lg border border-amber-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-bold text-ink">
+                  {formatPrimeTargetName(selectedTarget)}
+                </p>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                  PRIME attivo
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs text-muted sm:grid-cols-2">
+                <span>
+                  Scadenza PRIME: {selectedTarget.primeExpiresAt
+                    ? formatDateTime(selectedTarget.primeExpiresAt)
+                    : "Nessuna scadenza"}
+                </span>
+                <span>
+                  Wallet: {formatCents(selectedTarget.walletBalanceCents)}
+                </span>
+                <span className="sm:col-span-2">
+                  Account Manager: {selectedTarget.accountManager
+                    ? formatPrimeManagerName(selectedTarget.accountManager)
+                    : "Non assegnato"}
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function formatPrimeTargetName(target: PrimeTarget) {
+  return [target.firstName, target.lastName].filter(Boolean).join(" ") || target.email;
+}
+
+function formatPrimeManagerName(manager: PrimeTarget["accountManager"]) {
+  if (!manager) return "Non assegnato";
+  return [manager.firstName, manager.lastName].filter(Boolean).join(" ") || manager.email;
 }
 
 function PublishWarningModal({
@@ -1525,6 +1856,15 @@ function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
 }
 
 function StatusBadge({ record }: { record: AdminLeadRecord }) {
+  if (record.lead?.visibilityMode === "prime_private") {
+    return (
+      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+        <Crown size={14} />
+        Prime Zone
+      </span>
+    );
+  }
+
   if (record.requestStatus === "waiting_for_completion") {
     return (
       <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
@@ -1714,6 +2054,7 @@ function mergeApprovalDraft(
       : record.pricingByType.inTarget;
 
     return {
+      ...current,
       ownerVerified: Boolean(update.ownerVerified),
       sublettingAvailable:
         update.sublettingAvailable ?? current.sublettingAvailable,

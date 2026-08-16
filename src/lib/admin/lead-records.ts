@@ -43,6 +43,7 @@ export type AdminLeadRecord = {
   ownerVerified: boolean;
   sublettingAvailable: boolean;
   sublettingFeatureAvailable: boolean;
+  primeDefaultAccessDurationHours: number;
   consents: {
     privacy: boolean;
     dataSharing: boolean;
@@ -98,6 +99,10 @@ export type AdminLeadRecord = {
     visibleUntil: string | null;
     soldAt: string | null;
     soldVisibleUntil: string | null;
+    visibilityMode: "public" | "prime_private";
+    primeTargetPropertyManagerId: string | null;
+    primeAccessStartedAt: string | null;
+    primeAccessUntil: string | null;
   } | null;
   pricing: LeadPricingSuggestion;
   pricingByType: {
@@ -138,7 +143,7 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       supabase
         .from("leads")
         .select(
-          "id,owner_request_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until",
+          "id,owner_request_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,visibility_mode,prime_target_property_manager_id,prime_access_started_at,prime_access_until",
         )
         .in("owner_request_id", ownerRequestIds),
       supabase
@@ -240,6 +245,8 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
       sublettingAvailable: request.subletting_available,
       sublettingFeatureAvailable:
         ownerRequestsResult.sublettingColumnAvailable,
+      primeDefaultAccessDurationHours:
+        settings.primeDefaultAccessDurationHours,
       consents: {
         privacy: Boolean(request.privacy_consent_at),
         dataSharing: Boolean(request.data_sharing_consent_at),
@@ -295,6 +302,11 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
             visibleUntil: lead.visible_until,
             soldAt: lead.sold_at,
             soldVisibleUntil: lead.sold_visible_until,
+            visibilityMode: lead.visibility_mode,
+            primeTargetPropertyManagerId:
+              lead.prime_target_property_manager_id,
+            primeAccessStartedAt: lead.prime_access_started_at,
+            primeAccessUntil: lead.prime_access_until,
           }
         : null,
       pricing,

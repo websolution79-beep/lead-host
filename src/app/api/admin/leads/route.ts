@@ -29,7 +29,7 @@ async function fetchLeadStats(supabase: ServiceClient) {
     supabase
       .from("leads")
       .select(
-        "id,internal_status,published_at,expires_at,visible_until,sold_visible_until",
+        "id,internal_status,published_at,expires_at,visible_until,sold_visible_until,visibility_mode,prime_access_until",
       ),
     supabase
       .from("lead_purchases")
@@ -57,11 +57,30 @@ async function fetchLeadStats(supabase: ServiceClient) {
     ).length,
     newLeads: requests.filter((item) => item.status === "to_verify").length,
     pending: requests.filter((item) => item.status === "pending").length,
+    prime: leads.filter((lead) => isActivePrimeLead(lead, now)).length,
     published: leads.filter((lead) => isVisibleMarketplaceLead(lead, now)).length,
     sold: purchasedLeadIds.size,
     expired: leads.filter((lead) => isExpiredLead(lead, now)).length,
     rejected: requests.filter((item) => item.status === "not_publishable").length,
   };
+}
+
+function isActivePrimeLead(
+  lead: {
+    visibility_mode: string;
+    prime_access_until: string | null;
+    internal_status: string;
+  },
+  now: number,
+) {
+  return (
+    lead.visibility_mode === "prime_private" &&
+    lead.internal_status === "available" &&
+    Boolean(
+      lead.prime_access_until &&
+        new Date(lead.prime_access_until).getTime() > now,
+    )
+  );
 }
 
 function isActionableDuplicate(status: string, duplicateCheck: Json) {

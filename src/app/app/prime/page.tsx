@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { BellRing, Crown, ShieldCheck, WalletCards, Zap } from "lucide-react";
+import { BellRing, Crown, ShieldCheck, UserRoundCheck, WalletCards, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { PrimeLeadCard } from "@/components/prime-lead-card";
 import { PrimeCheckoutButton } from "@/components/prime-checkout-button";
@@ -46,8 +46,10 @@ export default async function PrimeZonePage() {
                 Accedi alle opportunità PRIME prima del Marketplace pubblico.
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-                Ricevi una Prime Zone personale, acquista i lead assegnati esclusivamente
-                al tuo account e continua a usare normalmente tutto il Marketplace Lead Host.
+                Ricevi una Prime Zone personale e un Account Manager dedicato, che potrai
+                contattare direttamente per qualsiasi esigenza o domanda. Acquista i lead
+                assegnati esclusivamente al tuo account e continua a usare normalmente tutto
+                il Marketplace Lead Host.
               </p>
               <div className="mt-7">
                 <PrimeCheckoutButton
@@ -60,17 +62,38 @@ export default async function PrimeZonePage() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 sm:p-6">
-              <p className="text-xs font-extrabold uppercase text-emerald-700">Il primo mese include</p>
+              <p className="text-xs font-extrabold uppercase text-emerald-700">Primo mese</p>
               <p className="mt-2 text-4xl font-semibold text-ink">{formatMoney(firstTotal)}</p>
+              <div className="mt-4 grid gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
+                <PriceRow
+                  label="Costi di startup e attivazione PRIME"
+                  value={formatMoney(settings.primeFirstMonthServiceFeeCents)}
+                />
+                <PriceRow
+                  label="Credito caricato nel Wallet"
+                  value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                />
+              </div>
               <div className="mt-5 grid gap-3 text-sm text-slate-700">
                 <Feature icon={<Zap size={18} />} text="Accesso immediato alla tua Prime Zone" />
                 <Feature icon={<WalletCards size={18} />} text={`${formatMoney(settings.primeMonthlyWalletRechargeCents)} accreditati nel Wallet`} />
                 <Feature icon={<ShieldCheck size={18} />} text="Acquisto esclusivo delle opportunità assegnate" />
+                <Feature icon={<UserRoundCheck size={18} />} text="Account Manager dedicato e contattabile direttamente" />
               </div>
-              <p className="mt-5 border-t border-slate-200 pt-4 text-sm leading-6 text-muted">
-                Rinnovo mensile complessivo: <strong className="text-ink">{formatMoney(renewalTotal)}</strong>,
-                di cui {formatMoney(settings.primeMonthlyWalletRechargeCents)} diventano credito Wallet.
-              </p>
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <p className="text-xs font-extrabold uppercase text-emerald-700">Dal secondo mese</p>
+                <p className="mt-1 text-2xl font-semibold text-ink">{formatMoney(renewalTotal)} al mese</p>
+                <div className="mt-3 grid gap-2 text-sm text-slate-700">
+                  <PriceRow
+                    label="Abbonamento PRIME"
+                    value={formatMoney(settings.primeRecurringServiceFeeCents)}
+                  />
+                  <PriceRow
+                    label="Credito caricato nel Wallet"
+                    value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -135,6 +158,15 @@ function Feature({ icon, text }: { icon: React.ReactNode; text: string }) {
     <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
       <span className="text-emerald-700">{icon}</span>
       <span className="font-semibold text-ink">{text}</span>
+    </div>
+  );
+}
+
+function PriceRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span>{label}</span>
+      <strong className="shrink-0 text-ink">{value}</strong>
     </div>
   );
 }

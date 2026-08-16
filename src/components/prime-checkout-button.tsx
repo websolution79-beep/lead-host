@@ -40,9 +40,16 @@ export function PrimeCheckoutButton({
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ termsAccepted: true }),
     });
-    const payload = (await response.json()) as { checkoutUrl?: string; error?: string };
+    const payload = (await response.json()) as {
+      checkoutUrl?: string;
+      error?: string;
+      missingLabels?: string[];
+    };
     if (!response.ok || !payload.checkoutUrl) {
-      setError(payload.error ?? "Non riesco ad avviare il checkout PRIME.");
+      const missingDetails = payload.missingLabels?.length
+        ? ` Controlla: ${payload.missingLabels.join(", ")}.`
+        : "";
+      setError(`${payload.error ?? "Non riesco ad avviare il checkout PRIME."}${missingDetails}`);
       setLoading(false);
       return;
     }
@@ -70,7 +77,7 @@ export function PrimeCheckoutButton({
             </div>
 
             <div className="mt-5 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-slate-700">
-              <div className="flex justify-between gap-4"><span>Primo mese Membership</span><strong>{firstMonthLabel}</strong></div>
+              <div className="flex justify-between gap-4"><span>Startup e attivazione PRIME</span><strong>{firstMonthLabel}</strong></div>
               <div className="flex justify-between gap-4"><span>Ricarica Wallet inclusa</span><strong>{walletRechargeLabel}</strong></div>
               <div className="border-t border-amber-200 pt-3 text-slate-950">
                 Dal secondo mese: <strong>{renewalLabel}</strong> Membership + <strong>{walletRechargeLabel}</strong> Wallet.

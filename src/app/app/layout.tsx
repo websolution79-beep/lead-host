@@ -12,6 +12,7 @@ import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { privatePageRobots } from "@/lib/seo/robots";
 import { getMarketingAddonState } from "@/lib/addons/access";
 import { getPrimeAccessState } from "@/lib/prime/access";
+import { PrimeLifecycleHeartbeat } from "@/components/prime-lifecycle-heartbeat";
 
 type AppAreaLayoutProps = {
   children: ReactNode;
@@ -86,6 +87,7 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
           : undefined,
       }}
     >
+      <PrimeLifecycleHeartbeat />
       <AppAreaChrome
         section="pm"
         marketingAddon={marketingAddon ?? undefined}

@@ -2,7 +2,8 @@ import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-const WALLET_PRODUCT_SETTING = "prime.stripe_wallet_product_id";
+const STARTUP_PRODUCT_SETTING = "prime.stripe_startup_product_id";
+const BUNDLE_PRODUCT_SETTING = "prime.stripe_bundle_product_id";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -13,10 +14,8 @@ type PrimeProduct = Pick<
 
 export type PrimeStripeCatalog = {
   membershipProductId: string;
-  walletProductId: string;
   membershipPriceId: string;
-  walletPriceId: string;
-  initialAdjustmentPriceId: string | null;
+  startupPriceId: string | null;
 };
 
 export async function ensurePrimeStripeCatalog({
@@ -38,51 +37,34 @@ export async function ensurePrimeStripeCatalog({
     throw new Error("Il prezzo PRIME del primo mese non può essere inferiore al rinnovo.");
   }
 
-  const membershipProductId = product.stripe_product_id || await createMembershipProduct(
-    stripe,
-    product,
-  );
-  if (!product.stripe_product_id) {
-    const { error } = await supabase
-      .from("addon_products")
-      .update({ stripe_product_id: membershipProductId })
-      .eq("id", product.id)
-      .is("stripe_product_id", null);
-    if (error) throw error;
-  }
-
-  const walletProductId = await getOrCreateWalletProduct(stripe, supabase, product.id);
+  const membershipProductId = await getOrCreateBundleProduct(stripe, supabase, product.id);
+  const startupProductId = await getOrCreateStartupProduct(stripe, supabase, product.id);
   const currency = product.currency.toLowerCase();
+  const recurringTotalCents = recurringServiceFeeCents + monthlyWalletRechargeCents;
+  await stripe.products.update(membershipProductId, {
+    name: "Lead Host PRIME",
+    description: `Dal secondo mese: ${formatEuro(monthlyWalletRechargeCents)} di credito Wallet + ${formatEuro(recurringServiceFeeCents)} di servizio PRIME`,
+  });
   const membershipPrice = await getOrCreatePrice({
     stripe,
     productId: membershipProductId,
-    amountCents: recurringServiceFeeCents,
+    amountCents: recurringTotalCents,
     currency,
-    lookupKey: priceLookupKey("prime_membership_monthly", recurringServiceFeeCents, currency),
+    lookupKey: priceLookupKey("prime_bundle_monthly", recurringTotalCents, currency),
     recurring: true,
-    nickname: "Membership PRIME mensile",
-    component: "membership",
-  });
-  const walletPrice = await getOrCreatePrice({
-    stripe,
-    productId: walletProductId,
-    amountCents: monthlyWalletRechargeCents,
-    currency,
-    lookupKey: priceLookupKey("prime_wallet_monthly", monthlyWalletRechargeCents, currency),
-    recurring: true,
-    nickname: "Ricarica Wallet mensile PRIME",
-    component: "wallet_recharge",
+    nickname: "PRIME mensile con ricarica Wallet",
+    component: "prime_bundle",
   });
   const adjustmentCents = firstMonthServiceFeeCents - recurringServiceFeeCents;
   const adjustmentPrice = adjustmentCents > 0
     ? await getOrCreatePrice({
         stripe,
-        productId: membershipProductId,
+        productId: startupProductId,
         amountCents: adjustmentCents,
         currency,
-        lookupKey: priceLookupKey("prime_initial_adjustment", adjustmentCents, currency),
+        lookupKey: priceLookupKey("prime_startup_fee", adjustmentCents, currency),
         recurring: false,
-        nickname: "Quota iniziale PRIME",
+        nickname: "Lead Host PRIME Startup",
         component: "initial_adjustment",
       })
     : null;
@@ -103,29 +85,12 @@ export async function ensurePrimeStripeCatalog({
 
   return {
     membershipProductId,
-    walletProductId,
     membershipPriceId: membershipPrice.id,
-    walletPriceId: walletPrice.id,
-    initialAdjustmentPriceId: adjustmentPrice?.id ?? null,
+    startupPriceId: adjustmentPrice?.id ?? null,
   };
 }
 
-async function createMembershipProduct(stripe: Stripe, product: PrimeProduct) {
-  const created = await stripe.products.create(
-    {
-      name: product.name,
-      description: "Membership mensile Lead Host PRIME",
-      metadata: {
-        leadhost_addon_product_id: product.id,
-        leadhost_product: "prime_membership",
-      },
-    },
-    { idempotencyKey: `prime-membership-product-${product.id}` },
-  );
-  return created.id;
-}
-
-async function getOrCreateWalletProduct(
+async function getOrCreateBundleProduct(
   stripe: Stripe,
   supabase: ServiceClient,
   addonProductId: string,
@@ -133,7 +98,7 @@ async function getOrCreateWalletProduct(
   const { data: stored, error: storedError } = await supabase
     .from("settings")
     .select("value")
-    .eq("key", WALLET_PRODUCT_SETTING)
+    .eq("key", BUNDLE_PRODUCT_SETTING)
     .maybeSingle();
   if (storedError) throw storedError;
 
@@ -142,17 +107,51 @@ async function getOrCreateWalletProduct(
 
   const created = await stripe.products.create(
     {
-      name: "Lead Host PRIME - Ricarica Wallet",
-      description: "Credito Wallet mensile incluso nell’abbonamento PRIME",
+      name: "Lead Host PRIME",
+      description: "Servizio PRIME mensile con credito Wallet incluso",
       metadata: {
         leadhost_addon_product_id: addonProductId,
-        leadhost_product: "prime_wallet_recharge",
+        leadhost_product: "prime_bundle",
       },
     },
-    { idempotencyKey: `prime-wallet-product-${addonProductId}` },
+    { idempotencyKey: `prime-bundle-product-${addonProductId}` },
   );
   const { error } = await supabase.from("settings").upsert(
-    { key: WALLET_PRODUCT_SETTING, value: created.id },
+    { key: BUNDLE_PRODUCT_SETTING, value: created.id },
+    { onConflict: "key" },
+  );
+  if (error) throw error;
+  return created.id;
+}
+
+async function getOrCreateStartupProduct(
+  stripe: Stripe,
+  supabase: ServiceClient,
+  addonProductId: string,
+) {
+  const { data: stored, error: storedError } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", STARTUP_PRODUCT_SETTING)
+    .maybeSingle();
+  if (storedError) throw storedError;
+
+  const storedId = typeof stored?.value === "string" ? stored.value : null;
+  if (storedId) return storedId;
+
+  const created = await stripe.products.create(
+    {
+      name: "Lead Host PRIME Startup",
+      description: "Costo una tantum per attivazione servizio PRIME",
+      metadata: {
+        leadhost_addon_product_id: addonProductId,
+        leadhost_product: "prime_startup",
+      },
+    },
+    { idempotencyKey: `prime-startup-product-${addonProductId}` },
+  );
+  const { error } = await supabase.from("settings").upsert(
+    { key: STARTUP_PRODUCT_SETTING, value: created.id },
     { onConflict: "key" },
   );
   if (error) throw error;
@@ -201,4 +200,11 @@ async function getOrCreatePrice({
 
 function priceLookupKey(prefix: string, amountCents: number, currency: string) {
   return `leadhost_${prefix}_${amountCents}_${currency}`;
+}
+
+function formatEuro(cents: number) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
 }

@@ -6,12 +6,12 @@ import { CreditCard, Crown, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 export function PrimeCheckoutButton({
-  firstMonthLabel,
+  startupLabel,
   renewalLabel,
   walletRechargeLabel,
   termsUrl,
 }: {
-  firstMonthLabel: string;
+  startupLabel: string;
   renewalLabel: string;
   walletRechargeLabel: string;
   termsUrl: string;
@@ -77,7 +77,8 @@ export function PrimeCheckoutButton({
             </div>
 
             <div className="mt-5 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-slate-700">
-              <div className="flex justify-between gap-4"><span>Startup e attivazione PRIME</span><strong>{firstMonthLabel}</strong></div>
+              <div className="flex justify-between gap-4"><span>Lead Host PRIME Startup</span><strong>{startupLabel}</strong></div>
+              <div className="flex justify-between gap-4"><span>Servizio PRIME mensile</span><strong>{renewalLabel}</strong></div>
               <div className="flex justify-between gap-4"><span>Ricarica Wallet inclusa</span><strong>{walletRechargeLabel}</strong></div>
               <div className="border-t border-amber-200 pt-3 text-slate-950">
                 Dal secondo mese: <strong>{renewalLabel}</strong> Membership + <strong>{walletRechargeLabel}</strong> Wallet.

@@ -15,6 +15,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 const checkoutSchema = z.object({ termsAccepted: z.literal(true) });
+const PRIME_CHECKOUT_CATALOG_VERSION = 2;
 const blockingStatuses = [
   "incomplete",
   "trialing",
@@ -109,7 +110,11 @@ export async function POST(request: NextRequest) {
     if (currentError) throw currentError;
 
     if (current?.status === "incomplete" && current.source === "stripe") {
-      const existingUrl = await resolveOpenCheckoutUrl(stripe, current.metadata);
+      const existingUrl = await resolveOpenCheckoutUrl(
+        stripe,
+        current.metadata,
+        PRIME_CHECKOUT_CATALOG_VERSION,
+      );
       if (existingUrl) {
         return NextResponse.json({ ok: true, checkoutUrl: existingUrl, reused: true });
       }
@@ -190,11 +195,13 @@ export async function POST(request: NextRequest) {
       };
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
         { price: catalog.membershipPriceId, quantity: 1 },
-        { price: catalog.walletPriceId, quantity: 1 },
       ];
-      if (catalog.initialAdjustmentPriceId) {
-        lineItems.push({ price: catalog.initialAdjustmentPriceId, quantity: 1 });
+      if (catalog.startupPriceId) {
+        lineItems.unshift({ price: catalog.startupPriceId, quantity: 1 });
       }
+
+      const renewalTotalCents =
+        settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
 
       const session = await stripe.checkout.sessions.create(
         {
@@ -207,6 +214,11 @@ export async function POST(request: NextRequest) {
           metadata,
           subscription_data: { metadata },
           line_items: lineItems,
+          custom_text: {
+            submit: {
+              message: `Dal secondo mese ${formatMoney(renewalTotalCents)} al mese (${formatMoney(settings.primeMonthlyWalletRechargeCents)} di credito Wallet + ${formatMoney(settings.primeRecurringServiceFeeCents)} di servizio PRIME).`,
+            },
+          },
         },
         { idempotencyKey: `prime-checkout-${pending.id}` },
       );
@@ -222,8 +234,8 @@ export async function POST(request: NextRequest) {
         recurring_service_fee_cents: settings.primeRecurringServiceFeeCents,
         wallet_recharge_cents: settings.primeMonthlyWalletRechargeCents,
         membership_price_id: catalog.membershipPriceId,
-        wallet_price_id: catalog.walletPriceId,
-        initial_adjustment_price_id: catalog.initialAdjustmentPriceId,
+        startup_price_id: catalog.startupPriceId,
+        checkout_catalog_version: PRIME_CHECKOUT_CATALOG_VERSION,
       };
       const [subscriptionUpdate, accountUpdate] = await Promise.all([
         supabase
@@ -272,7 +284,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function resolveOpenCheckoutUrl(stripe: Stripe, metadata: Json) {
+async function resolveOpenCheckoutUrl(
+  stripe: Stripe,
+  metadata: Json,
+  expectedCatalogVersion: number,
+) {
   if (!metadata || Array.isArray(metadata) || typeof metadata !== "object") return null;
   const sessionId = typeof metadata.stripe_checkout_session_id === "string"
     ? metadata.stripe_checkout_session_id
@@ -280,10 +296,22 @@ async function resolveOpenCheckoutUrl(stripe: Stripe, metadata: Json) {
   if (!sessionId) return null;
   try {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const catalogVersion = Number(metadata.checkout_catalog_version ?? 0);
+    if (catalogVersion !== expectedCatalogVersion) {
+      if (session.status === "open") await stripe.checkout.sessions.expire(session.id);
+      return null;
+    }
     return session.status === "open" ? session.url : null;
   } catch {
     return null;
   }
+}
+
+function formatMoney(cents: number) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+  }).format(cents / 100);
 }
 
 async function createStripeCustomer(

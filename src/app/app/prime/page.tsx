@@ -33,6 +33,7 @@ export default async function PrimeZonePage() {
     ]);
     const firstTotal = settings.primeFirstMonthServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
     const renewalTotal = settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
+    const startupFee = settings.primeFirstMonthServiceFeeCents - settings.primeRecurringServiceFeeCents;
 
     return (
       <AppShell section="pm" eyebrow="Lead Host PRIME" title="La tua opportunità riservata">
@@ -53,7 +54,7 @@ export default async function PrimeZonePage() {
               </p>
               <div className="mt-7">
                 <PrimeCheckoutButton
-                  firstMonthLabel={formatMoney(settings.primeFirstMonthServiceFeeCents)}
+                  startupLabel={formatMoney(startupFee)}
                   renewalLabel={formatMoney(settings.primeRecurringServiceFeeCents)}
                   walletRechargeLabel={formatMoney(settings.primeMonthlyWalletRechargeCents)}
                   termsUrl={productResult.data?.terms_url ?? "/termini"}
@@ -67,7 +68,11 @@ export default async function PrimeZonePage() {
               <div className="mt-4 grid gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
                 <PriceRow
                   label="Costi di startup e attivazione PRIME"
-                  value={formatMoney(settings.primeFirstMonthServiceFeeCents)}
+                  value={formatMoney(startupFee)}
+                />
+                <PriceRow
+                  label="Servizio PRIME del primo mese"
+                  value={formatMoney(settings.primeRecurringServiceFeeCents)}
                 />
                 <PriceRow
                   label="Credito caricato nel Wallet"

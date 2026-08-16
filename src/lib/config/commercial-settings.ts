@@ -29,6 +29,9 @@ export type CommercialSettings = {
   unavailableVisibilityDays: number;
   soldVisibilityDays: number;
   primeDefaultAccessDurationHours: number;
+  primeFirstMonthServiceFeeCents: number;
+  primeRecurringServiceFeeCents: number;
+  primeMonthlyWalletRechargeCents: number;
   priceRules: LeadPriceRule[];
 };
 
@@ -56,6 +59,9 @@ const SETTINGS_KEYS = {
   unavailableVisibilityDays: "lead.unavailable_visibility_days",
   soldVisibilityDays: "lead.sold_visibility_days",
   primeDefaultAccessDurationHours: "prime.default_access_duration_hours",
+  primeFirstMonthServiceFeeCents: "prime.first_month_service_fee_cents",
+  primeRecurringServiceFeeCents: "prime.recurring_service_fee_cents",
+  primeMonthlyWalletRechargeCents: "prime.monthly_wallet_recharge_cents",
   priceRules: "lead.price_rules",
 } as const;
 
@@ -73,6 +79,9 @@ export const defaultCommercialSettings: CommercialSettings = {
   unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
   soldVisibilityDays: commercialRules.soldVisibilityDays,
   primeDefaultAccessDurationHours: 12,
+  primeFirstMonthServiceFeeCents: 9900,
+  primeRecurringServiceFeeCents: 4900,
+  primeMonthlyWalletRechargeCents: 25000,
   priceRules: [],
 };
 
@@ -172,6 +181,18 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
       values.get(SETTINGS_KEYS.primeDefaultAccessDurationHours),
       defaultCommercialSettings.primeDefaultAccessDurationHours,
     ),
+    primeFirstMonthServiceFeeCents: parseCents(
+      values.get(SETTINGS_KEYS.primeFirstMonthServiceFeeCents),
+      defaultCommercialSettings.primeFirstMonthServiceFeeCents,
+    ),
+    primeRecurringServiceFeeCents: parseCents(
+      values.get(SETTINGS_KEYS.primeRecurringServiceFeeCents),
+      defaultCommercialSettings.primeRecurringServiceFeeCents,
+    ),
+    primeMonthlyWalletRechargeCents: parseCents(
+      values.get(SETTINGS_KEYS.primeMonthlyWalletRechargeCents),
+      defaultCommercialSettings.primeMonthlyWalletRechargeCents,
+    ),
     priceRules: parsePriceRules(values.get(SETTINGS_KEYS.priceRules)),
   };
 
@@ -269,27 +290,50 @@ export async function saveCommercialSettings({
   if (error) throw error;
 }
 
-export async function savePrimeDefaultAccessDuration({
+export async function savePrimeSettings({
   supabase,
   profileId,
   durationHours,
+  firstMonthServiceFeeCents,
+  recurringServiceFeeCents,
+  monthlyWalletRechargeCents,
 }: {
   supabase: ServiceClient;
   profileId: string;
   durationHours: number;
+  firstMonthServiceFeeCents: number;
+  recurringServiceFeeCents: number;
+  monthlyWalletRechargeCents: number;
 }) {
   const settingsTable = supabase.from("settings") as unknown as {
     upsert: (
-      row: { key: string; value: Json; updated_by: string },
+      rows: Array<{ key: string; value: Json; updated_by: string }>,
       options: { onConflict: string },
     ) => Promise<{ error: { code?: string; message?: string } | null }>;
   };
   const { error } = await settingsTable.upsert(
-    {
-      key: SETTINGS_KEYS.primeDefaultAccessDurationHours,
-      value: durationHours,
-      updated_by: profileId,
-    },
+    [
+      {
+        key: SETTINGS_KEYS.primeDefaultAccessDurationHours,
+        value: durationHours,
+        updated_by: profileId,
+      },
+      {
+        key: SETTINGS_KEYS.primeFirstMonthServiceFeeCents,
+        value: firstMonthServiceFeeCents,
+        updated_by: profileId,
+      },
+      {
+        key: SETTINGS_KEYS.primeRecurringServiceFeeCents,
+        value: recurringServiceFeeCents,
+        updated_by: profileId,
+      },
+      {
+        key: SETTINGS_KEYS.primeMonthlyWalletRechargeCents,
+        value: monthlyWalletRechargeCents,
+        updated_by: profileId,
+      },
+    ],
     { onConflict: "key" },
   );
 

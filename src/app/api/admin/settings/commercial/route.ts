@@ -63,6 +63,12 @@ export async function PATCH(request: NextRequest) {
       ...payload,
       primeDefaultAccessDurationHours:
         previousSettings.primeDefaultAccessDurationHours,
+      primeFirstMonthServiceFeeCents:
+        previousSettings.primeFirstMonthServiceFeeCents,
+      primeRecurringServiceFeeCents:
+        previousSettings.primeRecurringServiceFeeCents,
+      primeMonthlyWalletRechargeCents:
+        previousSettings.primeMonthlyWalletRechargeCents,
       priceRules: payload.priceRules.map((rule) => ({
         ...rule,
         id: rule.id ?? crypto.randomUUID(),

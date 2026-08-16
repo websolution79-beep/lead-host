@@ -50,6 +50,9 @@ const emptySettings: CommercialSettings = {
   unavailableVisibilityDays: 7,
   soldVisibilityDays: 7,
   primeDefaultAccessDurationHours: 12,
+  primeFirstMonthServiceFeeCents: 9900,
+  primeRecurringServiceFeeCents: 4900,
+  primeMonthlyWalletRechargeCents: 25000,
   priceRules: [],
 };
 

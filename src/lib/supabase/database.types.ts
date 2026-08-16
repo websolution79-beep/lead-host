@@ -735,6 +735,36 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["prime_internal_notes"]["Insert"]>;
         Relationships: [];
       };
+      prime_lead_events: {
+        Row: {
+          id: string;
+          lead_id: string;
+          target_property_manager_id: string | null;
+          actor_profile_id: string | null;
+          actor_team_member_id: string | null;
+          event_type: string;
+          from_visibility_mode: "public" | "prime_private" | null;
+          to_visibility_mode: "public" | "prime_private" | null;
+          access_until: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          target_property_manager_id?: string | null;
+          actor_profile_id?: string | null;
+          actor_team_member_id?: string | null;
+          event_type: string;
+          from_visibility_mode?: "public" | "prime_private" | null;
+          to_visibility_mode?: "public" | "prime_private" | null;
+          access_until?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["prime_lead_events"]["Insert"]>;
+        Relationships: [];
+      };
       addon_products: {
         Row: {
           id: string;
@@ -2449,6 +2479,17 @@ export type Database = {
           sold_visible_until: string | null;
           exclusive_purchase_id: string | null;
           detail_view_count: number;
+          visibility_mode: "public" | "prime_private";
+          prime_target_property_manager_id: string | null;
+          prime_access_started_at: string | null;
+          prime_access_until: string | null;
+          prime_access_expired_at: string | null;
+          prime_released_to_public_at: string | null;
+          prime_assigned_by_profile_id: string | null;
+          prime_assigned_by_team_member_id: string | null;
+          prime_assigned_by_role: "super_admin" | "account_manager" | null;
+          prime_notification_sent_at: string | null;
+          public_notification_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -2476,6 +2517,17 @@ export type Database = {
           sold_visible_until?: string | null;
           exclusive_purchase_id?: string | null;
           detail_view_count?: number;
+          visibility_mode?: "public" | "prime_private";
+          prime_target_property_manager_id?: string | null;
+          prime_access_started_at?: string | null;
+          prime_access_until?: string | null;
+          prime_access_expired_at?: string | null;
+          prime_released_to_public_at?: string | null;
+          prime_assigned_by_profile_id?: string | null;
+          prime_assigned_by_team_member_id?: string | null;
+          prime_assigned_by_role?: "super_admin" | "account_manager" | null;
+          prime_notification_sent_at?: string | null;
+          public_notification_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -2503,6 +2555,17 @@ export type Database = {
           sold_visible_until?: string | null;
           exclusive_purchase_id?: string | null;
           detail_view_count?: number;
+          visibility_mode?: "public" | "prime_private";
+          prime_target_property_manager_id?: string | null;
+          prime_access_started_at?: string | null;
+          prime_access_until?: string | null;
+          prime_access_expired_at?: string | null;
+          prime_released_to_public_at?: string | null;
+          prime_assigned_by_profile_id?: string | null;
+          prime_assigned_by_team_member_id?: string | null;
+          prime_assigned_by_role?: "super_admin" | "account_manager" | null;
+          prime_notification_sent_at?: string | null;
+          public_notification_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -2615,6 +2678,21 @@ export type Database = {
           p_actor_profile_id: string;
         };
         Returns: string;
+      };
+      profile_can_access_prime_lead: {
+        Args: {
+          p_profile_id: string;
+          p_lead_id: string;
+          p_at?: string;
+        };
+        Returns: boolean;
+      };
+      profile_can_assign_prime_lead: {
+        Args: {
+          p_actor_profile_id: string;
+          p_target_property_manager_id: string;
+        };
+        Returns: boolean;
       };
       consume_public_form_rate_limit: {
         Args: {

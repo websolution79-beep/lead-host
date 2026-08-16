@@ -12,7 +12,27 @@ import {
 
 type ServiceClient = SupabaseClient<Database>;
 
-type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
+type LeadRow = Pick<
+  Database["public"]["Tables"]["leads"]["Row"],
+  | "id"
+  | "owner_request_id"
+  | "property_id"
+  | "title"
+  | "internal_status"
+  | "public_status"
+  | "shared_slots_sold"
+  | "shared_price_cents"
+  | "exclusive_price_cents"
+  | "exclusive_purchase_id"
+  | "published_at"
+  | "expires_at"
+  | "visible_until"
+  | "sold_at"
+  | "sold_visible_until"
+  | "detail_view_count"
+  | "created_at"
+  | "updated_at"
+>;
 type PropertyRow = Database["public"]["Tables"]["properties"]["Row"];
 type OwnerPublicContactRow = Pick<
   Database["public"]["Tables"]["owner_contacts"]["Row"],

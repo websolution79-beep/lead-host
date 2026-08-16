@@ -22,6 +22,7 @@ import {
   Map,
   Megaphone,
   PackageOpen,
+  Crown,
   ReceiptText,
   Send,
   Settings,
@@ -136,6 +137,13 @@ const adminLinks: AppNavLink[] = [
     icon: Users,
     category: "Operatività",
     permission: "property_managers",
+  },
+  {
+    label: "Lead Host PRIME",
+    href: "/admin/prime",
+    icon: Crown,
+    category: "Operatività",
+    permission: "prime",
   },
   {
     label: "Assistenza",

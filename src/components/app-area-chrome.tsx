@@ -73,6 +73,12 @@ const adminLinks: Array<{
     permission: "property_managers",
   },
   {
+    label: "Lead Host PRIME",
+    href: "/admin/prime",
+    group: "Operatività",
+    permission: "prime",
+  },
+  {
     label: "Assistenza",
     href: "/admin/segnalazioni",
     group: "Operatività",

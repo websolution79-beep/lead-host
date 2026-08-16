@@ -28,6 +28,7 @@ export type AdminContext = {
   profile: Database["public"]["Tables"]["profiles"]["Row"];
   isSuperAdmin: boolean;
   permissions: AdminPermissionMap;
+  teamMemberId: string | null;
 };
 
 async function requireAdminContext(request: NextRequest): Promise<AdminContext> {
@@ -56,6 +57,7 @@ async function requireAdminContext(request: NextRequest): Promise<AdminContext> 
       profile: context.profile,
       isSuperAdmin: true,
       permissions: {},
+      teamMemberId: null,
     };
   }
 
@@ -81,6 +83,7 @@ async function requireAdminContext(request: NextRequest): Promise<AdminContext> 
     profile: context.profile,
     isSuperAdmin: false,
     permissions: teamAccess.permissions,
+    teamMemberId: teamAccess.memberId,
   };
 }
 

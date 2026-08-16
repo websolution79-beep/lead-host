@@ -585,6 +585,130 @@ export type Database = {
         };
         Relationships: [];
       };
+      prime_eligibilities: {
+        Row: {
+          id: string;
+          profile_id: string;
+          is_enabled: boolean;
+          enabled_at: string | null;
+          enabled_by: string | null;
+          disabled_at: string | null;
+          disabled_by: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          is_enabled?: boolean;
+          enabled_at?: string | null;
+          enabled_by?: string | null;
+          disabled_at?: string | null;
+          disabled_by?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["prime_eligibilities"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      prime_accounts: {
+        Row: {
+          id: string;
+          profile_id: string;
+          addon_product_id: string;
+          addon_subscription_id: string | null;
+          account_manager_member_id: string | null;
+          status: "inactive" | "active" | "past_due" | "suspended" | "cancelled";
+          access_source: "none" | "stripe" | "manual";
+          prime_started_at: string | null;
+          prime_expires_at: string | null;
+          last_activated_at: string | null;
+          last_renewed_at: string | null;
+          grace_ends_at: string | null;
+          payment_status:
+            | "not_applicable"
+            | "pending"
+            | "trialing"
+            | "paid"
+            | "past_due"
+            | "unpaid"
+            | "cancelled";
+          admin_override_active: boolean;
+          admin_override_started_at: string | null;
+          admin_override_expires_at: string | null;
+          admin_override_reason: string | null;
+          admin_override_granted_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          addon_product_id: string;
+          addon_subscription_id?: string | null;
+          account_manager_member_id?: string | null;
+          status?: "inactive" | "active" | "past_due" | "suspended" | "cancelled";
+          access_source?: "none" | "stripe" | "manual";
+          prime_started_at?: string | null;
+          prime_expires_at?: string | null;
+          last_activated_at?: string | null;
+          last_renewed_at?: string | null;
+          grace_ends_at?: string | null;
+          payment_status?:
+            | "not_applicable"
+            | "pending"
+            | "trialing"
+            | "paid"
+            | "past_due"
+            | "unpaid"
+            | "cancelled";
+          admin_override_active?: boolean;
+          admin_override_started_at?: string | null;
+          admin_override_expires_at?: string | null;
+          admin_override_reason?: string | null;
+          admin_override_granted_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["prime_accounts"]["Insert"]>;
+        Relationships: [];
+      };
+      prime_account_events: {
+        Row: {
+          id: string;
+          prime_account_id: string;
+          profile_id: string;
+          addon_subscription_id: string | null;
+          actor_profile_id: string | null;
+          event_type: string;
+          from_status: string | null;
+          to_status: string | null;
+          reason: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          prime_account_id: string;
+          profile_id: string;
+          addon_subscription_id?: string | null;
+          actor_profile_id?: string | null;
+          event_type: string;
+          from_status?: string | null;
+          to_status?: string | null;
+          reason?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["prime_account_events"]["Insert"]
+        >;
+        Relationships: [];
+      };
       addon_products: {
         Row: {
           id: string;
@@ -2427,6 +2551,37 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      admin_assign_prime_manager: {
+        Args: {
+          p_profile_id: string;
+          p_member_id: string | null;
+          p_actor_profile_id: string;
+        };
+        Returns: string;
+      };
+      admin_manage_prime_access: {
+        Args: {
+          p_profile_id: string;
+          p_action: string;
+          p_actor_profile_id: string;
+          p_expires_at?: string | null;
+          p_reason?: string | null;
+        };
+        Returns: string;
+      };
+      admin_set_prime_eligibility: {
+        Args: {
+          p_profile_id: string;
+          p_enabled: boolean;
+          p_actor_profile_id: string;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      ensure_prime_account: {
+        Args: { p_profile_id: string };
+        Returns: string;
+      };
       consume_public_form_rate_limit: {
         Args: {
           p_fingerprint_hash: string;

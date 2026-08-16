@@ -99,6 +99,16 @@ export type BusinessAnalyticsPayload = {
     supportStatuses: AnalyticsCountRow[];
     invoiceStatuses: AnalyticsCountRow[];
   };
+  prime: {
+    current: PrimeAnalyticsMetrics;
+    previous: PrimeAnalyticsMetrics;
+    snapshot: {
+      active: number;
+      pastDue: number;
+      cancelAtPeriodEnd: number;
+      cancelled: number;
+    };
+  };
   recentActivity: Array<{
     type: string;
     label: string;
@@ -108,6 +118,15 @@ export type BusinessAnalyticsPayload = {
     createdAt: string;
   }>;
   error?: string;
+};
+
+export type PrimeAnalyticsMetrics = {
+  activations: number;
+  renewals: number;
+  uniquePropertyManagers: number;
+  membershipCents: number;
+  walletRechargeCents: number;
+  totalPaidCents: number;
 };
 
 export const DASHBOARD_RANGE_OPTIONS: Array<{

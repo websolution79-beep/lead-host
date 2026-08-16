@@ -17,7 +17,7 @@ type PaymentRow = {
 type WalletTransactionRow = {
   id: string;
   profile_id: string;
-  type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+  type: "top_up" | "lead_purchase" | "refund" | "adjustment" | "prime_wallet_recharge";
   status: "pending" | "completed" | "failed" | "cancelled";
   amount_cents: number;
   balance_after_cents: number | null;
@@ -37,6 +37,23 @@ type LeadPurchaseRow = {
   amount_cents: number;
   status: string;
   created_at: string;
+};
+
+type PrimeBillingRow = {
+  id: string;
+  profile_id: string;
+  period_kind: "initial" | "renewal" | "adjustment";
+  status: "pending" | "paid" | "failed" | "void" | "uncollectible";
+  provider_invoice_id: string;
+  membership_amount_cents: number;
+  wallet_recharge_amount_cents: number;
+  total_amount_cents: number;
+  currency: string;
+  billing_period_started_at: string | null;
+  billing_period_ends_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  metadata: unknown;
 };
 
 type AddonPaymentRow = {
@@ -101,7 +118,7 @@ type PaymentsTable = {
   };
 };
 
-type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments";
+type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments" | "prime_payments";
 
 export async function GET(request: NextRequest) {
   try {
@@ -111,7 +128,8 @@ export async function GET(request: NextRequest) {
     const activeTab: ActiveTab =
       requestedTab === "wallet" ||
       requestedTab === "lead_purchases" ||
-      requestedTab === "addon_payments"
+      requestedTab === "addon_payments" ||
+      requestedTab === "prime_payments"
         ? requestedTab
         : "payments";
     const paymentsTable = supabase.from("payments" as never) as unknown as PaymentsTable;
@@ -121,6 +139,7 @@ export async function GET(request: NextRequest) {
       walletStatsResult,
       purchaseStatsResult,
       addonStatsResult,
+      primeStatsResult,
       activeResult,
     ] = await Promise.all([
       paymentsTable.select("status").limit(1000),
@@ -136,6 +155,10 @@ export async function GET(request: NextRequest) {
         .from("addon_payments")
         .select("status,amount_cents")
         .limit(1000),
+      supabase
+        .from("prime_billing_periods")
+        .select("status,total_amount_cents,membership_amount_cents,wallet_recharge_amount_cents")
+        .limit(1000),
       fetchActiveRows(
         supabase,
         paymentsTable,
@@ -149,6 +172,7 @@ export async function GET(request: NextRequest) {
     if (walletStatsResult.error) throw walletStatsResult.error;
     if (purchaseStatsResult.error) throw purchaseStatsResult.error;
     if (addonStatsResult.error) throw addonStatsResult.error;
+    if (primeStatsResult.error) throw primeStatsResult.error;
     if (activeResult.error) throw activeResult.error;
 
     const walletStats = walletStatsResult.data ?? [];
@@ -177,6 +201,10 @@ export async function GET(request: NextRequest) {
       activeTab === "addon_payments"
         ? (activeResult.data as AddonSubscriptionRow[])
         : [];
+    const primeBillingPeriods =
+      activeTab === "prime_payments"
+        ? (activeResult.data as PrimeBillingRow[])
+        : [];
 
     const paymentTransactionByReference =
       activeTab === "payments"
@@ -187,6 +215,7 @@ export async function GET(request: NextRequest) {
         [
           ...walletTransactions.map((item) => item.profile_id),
           ...addonSubscriptions.map((item) => item.profile_id),
+          ...primeBillingPeriods.map((item) => item.profile_id),
           ...Array.from(paymentTransactionByReference.values()).map(
             (item) => item.profile_id,
           ),
@@ -310,6 +339,14 @@ export async function GET(request: NextRequest) {
               .map((item) => item.amount_cents),
           ),
           addonFailedPayments: addonStats.filter((item) =>
+            ["failed", "uncollectible"].includes(item.status),
+          ).length,
+          primeSalesCents: sumCents(
+            (primeStatsResult.data ?? [])
+              .filter((item) => item.status === "paid")
+              .map((item) => item.total_amount_cents),
+          ),
+          primeFailedPayments: (primeStatsResult.data ?? []).filter((item) =>
             ["failed", "uncollectible"].includes(item.status),
           ).length,
         },
@@ -439,6 +476,29 @@ export async function GET(request: NextRequest) {
             updatedAt: subscription.updated_at,
           };
         }),
+        primePayments: primeBillingPeriods.map((period) => {
+          const profile = profilesById.get(period.profile_id);
+          const metadata = isObjectRecord(period.metadata) ? period.metadata : {};
+          return {
+            id: period.id,
+            profileId: period.profile_id,
+            propertyManagerName: formatProfileName(profile, "Property Manager"),
+            propertyManagerEmail: profile?.email ?? null,
+            periodKind: period.period_kind,
+            status: period.status,
+            providerInvoiceId: period.provider_invoice_id,
+            membershipAmountCents: period.membership_amount_cents,
+            walletRechargeAmountCents: period.wallet_recharge_amount_cents,
+            totalAmountCents: period.total_amount_cents,
+            currency: period.currency,
+            billingPeriodStartedAt: period.billing_period_started_at,
+            billingPeriodEndsAt: period.billing_period_ends_at,
+            paidAt: period.paid_at,
+            createdAt: period.created_at,
+            hostedInvoiceUrl: typeof metadata.hosted_invoice_url === "string" ? metadata.hosted_invoice_url : null,
+            invoicePdfUrl: typeof metadata.invoice_pdf === "string" ? metadata.invoice_pdf : null,
+          };
+        }),
       },
       {
         headers: {
@@ -490,6 +550,17 @@ async function fetchActiveRows(
       .range(from, to);
   }
 
+  if (activeTab === "prime_payments") {
+    return supabase
+      .from("prime_billing_periods")
+      .select(
+        "id,profile_id,period_kind,status,provider_invoice_id,membership_amount_cents,wallet_recharge_amount_cents,total_amount_cents,currency,billing_period_started_at,billing_period_ends_at,paid_at,created_at,metadata",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false })
+      .range(from, to);
+  }
+
   return supabase
     .from("lead_purchases")
     .select(
@@ -498,6 +569,10 @@ async function fetchActiveRows(
     )
     .order("created_at", { ascending: false })
     .range(from, to);
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 async function fetchPaymentTransactions(

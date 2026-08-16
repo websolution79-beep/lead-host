@@ -19,6 +19,7 @@ import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { useAppSession } from "@/components/app-session-provider";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { MarketingSubscriptionManager } from "@/components/marketing-subscription-manager";
+import { PrimeSubscriptionActions } from "@/components/prime-subscription-actions";
 
 type Profile = {
   id: string;
@@ -955,6 +956,8 @@ export function ProfileCenter() {
         </section>
 
         <MarketingSubscriptionManager />
+
+        <PrimeSubscriptionActions variant="card" />
 
         <section className="card p-5">
           <div className="flex items-center gap-3">

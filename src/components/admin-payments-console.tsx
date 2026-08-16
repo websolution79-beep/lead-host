@@ -39,7 +39,7 @@ type WalletTransactionRecord = {
   id: string;
   profileEmail: string | null;
   profileName: string;
-  type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+  type: "top_up" | "lead_purchase" | "refund" | "adjustment" | "prime_wallet_recharge";
   status: string;
   amountCents: number;
   balanceAfterCents: number | null;
@@ -59,6 +59,26 @@ type LeadPurchaseRecord = {
   amountCents: number;
   status: string;
   createdAt: string;
+};
+
+type PrimePaymentRecord = {
+  id: string;
+  profileId: string;
+  propertyManagerName: string;
+  propertyManagerEmail: string | null;
+  periodKind: "initial" | "renewal" | "adjustment";
+  status: string;
+  providerInvoiceId: string;
+  membershipAmountCents: number;
+  walletRechargeAmountCents: number;
+  totalAmountCents: number;
+  currency: string;
+  billingPeriodStartedAt: string | null;
+  billingPeriodEndsAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  hostedInvoiceUrl: string | null;
+  invoicePdfUrl: string | null;
 };
 
 type AddonCustomerRecord = {
@@ -160,16 +180,19 @@ type PaymentsResponse = {
     pendingTopUps: number;
     addonSalesCents: number;
     addonFailedPayments: number;
+    primeSalesCents: number;
+    primeFailedPayments: number;
   };
   payments: PaymentRecord[];
   walletTransactions: WalletTransactionRecord[];
   leadPurchases: LeadPurchaseRecord[];
   addonCustomers: AddonCustomerRecord[];
+  primePayments: PrimePaymentRecord[];
   pagination: PaginationState;
   error?: string;
 };
 
-type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments";
+type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments" | "prime_payments";
 
 const emptyStats: PaymentsResponse["stats"] = {
   topUpsCents: 0,
@@ -179,6 +202,8 @@ const emptyStats: PaymentsResponse["stats"] = {
   pendingTopUps: 0,
   addonSalesCents: 0,
   addonFailedPayments: 0,
+  primeSalesCents: 0,
+  primeFailedPayments: 0,
 };
 
 const emptyPagination: PaginationState = {
@@ -195,6 +220,7 @@ export function AdminPaymentsConsole() {
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionRecord[]>([]);
   const [leadPurchases, setLeadPurchases] = useState<LeadPurchaseRecord[]>([]);
   const [addonCustomers, setAddonCustomers] = useState<AddonCustomerRecord[]>([]);
+  const [primePayments, setPrimePayments] = useState<PrimePaymentRecord[]>([]);
   const [selectedAddonCustomer, setSelectedAddonCustomer] =
     useState<AddonCustomerDetail | null>(null);
   const [addonDetailLoading, setAddonDetailLoading] = useState(false);
@@ -208,6 +234,7 @@ export function AdminPaymentsConsole() {
     wallet: 1,
     lead_purchases: 1,
     addon_payments: 1,
+    prime_payments: 1,
   });
   const [paginationByTab, setPaginationByTab] = useState<
     Record<ActiveTab, PaginationState>
@@ -216,6 +243,7 @@ export function AdminPaymentsConsole() {
     wallet: emptyPagination,
     lead_purchases: emptyPagination,
     addon_payments: emptyPagination,
+    prime_payments: emptyPagination,
   });
   const loadedPageByTab = useRef(new Map<ActiveTab, number>());
 
@@ -267,8 +295,10 @@ export function AdminPaymentsConsole() {
       setWalletTransactions(payload.walletTransactions ?? []);
     } else if (tab === "lead_purchases") {
       setLeadPurchases(payload.leadPurchases ?? []);
-    } else {
+    } else if (tab === "addon_payments") {
       setAddonCustomers(payload.addonCustomers ?? []);
+    } else {
+      setPrimePayments(payload.primePayments ?? []);
     }
     setPaginationByTab((current) => ({
       ...current,
@@ -328,6 +358,15 @@ export function AdminPaymentsConsole() {
       customer.stripeSubscriptionId,
     ]),
   );
+  const filteredPrimePayments = primePayments.filter((payment) =>
+    matchesQuery(query, [
+      payment.propertyManagerName,
+      payment.propertyManagerEmail,
+      payment.providerInvoiceId,
+      payment.periodKind,
+      payment.status,
+    ]),
+  );
 
   const openAddonCustomer = useCallback(async (subscriptionId: string) => {
     const token = await getAccessToken();
@@ -376,6 +415,8 @@ export function AdminPaymentsConsole() {
         <StatCard label="Ricariche pending" value={String(stats.pendingTopUps)} tone="slate" />
         <StatCard label="Modulo Marketing" value={formatCents(stats.addonSalesCents)} tone="blue" />
         <StatCard label="Insoluti Marketing" value={String(stats.addonFailedPayments)} tone="red" />
+        <StatCard label="Lead Host PRIME" value={formatCents(stats.primeSalesCents)} tone="green" />
+        <StatCard label="Insoluti PRIME" value={String(stats.primeFailedPayments)} tone="red" />
       </div>
 
       <section className="card p-4">
@@ -422,6 +463,11 @@ export function AdminPaymentsConsole() {
               active={activeTab === "addon_payments"}
               label="Modulo Marketing"
               onClick={() => setActiveTab("addon_payments")}
+            />
+            <TabButton
+              active={activeTab === "prime_payments"}
+              label="Lead Host PRIME"
+              onClick={() => setActiveTab("prime_payments")}
             />
           </div>
           <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-500 focus-within:border-green">
@@ -515,6 +561,10 @@ export function AdminPaymentsConsole() {
         <AddonCustomerList customers={filteredAddonCustomers} onOpen={openAddonCustomer} />
       ) : null}
 
+      {!loading && activeTab === "prime_payments" ? (
+        <PrimePaymentList payments={filteredPrimePayments} />
+      ) : null}
+
       {!loading && paginationByTab[activeTab].totalPages > 1 ? (
         <section className="card overflow-hidden">
           <PaginationControls
@@ -542,6 +592,46 @@ export function AdminPaymentsConsole() {
         />
       ) : null}
     </div>
+  );
+}
+
+function PrimePaymentList({ payments }: { payments: PrimePaymentRecord[] }) {
+  if (!payments.length) {
+    return <section className="card p-8 text-center text-muted">Nessun pagamento PRIME trovato.</section>;
+  }
+  return (
+    <section className="grid gap-3">
+      {payments.map((payment) => (
+        <article key={payment.id} className="card grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-lg bg-green/10 p-2 text-green"><Sparkles size={18} /></span>
+              <h3 className="font-semibold text-ink">{payment.propertyManagerName}</h3>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${paymentStatusClassName(payment.status)}`}>
+                {statusLabel(payment.status)}
+              </span>
+            </div>
+            <p className="mt-2 break-all text-sm text-muted">{payment.propertyManagerEmail ?? "Email non disponibile"}</p>
+            <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4">
+              <p><span className="text-muted">Operazione:</span> <strong>{payment.periodKind === "initial" ? "Attivazione" : "Rinnovo"}</strong></p>
+              <p><span className="text-muted">Membership:</span> <strong>{formatCents(payment.membershipAmountCents)}</strong></p>
+              <p><span className="text-muted">Wallet:</span> <strong>{formatCents(payment.walletRechargeAmountCents)}</strong></p>
+              <p><span className="text-muted">Periodo:</span> <strong>{formatBillingPeriod(payment.billingPeriodStartedAt, payment.billingPeriodEndsAt)}</strong></p>
+            </div>
+            <p className="mt-2 break-all text-xs text-muted">Fattura Stripe: {payment.providerInvoiceId}</p>
+          </div>
+          <div className="text-left lg:text-right">
+            <p className="text-xl font-semibold text-ink">{formatCents(payment.totalAmountCents)}</p>
+            <p className="mt-1 text-xs text-muted">{formatDateTime(payment.paidAt ?? payment.createdAt)}</p>
+            {payment.hostedInvoiceUrl || payment.invoicePdfUrl ? (
+              <a className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-green hover:underline" href={payment.hostedInvoiceUrl ?? payment.invoicePdfUrl ?? "#"} target="_blank" rel="noreferrer">
+                <ExternalLink size={15} /> Documento Stripe
+              </a>
+            ) : null}
+          </div>
+        </article>
+      ))}
+    </section>
   );
 }
 
@@ -884,6 +974,7 @@ function transactionTypeLabel(type: WalletTransactionRecord["type"]) {
     lead_purchase: "Acquisto lead",
     refund: "Riaccredito Wallet",
     adjustment: "Rettifica",
+    prime_wallet_recharge: "Ricarica Wallet PRIME",
   };
 
   return labels[type];

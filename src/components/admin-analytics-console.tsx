@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  Crown,
   FileWarning,
   Inbox,
   MessageSquareWarning,
@@ -41,6 +42,7 @@ type AnalyticsTab =
   | "leads"
   | "wallet"
   | "propertyManagers"
+  | "prime"
   | "operations";
 
 const tabs: Array<{ key: AnalyticsTab; label: string }> = [
@@ -48,6 +50,7 @@ const tabs: Array<{ key: AnalyticsTab; label: string }> = [
   { key: "leads", label: "Lead e funnel" },
   { key: "wallet", label: "Vendite e wallet" },
   { key: "propertyManagers", label: "Property Manager" },
+  { key: "prime", label: "Lead Host PRIME" },
   { key: "operations", label: "Operatività" },
 ];
 
@@ -182,6 +185,7 @@ export function AdminAnalyticsConsole() {
       {tab === "propertyManagers" ? (
         <PropertyManagerAnalytics payload={payload} />
       ) : null}
+      {tab === "prime" ? <PrimeAnalytics payload={payload} /> : null}
       {tab === "operations" ? <OperationsAnalytics payload={payload} /> : null}
     </div>
   );
@@ -732,6 +736,33 @@ function OperationsAnalytics({
           title="Stato fatture"
           rows={payload.operations.invoiceStatuses}
         />
+      </section>
+    </div>
+  );
+}
+
+function PrimeAnalytics({
+  payload,
+}: {
+  payload: NonNullable<ReturnType<typeof useBusinessAnalytics>["payload"]>;
+}) {
+  const { current, previous, snapshot } = payload.prime;
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard icon={Crown} label="Abbonati PRIME attivi" value={String(snapshot.active)} />
+        <MetricCard icon={UserPlus} label="Nuove attivazioni" value={String(current.activations)} current={current.activations} previous={previous.activations} accent="blue" />
+        <MetricCard icon={RefreshCw} label="Rinnovi" value={String(current.renewals)} current={current.renewals} previous={previous.renewals} />
+        <MetricCard icon={BadgeEuro} label="Incassi PRIME" value={formatCurrencyCents(current.totalPaidCents)} current={current.totalPaidCents} previous={previous.totalPaidCents} accent="blue" />
+        <MetricCard icon={Receipt} label="Ricavi membership" value={formatCurrencyCents(current.membershipCents)} current={current.membershipCents} previous={previous.membershipCents} />
+        <MetricCard icon={WalletCards} label="Credito Wallet incluso" value={formatCurrencyCents(current.walletRechargeCents)} current={current.walletRechargeCents} previous={previous.walletRechargeCents} accent="slate" />
+        <MetricCard icon={UserRoundCheck} label="PM paganti nel periodo" value={String(current.uniquePropertyManagers)} current={current.uniquePropertyManagers} previous={previous.uniquePropertyManagers} />
+        <MetricCard icon={Clock3} label="Pagamenti da gestire" value={String(snapshot.pastDue)} accent="amber" />
+      </div>
+      <section className="grid gap-5 md:grid-cols-3">
+        <BreakdownPanel title="Rinnovi annullati" count={snapshot.cancelAtPeriodEnd} value="Fine periodo programmata" detail="Abbonamenti ancora attivi che non si rinnoveranno" />
+        <BreakdownPanel title="Pagamento in ritardo" count={snapshot.pastDue} value="Grace period" detail="PM da contattare prima della sospensione" />
+        <BreakdownPanel title="Abbonamenti cancellati" count={snapshot.cancelled} value="Storico" detail="Account PRIME non più attivi" />
       </section>
     </div>
   );

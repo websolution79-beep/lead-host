@@ -85,6 +85,14 @@ type PrimeRow = {
     admin_override_reason: string | null;
   } | null;
   accountManager: PrimeManager | null;
+  subscriptionSummary: {
+    currentPeriodEndsAt: string | null;
+    cancelAtPeriodEnd: boolean;
+    canceledAt: string | null;
+    totalPaidCents: number;
+    paymentCount: number;
+    lastPaymentAt: string | null;
+  };
   events: PrimeEvent[];
 };
 
@@ -101,6 +109,7 @@ type PrimeResponse = {
     active: number;
     pastDue: number;
     suspended: number;
+    subscribers: number;
   };
   managers: PrimeManager[];
   propertyManagers: PrimeRow[];
@@ -211,7 +220,7 @@ type AccessAction = "activate" | "suspend" | "deactivate";
 
 const emptyResponse: PrimeResponse = {
   access: { isSuperAdmin: false, canWrite: false, canAssignManager: false, teamMemberId: null },
-  stats: { total: 0, eligible: 0, active: 0, pastDue: 0, suspended: 0 },
+  stats: { total: 0, eligible: 0, active: 0, pastDue: 0, suspended: 0, subscribers: 0 },
   managers: [],
   propertyManagers: [],
   pagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
@@ -225,6 +234,7 @@ export function AdminPrimeConsole() {
   const [managedPropertiesFilter, setManagedPropertiesFilter] =
     useState<ManagedPropertiesFilter>("");
   const [scope, setScope] = useState("unassigned");
+  const [subscriberStatus, setSubscriberStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<PrimePmDetail | null>(null);
@@ -259,6 +269,7 @@ export function AdminPrimeConsole() {
     if (search) query.set("search", search);
     if (managedPropertiesFilter) query.set("managedProperties", managedPropertiesFilter);
     query.set("scope", scope);
+    if (scope === "subscribers") query.set("subscriberStatus", subscriberStatus);
     const response = await fetch(`/api/admin/prime?${query}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -270,7 +281,7 @@ export function AdminPrimeConsole() {
       setData(payload);
     }
     setLoading(false);
-  }, [getToken, managedPropertiesFilter, page, scope, search]);
+  }, [getToken, managedPropertiesFilter, page, scope, search, subscriberStatus]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadPrime(), 0);
@@ -280,6 +291,8 @@ export function AdminPrimeConsole() {
   const selectedRow = data.propertyManagers.find(
     (row) => row.profile.id === selectedProfileId,
   );
+  const showSubscriptionDetails =
+    scope === "subscribers" || (!data.access.isSuperAdmin && scope === "mine");
 
   async function patch(body: Record<string, unknown>) {
     const token = await getToken();
@@ -460,9 +473,10 @@ export function AdminPrimeConsole() {
 
   return (
     <div className="grid gap-6">
-      <section className="grid grid-cols-2 gap-3 xl:grid-cols-5">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-6">
         <Stat label="PM visibili" value={data.stats.total} icon={Eye} tone="slate" />
         <Stat label="Offerta abilitata" value={data.stats.eligible} icon={UserCheck} tone="blue" />
+        <Stat label="Abbonati PRIME" value={data.stats.subscribers} icon={Crown} tone="blue" />
         <Stat label="PRIME attivi" value={data.stats.active} icon={Crown} tone="green" />
         <Stat label="Pagamenti critici" value={data.stats.pastDue} icon={CalendarClock} tone="amber" />
         <Stat label="Sospesi" value={data.stats.suspended} icon={PauseCircle} tone="red" />
@@ -484,6 +498,7 @@ export function AdminPrimeConsole() {
                 ["all", "Tutti"],
                 ["unassigned", "Non assegnati"],
                 ["assigned", "Assegnati"],
+                ["subscribers", "Abbonati PRIME"],
               ]
             : [
                 ["unassigned", "PM da contattare"],
@@ -503,6 +518,30 @@ export function AdminPrimeConsole() {
             </button>
           ))}
         </div>
+        {scope === "subscribers" ? (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Stato abbonamenti PRIME">
+            {[
+              ["all", "Tutti gli abbonati"],
+              ["active", "Attivi"],
+              ["expiring", "In scadenza entro 7 giorni"],
+              ["canceling", "Rinnovo annullato"],
+              ["attention", "Pagamento da gestire"],
+              ["cancelled", "Cancellati"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                className={`min-h-9 shrink-0 rounded-lg border px-3 text-xs font-bold transition ${subscriberStatus === value ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"}`}
+                type="button"
+                onClick={() => {
+                  setPage(1);
+                  setSubscriberStatus(value);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <form className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)_auto_auto] lg:items-end" onSubmit={submitSearch}>
           <label className="block min-w-0">
             <span className="mb-2 block text-sm font-semibold text-ink">Cerca Property Manager</span>
@@ -579,7 +618,14 @@ export function AdminPrimeConsole() {
                   <InfoPill label="Immobili" value={managedPropertiesLabel(row.pmProfile?.managed_properties_range, row.pmProfile?.managed_properties_count)} />
                   <InfoPill label="Wallet" value={formatMoney(row.wallet?.balance_cents ?? 0)} />
                   <InfoPill label="Account Manager" value={row.accountManager?.name ?? "Non assegnato"} />
+                  {showSubscriptionDetails ? (
+                    <>
+                      <InfoPill label={renewalDateLabel(row)} value={formatDate(row.subscriptionSummary.currentPeriodEndsAt)} />
+                      <InfoPill label="Totale pagato" value={formatMoney(row.subscriptionSummary.totalPaidCents)} />
+                    </>
+                  ) : null}
                 </div>
+                {showSubscriptionDetails ? <SubscriptionAttention row={row} /> : null}
                 {data.access.canAssignManager ? (
                   <ManagerSelect row={row} managers={data.managers} saving={saving} onChange={assignManager} />
                 ) : null}
@@ -606,6 +652,8 @@ export function AdminPrimeConsole() {
                   <th className="px-5 py-4 font-semibold">Immobili</th>
                   <th className="px-5 py-4 font-semibold">Wallet</th>
                   <th className="px-5 py-4 font-semibold">Stato PRIME</th>
+                  {showSubscriptionDetails ? <th className="px-5 py-4 font-semibold">Rinnovo / scadenza</th> : null}
+                  {showSubscriptionDetails ? <th className="px-5 py-4 font-semibold">Totale pagato</th> : null}
                   <th className="px-5 py-4 font-semibold">Account Manager</th>
                   <th className="px-5 py-4 font-semibold">Azioni</th>
                 </tr>
@@ -624,7 +672,20 @@ export function AdminPrimeConsole() {
                     <td className="px-5 py-4">
                       <StatusBadge status={row.account?.status ?? "inactive"} />
                       {row.eligibility?.is_enabled ? <p className="mt-2 text-xs font-semibold text-blue-700">Offerta abilitata</p> : null}
+                      {showSubscriptionDetails ? <SubscriptionAttention row={row} compact /> : null}
                     </td>
+                    {showSubscriptionDetails ? (
+                      <td className="px-5 py-4">
+                        <p className="text-xs font-bold uppercase text-slate-400">{renewalDateLabel(row)}</p>
+                        <p className="mt-1 font-semibold text-ink">{formatDate(row.subscriptionSummary.currentPeriodEndsAt)}</p>
+                      </td>
+                    ) : null}
+                    {showSubscriptionDetails ? (
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-ink">{formatMoney(row.subscriptionSummary.totalPaidCents)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{row.subscriptionSummary.paymentCount} pagamenti</p>
+                      </td>
+                    ) : null}
                     <td className="min-w-48 px-5 py-4">
                       {data.access.canAssignManager ? (
                         <ManagerSelect row={row} managers={data.managers} saving={saving} onChange={assignManager} compact />
@@ -833,7 +894,7 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, o
               <Detail label="Origine accesso">{row.account?.access_source === "manual" ? "Override amministrativo" : row.account?.access_source === "stripe" ? "Stripe" : "Nessuna"}</Detail>
               <Detail label="Account Manager">{row.accountManager?.name ?? "Non assegnato"}</Detail>
               <Detail label="Inizio PRIME">{formatDate(row.account?.prime_started_at)}</Detail>
-              <Detail label="Scadenza PRIME">{formatDate(row.account?.prime_expires_at)}</Detail>
+              <Detail label={renewalDateLabel(row)}>{formatDate(row.subscriptionSummary.currentPeriodEndsAt ?? row.account?.prime_expires_at)}</Detail>
               <Detail label="Ultimo rinnovo">{formatDate(row.account?.last_renewed_at)}</Detail>
               <Detail label="Stato pagamento">{row.account?.payment_status ?? "Non applicabile"}</Detail>
             </dl>
@@ -1143,6 +1204,46 @@ function StatusBadge({ status }: { status: PrimeStatus }) {
   };
   const labels: Record<PrimeStatus, string> = { active: "PRIME attivo", past_due: "Pagamento scaduto", suspended: "Sospeso", cancelled: "Cancellato", inactive: "Non attivo" };
   return <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${styles[status]}`}>{labels[status]}</span>;
+}
+
+function renewalDateLabel(row: PrimeRow) {
+  if (row.subscriptionSummary.cancelAtPeriodEnd || row.account?.status === "cancelled") {
+    return "Termine accesso";
+  }
+  if (row.account?.access_source === "stripe") return "Prossimo rinnovo";
+  return "Scadenza PRIME";
+}
+
+function SubscriptionAttention({ row, compact = false }: { row: PrimeRow; compact?: boolean }) {
+  let label = "";
+  let className = "";
+  if (row.account?.status === "past_due") {
+    label = "Pagamento da gestire";
+    className = "bg-red-50 text-red-700";
+  } else if (row.subscriptionSummary.cancelAtPeriodEnd) {
+    label = "Rinnovo annullato";
+    className = "bg-amber-50 text-amber-800";
+  } else if (isWithinDays(row.subscriptionSummary.currentPeriodEndsAt, 7)) {
+    label = `Rinnovo tra ${daysUntil(row.subscriptionSummary.currentPeriodEndsAt)} gg`;
+    className = "bg-blue-50 text-blue-700";
+  }
+  if (!label) return null;
+  return (
+    <span className={`${compact ? "mt-2" : "mt-3"} inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function isWithinDays(value: string | null, days: number) {
+  if (!value) return false;
+  const remaining = new Date(value).getTime() - Date.now();
+  return remaining >= 0 && remaining <= days * 86_400_000;
+}
+
+function daysUntil(value: string | null) {
+  if (!value) return 0;
+  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000));
 }
 
 function Notice({ tone, children }: { tone: "error" | "success"; children: React.ReactNode }) {

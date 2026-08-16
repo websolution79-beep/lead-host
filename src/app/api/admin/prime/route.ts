@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
       .parse(request.nextUrl.searchParams.get("managedProperties") || undefined);
     const scope = request.nextUrl.searchParams.get("scope") ??
       (isSuperAdmin ? "all" : "unassigned");
+    const subscriberStatus = request.nextUrl.searchParams.get("subscriberStatus") ?? "all";
     const requestedPage = Number(request.nextUrl.searchParams.get("page") ?? "1");
     const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1;
     const pageSize = 25;
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [profilesResult, pmProfilesResult, walletsResult, eligibilitiesResult, accountsResult] =
+    const [profilesResult, pmProfilesResult, walletsResult, eligibilitiesResult, accountsResult, subscriptionsResult] =
       availableProfileIds.length
         ? await Promise.all([
             supabase
@@ -164,8 +165,14 @@ export async function GET(request: NextRequest) {
               .from("prime_accounts")
               .select("*")
               .in("profile_id", availableProfileIds),
+            supabase
+              .from("addon_subscriptions")
+              .select("id,profile_id,status,source,current_period_ends_at,cancel_at_period_end,canceled_at,updated_at")
+              .in("profile_id", availableProfileIds)
+              .order("updated_at", { ascending: false }),
           ])
         : [
+            { data: [], error: null },
             { data: [], error: null },
             { data: [], error: null },
             { data: [], error: null },
@@ -178,7 +185,8 @@ export async function GET(request: NextRequest) {
       pmProfilesResult.error ??
       walletsResult.error ??
       eligibilitiesResult.error ??
-      accountsResult.error;
+      accountsResult.error ??
+      subscriptionsResult.error;
     if (storageError) throw storageError;
 
     const pmProfilesById = new Map(
@@ -193,6 +201,13 @@ export async function GET(request: NextRequest) {
     const accountsById = new Map(
       (accountsResult.data ?? []).map((row) => [row.profile_id, row]),
     );
+    const subscriptionsById = new Map<
+      string,
+      NonNullable<typeof subscriptionsResult.data>[number]
+    >();
+    for (const subscription of subscriptionsResult.data ?? []) {
+      subscriptionsById.set(subscription.id, subscription);
+    }
 
     const visibleRows = ((profilesResult.data ?? []) as ProfileRow[])
       .map((profile) => {
@@ -200,12 +215,16 @@ export async function GET(request: NextRequest) {
         const wallet = walletsById.get(profile.id);
         const eligibility = eligibilitiesById.get(profile.id) ?? null;
         const account = accountsById.get(profile.id) ?? null;
+        const subscription = account?.addon_subscription_id
+          ? subscriptionsById.get(account.addon_subscription_id) ?? null
+          : null;
         return {
           profile,
           pmProfile: pmProfile ?? null,
           wallet: wallet ?? null,
           eligibility,
           account,
+          subscription,
         };
       })
       .filter((row) => matchesSearch(row, search))
@@ -215,6 +234,18 @@ export async function GET(request: NextRequest) {
         if (scope === "unassigned") return managerId === null;
         if (scope === "mine") return Boolean(teamMemberId && managerId === teamMemberId);
         if (scope === "assigned") return managerId !== null;
+        if (scope === "subscribers") {
+          const isSubscriber = Boolean(
+            row.account &&
+            row.account.access_source !== "none" &&
+            row.account.prime_started_at,
+          );
+          if (!isSubscriber) return false;
+          if (!isSuperAdmin && row.account?.account_manager_member_id !== teamMemberId) {
+            return false;
+          }
+          return matchesSubscriberStatus(row, subscriberStatus);
+        }
         return true;
       })
       .sort((left, right) => {
@@ -230,6 +261,33 @@ export async function GET(request: NextRequest) {
     const offset = (safePage - 1) * pageSize;
     const pageRows = visibleRows.slice(offset, offset + pageSize);
     const pageProfileIds = pageRows.map((row) => row.profile.id);
+
+    const billingResult = pageProfileIds.length
+      ? await supabase
+          .from("prime_billing_periods")
+          .select("profile_id,status,total_amount_cents,membership_amount_cents,wallet_recharge_amount_cents,paid_at")
+          .in("profile_id", pageProfileIds)
+      : { data: [], error: null };
+    if (billingResult.error) throw billingResult.error;
+    const billingByProfileId = new Map<string, {
+      totalPaidCents: number;
+      paymentCount: number;
+      lastPaymentAt: string | null;
+    }>();
+    for (const period of billingResult.data ?? []) {
+      if (period.status !== "paid") continue;
+      const current = billingByProfileId.get(period.profile_id) ?? {
+        totalPaidCents: 0,
+        paymentCount: 0,
+        lastPaymentAt: null,
+      };
+      current.totalPaidCents += period.total_amount_cents;
+      current.paymentCount += 1;
+      if (period.paid_at && (!current.lastPaymentAt || period.paid_at > current.lastPaymentAt)) {
+        current.lastPaymentAt = period.paid_at;
+      }
+      billingByProfileId.set(period.profile_id, current);
+    }
 
     const { managers, managersById } = await loadPrimeManagers(supabase);
     const eventsResult = pageProfileIds.length
@@ -263,6 +321,9 @@ export async function GET(request: NextRequest) {
           active: visibleRows.filter((row) => row.account?.status === "active").length,
           pastDue: visibleRows.filter((row) => row.account?.status === "past_due").length,
           suspended: visibleRows.filter((row) => row.account?.status === "suspended").length,
+          subscribers: visibleRows.filter((row) =>
+            Boolean(row.account?.access_source !== "none" && row.account?.prime_started_at),
+          ).length,
         },
         managers,
         propertyManagers: pageRows.map((row) => ({
@@ -270,6 +331,14 @@ export async function GET(request: NextRequest) {
           accountManager: row.account?.account_manager_member_id
             ? managersById.get(row.account.account_manager_member_id) ?? null
             : null,
+          subscriptionSummary: {
+            currentPeriodEndsAt: row.subscription?.current_period_ends_at ?? row.account?.prime_expires_at ?? null,
+            cancelAtPeriodEnd: row.subscription?.cancel_at_period_end ?? false,
+            canceledAt: row.subscription?.canceled_at ?? null,
+            totalPaidCents: billingByProfileId.get(row.profile.id)?.totalPaidCents ?? 0,
+            paymentCount: billingByProfileId.get(row.profile.id)?.paymentCount ?? 0,
+            lastPaymentAt: billingByProfileId.get(row.profile.id)?.lastPaymentAt ?? null,
+          },
           events: eventsByProfile.get(row.profile.id) ?? [],
         })),
         pagination: {
@@ -284,6 +353,29 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+function matchesSubscriberStatus(
+  row: {
+    account: { status: string; prime_expires_at: string | null; grace_ends_at: string | null } | null;
+    subscription: { cancel_at_period_end: boolean; current_period_ends_at: string | null } | null;
+  },
+  status: string,
+) {
+  if (status === "all") return true;
+  if (status === "active") {
+    return row.account?.status === "active" && !row.subscription?.cancel_at_period_end;
+  }
+  if (status === "expiring") {
+    const value = row.subscription?.current_period_ends_at ?? row.account?.prime_expires_at;
+    if (!value || row.account?.status !== "active") return false;
+    const remaining = new Date(value).getTime() - Date.now();
+    return remaining >= 0 && remaining <= 7 * 86_400_000;
+  }
+  if (status === "canceling") return Boolean(row.subscription?.cancel_at_period_end);
+  if (status === "attention") return row.account?.status === "past_due";
+  if (status === "cancelled") return row.account?.status === "cancelled";
+  return true;
 }
 
 export async function PATCH(request: NextRequest) {

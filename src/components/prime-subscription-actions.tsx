@@ -5,12 +5,13 @@ import { CreditCard, RotateCcw, XCircle } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 type SubscriptionState = {
+  status: string;
   source: "stripe" | "manual";
   currentPeriodEndsAt: string | null;
   cancelAtPeriodEnd: boolean;
 };
 
-export function PrimeSubscriptionActions() {
+export function PrimeSubscriptionActions({ variant = "inline" }: { variant?: "inline" | "card" }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [subscription, setSubscription] = useState<SubscriptionState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,11 +63,24 @@ export function PrimeSubscriptionActions() {
 
   if (!subscription) return null;
   if (subscription.source === "manual") {
-    return <p className="mt-3 text-xs text-amber-900">Accesso gestito manualmente dal team Lead Host.</p>;
+    return (
+      <PrimeShell variant={variant}>
+        <p className="text-sm font-semibold text-ink">Accesso PRIME attivo</p>
+        <p className="mt-2 text-xs text-amber-900">Accesso gestito manualmente dal team Lead Host.</p>
+      </PrimeShell>
+    );
   }
 
   return (
-    <div className="mt-4 border-t border-amber-200 pt-4">
+    <PrimeShell variant={variant}>
+      <div className={variant === "inline" ? "mt-4 border-t border-amber-200 pt-4" : ""}>
+      {variant === "card" ? (
+        <div className="mb-4">
+          <p className="section-kicker">Abbonamento</p>
+          <h2 className="mt-2 font-semibold text-ink">Lead Host PRIME</h2>
+          <p className="mt-1 text-xs font-semibold text-green">{subscriptionStatusLabel(subscription.status)}</p>
+        </div>
+      ) : null}
       <p className="text-xs text-amber-900">
         {subscription.cancelAtPeriodEnd
           ? `Rinnovo annullato${subscription.currentPeriodEndsAt ? ` dal ${formatDate(subscription.currentPeriodEndsAt)}` : ""}.`
@@ -87,8 +101,21 @@ export function PrimeSubscriptionActions() {
         )}
       </div>
       {message ? <p className="mt-3 text-xs font-semibold text-amber-950">{message}</p> : null}
-    </div>
+      </div>
+    </PrimeShell>
   );
+}
+
+function PrimeShell({ variant, children }: { variant: "inline" | "card"; children: React.ReactNode }) {
+  if (variant === "inline") return <>{children}</>;
+  return <section className="card border border-green/20 bg-green/5 p-5">{children}</section>;
+}
+
+function subscriptionStatusLabel(status: string) {
+  if (status === "active") return "Abbonamento attivo";
+  if (status === "past_due") return "Pagamento da aggiornare";
+  if (status === "unpaid") return "Pagamento non riuscito";
+  return status;
 }
 
 function formatDate(value: string) {

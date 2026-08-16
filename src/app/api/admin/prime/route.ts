@@ -627,7 +627,7 @@ async function loadPrimePropertyManagerDetail(
   if (internalNotesResult.error) throw internalNotesResult.error;
 
   const pmProfile = pmProfileResult.data;
-  const [transactionsResult, purchasesResult, reportsResult] = await Promise.all([
+  const [transactionsResult, purchasesResult, reportsResult, primeBillingResult] = await Promise.all([
     supabase
       .from("wallet_transactions")
       .select("*")
@@ -650,11 +650,18 @@ async function loadPrimePropertyManagerDetail(
           .order("created_at", { ascending: false })
           .limit(50)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("prime_billing_periods")
+      .select("*")
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (transactionsResult.error) throw transactionsResult.error;
   if (purchasesResult.error) throw purchasesResult.error;
   if (reportsResult.error) throw reportsResult.error;
+  if (primeBillingResult.error) throw primeBillingResult.error;
 
   const purchases = purchasesResult.data ?? [];
   const leadIds = Array.from(new Set(purchases.map((purchase) => purchase.lead_id)));
@@ -691,6 +698,7 @@ async function loadPrimePropertyManagerDetail(
       leadTitle: leadTitleById.get(purchase.lead_id) ?? "Lead acquistato",
     })),
     reports: reportsResult.data ?? [],
+    primeBillingPeriods: primeBillingResult.data ?? [],
     stats: {
       completedPurchases: completedPurchases.length,
       totalSpentCents: completedPurchases.reduce(
@@ -703,6 +711,12 @@ async function loadPrimePropertyManagerDetail(
       openReports: (reportsResult.data ?? []).filter((report) =>
         ["pending", "reviewing"].includes(report.status),
       ).length,
+      primePaidCents: (primeBillingResult.data ?? [])
+        .filter((period) => period.status === "paid")
+        .reduce((total, period) => total + period.total_amount_cents, 0),
+      primeWalletCents: (primeBillingResult.data ?? [])
+        .filter((period) => period.status === "paid")
+        .reduce((total, period) => total + period.wallet_recharge_amount_cents, 0),
     },
   };
 }

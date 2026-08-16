@@ -20,6 +20,7 @@ export type AppSession = {
   };
   primeAccess?: {
     hasAccess: boolean;
+    isVisible: boolean;
     expiresAt: string | null;
   };
 };

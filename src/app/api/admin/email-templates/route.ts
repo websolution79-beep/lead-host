@@ -156,6 +156,12 @@ function getSampleVariables(
     customer_name: "Luca Card",
     customer_email: "businesspronto.it@gmail.com",
     subscription_id: "sub_test_marketing_001",
+    membership_amount: "99,00 €",
+    wallet_recharge: "250,00 €",
+    wallet_balance: "310,00 €",
+    invoice_total: "349,00 €",
+    stripe_invoice_id: "in_test_prime_001",
+    billing_period_end: "19 settembre 2026",
     template_id: templateId,
   };
 }

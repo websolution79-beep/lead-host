@@ -184,11 +184,26 @@ type PrimePmDetail = {
     status: string;
     created_at: string;
   }>;
+  primeBillingPeriods: Array<{
+    id: string;
+    period_kind: "initial" | "renewal" | "adjustment";
+    status: "pending" | "paid" | "failed" | "void" | "uncollectible";
+    provider_invoice_id: string;
+    membership_amount_cents: number;
+    wallet_recharge_amount_cents: number;
+    total_amount_cents: number;
+    billing_period_started_at: string | null;
+    billing_period_ends_at: string | null;
+    paid_at: string | null;
+    created_at: string;
+  }>;
   stats: {
     completedPurchases: number;
     totalSpentCents: number;
     topUpsCents: number;
     openReports: number;
+    primePaidCents: number;
+    primeWalletCents: number;
   };
 };
 
@@ -893,6 +908,8 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, o
                   <Metric label="Lead acquistati" value={String(detail.stats.completedPurchases)} />
                   <Metric label="Spesa Lead" value={formatMoney(detail.stats.totalSpentCents)} />
                   <Metric label="Assistenze aperte" value={String(detail.stats.openReports)} />
+                  <Metric label="Pagamenti PRIME" value={formatMoney(detail.stats.primePaidCents)} />
+                  <Metric label="Wallet da PRIME" value={formatMoney(detail.stats.primeWalletCents)} />
                 </div>
               </section>
 
@@ -918,6 +935,16 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, o
                 )}
               </section>
 
+              <ActivitySection
+                title="Pagamenti Lead Host PRIME"
+                empty="Nessun pagamento PRIME."
+                items={detail.primeBillingPeriods.map((period) => ({
+                  id: period.id,
+                  title: period.period_kind === "initial" ? "Attivazione PRIME" : "Rinnovo PRIME",
+                  meta: `${formatDateTime(period.paid_at ?? period.created_at)} · ${period.status} · Membership ${formatMoney(period.membership_amount_cents)} · Wallet ${formatMoney(period.wallet_recharge_amount_cents)} · ${period.provider_invoice_id}`,
+                  value: formatMoney(period.total_amount_cents),
+                }))}
+              />
               <ActivitySection
                 title="Movimenti Wallet"
                 empty="Nessun movimento Wallet."

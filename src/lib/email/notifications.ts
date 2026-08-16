@@ -520,6 +520,99 @@ export async function sendMarketingAddonActivationEmails({
   return { status: "processed" as const, customerResult, adminResult };
 }
 
+export async function sendPrimeBillingEmails({
+  profileId,
+  primeBillingPeriodId,
+  periodKind,
+  membershipAmountCents,
+  walletRechargeAmountCents,
+  totalAmountCents,
+  walletBalanceCents,
+  stripeInvoiceId,
+  billingPeriodEndsAt,
+}: {
+  profileId: string;
+  primeBillingPeriodId: string;
+  periodKind: "initial" | "renewal" | "adjustment";
+  membershipAmountCents: number;
+  walletRechargeAmountCents: number;
+  totalAmountCents: number;
+  walletBalanceCents: number;
+  stripeInvoiceId: string;
+  billingPeriodEndsAt: string | null;
+}) {
+  const supabase = createServiceSupabaseClient();
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id,email,first_name,last_name,status")
+    .eq("id", profileId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!profile || profile.status !== "active") {
+    return { status: "skipped" as const, reason: "profile_not_found" as const };
+  }
+
+  const isInitial = periodKind === "initial";
+  const customerEvent = isInitial
+    ? "prime.subscription_activated" as const
+    : "prime.subscription_renewed" as const;
+  const adminEvent = isInitial
+    ? "admin.prime_subscription_activated" as const
+    : "admin.prime_subscription_renewed" as const;
+  const firstName = profile.first_name?.trim() ?? "";
+  const variables = {
+    first_name: firstName,
+    first_name_suffix: firstName ? `, ${firstName}` : "",
+    customer_name:
+      [profile.first_name, profile.last_name].filter(Boolean).join(" ").trim() || profile.email,
+    customer_email: profile.email,
+    membership_amount: formatCurrencyCents(membershipAmountCents),
+    wallet_recharge: formatCurrencyCents(walletRechargeAmountCents),
+    wallet_balance: formatCurrencyCents(walletBalanceCents),
+    invoice_total: formatCurrencyCents(totalAmountCents),
+    stripe_invoice_id: stripeInvoiceId,
+    billing_period_end: billingPeriodEndsAt
+      ? formatEmailDate(billingPeriodEndsAt)
+      : "non disponibile",
+  };
+  const metadata = {
+    prime_billing_period_id: primeBillingPeriodId,
+    stripe_invoice_id: stripeInvoiceId,
+    period_kind: periodKind,
+  };
+
+  const customerAlreadySent = await hasSentPrimeBillingEmail(
+    customerEvent,
+    primeBillingPeriodId,
+  );
+  const customerResult = customerAlreadySent
+    ? { status: "skipped" as const, reason: "already_sent" as const }
+    : await sendTransactionalEmail({
+        to: profile.email,
+        profileId: profile.id,
+        eventType: customerEvent,
+        metadata,
+        templateVariables: variables,
+        subject: "",
+        html: "",
+        text: "",
+      });
+
+  const adminAlreadySent = await hasSentPrimeBillingEmail(adminEvent, primeBillingPeriodId);
+  const adminResult = adminAlreadySent
+    ? { status: "skipped" as const, reason: "already_sent" as const }
+    : await sendTransactionalEmailToInternalRecipients({
+        eventType: adminEvent,
+        metadata,
+        templateVariables: variables,
+        subject: "",
+        html: "",
+        text: "",
+      });
+
+  return { status: "processed" as const, customerResult, adminResult };
+}
+
 export async function notifyImmediateNewLead(lead: LeadSummary) {
   const supabase = createServiceSupabaseClient();
   const { promotion } = await fetchEffectiveMarketplacePromotion(supabase);
@@ -783,6 +876,45 @@ async function hasSentAddonActivationEmail(
       typeof metadata === "object" &&
       !Array.isArray(metadata) &&
       (metadata as Record<string, unknown>).addon_subscription_id === subscriptionId
+    );
+  });
+}
+
+async function hasSentPrimeBillingEmail(
+  eventType:
+    | "prime.subscription_activated"
+    | "admin.prime_subscription_activated"
+    | "prime.subscription_renewed"
+    | "admin.prime_subscription_renewed",
+  primeBillingPeriodId: string,
+) {
+  type EmailLogsQuery = {
+    eq: (column: string, value: string) => EmailLogsQuery;
+    limit: (count: number) => Promise<{
+      data: { metadata: unknown }[] | null;
+      error: { message?: string } | null;
+    }>;
+  };
+  const supabase = createServiceSupabaseClient();
+  const logsTable = supabase.from("email_delivery_logs" as never) as unknown as {
+    select: (columns: string) => EmailLogsQuery;
+  };
+  const { data, error } = await logsTable
+    .select("metadata")
+    .eq("event_type", eventType)
+    .eq("status", "sent")
+    .limit(100);
+  if (error) {
+    console.warn("PRIME email duplicate check failed:", error.message);
+    return false;
+  }
+  return (data ?? []).some((item) => {
+    const metadata = item.metadata;
+    return Boolean(
+      metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      (metadata as Record<string, unknown>).prime_billing_period_id === primeBillingPeriodId,
     );
   });
 }

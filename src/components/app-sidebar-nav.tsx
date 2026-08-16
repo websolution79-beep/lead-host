@@ -280,10 +280,10 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
       (!link.permission ||
         hasAdminPermission(session.adminPermissions ?? {}, link.permission)),
   );
-  const basePmLinks = session.primeAccess?.hasAccess
+  const basePmLinks = session.primeAccess?.isVisible
     ? [pmLinks[0], primeZoneLink, ...pmLinks.slice(1)]
     : pmLinks;
-  const marketingInsertIndex = session.primeAccess?.hasAccess ? 3 : 2;
+  const marketingInsertIndex = session.primeAccess?.isVisible ? 3 : 2;
   const pmNavigationLinks = session.marketingAddon?.menuVisible
     ? [
         ...basePmLinks.slice(0, marketingInsertIndex),

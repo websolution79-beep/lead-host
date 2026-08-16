@@ -13,6 +13,8 @@ export const configurableRecipientTemplateIds = [
   "admin.support_request_pending",
   "admin.support_request_reply",
   "admin.addon_marketing_activated",
+  "admin.prime_subscription_activated",
+  "admin.prime_subscription_renewed",
 ] as const satisfies readonly TransactionalEmailTemplateId[];
 
 export type ConfigurableRecipientTemplateId =

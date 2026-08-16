@@ -82,6 +82,7 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
         primeAccess: primeAccess
           ? {
               hasAccess: primeAccess.hasAccess,
+              isVisible: primeAccess.isVisible,
               expiresAt: primeAccess.expiresAt,
             }
           : undefined,
@@ -91,7 +92,7 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
       <AppAreaChrome
         section="pm"
         marketingAddon={marketingAddon ?? undefined}
-        primeAccess={primeAccess?.hasAccess ?? false}
+        primeAccess={primeAccess?.isVisible ?? false}
       >
         {children}
       </AppAreaChrome>

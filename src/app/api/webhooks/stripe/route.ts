@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { getEnv } from "@/lib/env";
 import {
+  sendPrimeBillingEmails,
   sendMarketingAddonActivationEmails,
   sendWalletTopUpEmail,
 } from "@/lib/email/notifications";
@@ -17,6 +18,10 @@ import {
   syncAddonSubscriptionFromStripe,
   toIsoDate,
 } from "@/lib/addons/stripe-subscriptions";
+import {
+  syncPrimeAccountFromStripeSubscription,
+  syncPrimeInvoiceFromStripe,
+} from "@/lib/prime/billing";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -101,6 +106,10 @@ export async function POST(request: NextRequest) {
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
+      if (session.metadata?.kind === "prime_subscription") {
+        const result = await completePrimeSubscription(stripe, session);
+        return NextResponse.json({ received: true, result });
+      }
       if (session.metadata?.kind === "addon_subscription") {
         const result = await completeAddonSubscription(stripe, session);
         after(async () => {
@@ -153,8 +162,14 @@ export async function POST(request: NextRequest) {
       event.type === "checkout.session.async_payment_failed"
     ) {
       const session = event.data.object as Stripe.Checkout.Session;
-      if (session.metadata?.kind === "addon_subscription") {
+      if (
+        session.metadata?.kind === "addon_subscription" ||
+        session.metadata?.kind === "prime_subscription"
+      ) {
         await expireAddonCheckout(session);
+        if (session.metadata?.kind === "prime_subscription") {
+          await expirePrimeCheckout(session);
+        }
         return NextResponse.json({ received: true });
       }
       await failWalletTopUp(
@@ -175,7 +190,8 @@ export async function POST(request: NextRequest) {
       const result = await syncAddonSubscriptionFromStripe(subscription, {
         reason: `Webhook Stripe: ${event.type}`,
       });
-      return NextResponse.json({ received: true, result });
+      const primeResult = await syncPrimeAccountFromStripeSubscription(subscription);
+      return NextResponse.json({ received: true, result, primeResult });
     }
 
     if (
@@ -201,6 +217,34 @@ export async function POST(request: NextRequest) {
             ? "uncollectible"
             : "failed";
       const result = await syncAddonInvoiceFromStripe(invoice, paymentStatus);
+      const primeStatus = event.type === "invoice.paid"
+        ? "paid"
+        : event.type === "invoice.voided"
+          ? "void"
+          : event.type === "invoice.marked_uncollectible"
+            ? "uncollectible"
+            : "failed";
+      const primeResult = await syncPrimeInvoiceFromStripe(invoice, primeStatus);
+
+      if (
+        !primeResult.ignored &&
+        primeResult.status === "paid" &&
+        !primeResult.already_completed
+      ) {
+        after(async () => {
+          await sendPrimeBillingEmails({
+            profileId: primeResult.profile_id,
+            primeBillingPeriodId: primeResult.prime_billing_period_id,
+            periodKind: primeResult.periodKind,
+            membershipAmountCents: primeResult.membership_amount_cents,
+            walletRechargeAmountCents: primeResult.wallet_recharge_amount_cents,
+            totalAmountCents: primeResult.total_amount_cents,
+            walletBalanceCents: primeResult.balance_cents,
+            stripeInvoiceId: invoice.id!,
+            billingPeriodEndsAt: toIsoDate(invoice.period_end),
+          });
+        });
+      }
 
       if (!result.ignored) {
         const stripeSubscriptionId = getInvoiceSubscriptionId(invoice);
@@ -209,10 +253,11 @@ export async function POST(request: NextRequest) {
           await syncAddonSubscriptionFromStripe(subscription, {
             reason: `Webhook Stripe: ${event.type}`,
           });
+          await syncPrimeAccountFromStripeSubscription(subscription);
         }
       }
 
-      return NextResponse.json({ received: true, result });
+      return NextResponse.json({ received: true, result, primeResult });
     }
 
     return NextResponse.json({ received: true });
@@ -406,6 +451,21 @@ async function completeAddonSubscription(
   };
 }
 
+async function completePrimeSubscription(
+  stripe: Stripe,
+  session: Stripe.Checkout.Session,
+) {
+  const result = await completeAddonSubscription(stripe, session);
+  const stripeSubscriptionId =
+    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+  if (!stripeSubscriptionId) {
+    throw new Error("Riferimento abbonamento PRIME mancante.");
+  }
+  const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+  const primeResult = await syncPrimeAccountFromStripeSubscription(subscription);
+  return { ...result, primeResult };
+}
+
 async function expireAddonCheckout(session: Stripe.Checkout.Session) {
   const subscriptionId = session.metadata?.addon_subscription_id;
   if (!subscriptionId) return;
@@ -420,5 +480,24 @@ async function expireAddonCheckout(session: Stripe.Checkout.Session) {
     })
     .eq("id", subscriptionId)
     .eq("status", "incomplete");
+  if (error) throw error;
+}
+
+async function expirePrimeCheckout(session: Stripe.Checkout.Session) {
+  const subscriptionId = session.metadata?.addon_subscription_id;
+  const primeAccountId = session.metadata?.prime_account_id;
+  if (!subscriptionId || !primeAccountId) return;
+
+  const supabase = createServiceSupabaseClient();
+  const { error } = await supabase
+    .from("prime_accounts")
+    .update({
+      addon_subscription_id: null,
+      access_source: "none",
+      payment_status: "not_applicable",
+    })
+    .eq("id", primeAccountId)
+    .eq("addon_subscription_id", subscriptionId)
+    .eq("status", "inactive");
   if (error) throw error;
 }

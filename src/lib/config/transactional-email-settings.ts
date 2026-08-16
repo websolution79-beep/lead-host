@@ -20,6 +20,10 @@ export const transactionalEmailTemplateIds = [
   "support.reply",
   "addon.marketing_activated",
   "admin.addon_marketing_activated",
+  "prime.subscription_activated",
+  "admin.prime_subscription_activated",
+  "prime.subscription_renewed",
+  "admin.prime_subscription_renewed",
 ] as const;
 
 export type TransactionalEmailTemplateId =
@@ -336,6 +340,102 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
       "first_payment_amount",
       "subscription_status",
       "subscription_id",
+    ],
+  },
+  {
+    id: "prime.subscription_activated",
+    label: "PRIME attivato",
+    description: "Invio al PM dopo il pagamento iniziale e l’attivazione di Lead Host PRIME.",
+    enabled: true,
+    subject: "Lead Host PRIME è attivo",
+    preview: "La tua Prime Zone e il credito Wallet sono disponibili.",
+    title: "Benvenuto in Lead Host PRIME{{first_name_suffix}}.",
+    body:
+      "Il pagamento iniziale è stato confermato. La tua Prime Zone è attiva e puoi continuare a utilizzare anche il Marketplace pubblico.",
+    extra:
+      "Membership: {{membership_amount}}. Credito aggiunto al Wallet: {{wallet_recharge}}. Saldo Wallet: {{wallet_balance}}.",
+    ctaLabel: "Apri la Prime Zone",
+    ctaUrl: "/app/prime",
+    variables: [
+      "first_name",
+      "first_name_suffix",
+      "membership_amount",
+      "wallet_recharge",
+      "wallet_balance",
+      "invoice_total",
+      "billing_period_end",
+    ],
+  },
+  {
+    id: "admin.prime_subscription_activated",
+    label: "Nuovo cliente PRIME agli admin",
+    description: "Invio ai Super Admin dopo la prima attivazione a pagamento di PRIME.",
+    enabled: true,
+    subject: "Nuovo cliente Lead Host PRIME: {{customer_name}}",
+    preview: "Un Property Manager ha attivato Lead Host PRIME.",
+    title: "Nuova attivazione Lead Host PRIME.",
+    body:
+      "{{customer_name}} ({{customer_email}}) ha completato il primo pagamento PRIME.",
+    extra:
+      "Membership: {{membership_amount}}. Ricarica Wallet: {{wallet_recharge}}. Totale: {{invoice_total}}. ID fattura Stripe: {{stripe_invoice_id}}.",
+    ctaLabel: "Apri Lead Host PRIME",
+    ctaUrl: "/admin/prime",
+    variables: [
+      "customer_name",
+      "customer_email",
+      "membership_amount",
+      "wallet_recharge",
+      "invoice_total",
+      "stripe_invoice_id",
+      "billing_period_end",
+    ],
+  },
+  {
+    id: "prime.subscription_renewed",
+    label: "Rinnovo PRIME",
+    description: "Invio al PM dopo ogni rinnovo mensile PRIME riuscito.",
+    enabled: true,
+    subject: "Rinnovo Lead Host PRIME completato",
+    preview: "Il rinnovo è confermato e il credito Wallet è stato aggiunto.",
+    title: "Rinnovo PRIME completato{{first_name_suffix}}.",
+    body:
+      "Il rinnovo mensile di Lead Host PRIME è stato confermato. La tua Prime Zone resta attiva.",
+    extra:
+      "Membership: {{membership_amount}}. Credito aggiunto al Wallet: {{wallet_recharge}}. Saldo Wallet: {{wallet_balance}}.",
+    ctaLabel: "Apri la Prime Zone",
+    ctaUrl: "/app/prime",
+    variables: [
+      "first_name",
+      "first_name_suffix",
+      "membership_amount",
+      "wallet_recharge",
+      "wallet_balance",
+      "invoice_total",
+      "billing_period_end",
+    ],
+  },
+  {
+    id: "admin.prime_subscription_renewed",
+    label: "Rinnovo PRIME agli admin",
+    description: "Invio ai Super Admin dopo ogni rinnovo mensile PRIME riuscito.",
+    enabled: true,
+    subject: "Rinnovo Lead Host PRIME: {{customer_name}}",
+    preview: "Un cliente ha rinnovato Lead Host PRIME.",
+    title: "Rinnovo Lead Host PRIME completato.",
+    body:
+      "{{customer_name}} ({{customer_email}}) ha completato il rinnovo mensile PRIME.",
+    extra:
+      "Membership: {{membership_amount}}. Ricarica Wallet: {{wallet_recharge}}. Totale: {{invoice_total}}. ID fattura Stripe: {{stripe_invoice_id}}.",
+    ctaLabel: "Apri Lead Host PRIME",
+    ctaUrl: "/admin/prime",
+    variables: [
+      "customer_name",
+      "customer_email",
+      "membership_amount",
+      "wallet_recharge",
+      "invoice_total",
+      "stripe_invoice_id",
+      "billing_period_end",
     ],
   },
 ];

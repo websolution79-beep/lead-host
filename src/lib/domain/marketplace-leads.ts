@@ -244,10 +244,11 @@ async function resolvePrimePropertyManagerAccess(
       .maybeSingle(),
     supabase
       .from("prime_accounts")
-      .select("status,prime_expires_at")
+      .select("status,prime_expires_at,grace_ends_at")
       .eq("profile_id", profileId)
-      .eq("status", "active")
-      .or(`prime_expires_at.is.null,prime_expires_at.gt.${now}`)
+      .or(
+        `and(status.eq.active,or(prime_expires_at.is.null,prime_expires_at.gt.${now})),and(status.eq.past_due,grace_ends_at.gt.${now})`,
+      )
       .maybeSingle(),
   ]);
 

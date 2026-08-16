@@ -681,6 +681,62 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["prime_accounts"]["Insert"]>;
         Relationships: [];
       };
+      prime_billing_periods: {
+        Row: {
+          id: string;
+          prime_account_id: string;
+          addon_subscription_id: string;
+          profile_id: string;
+          period_kind: "initial" | "renewal" | "adjustment";
+          status: "pending" | "paid" | "failed" | "void" | "uncollectible";
+          provider: "stripe";
+          provider_invoice_id: string;
+          provider_payment_intent_id: string | null;
+          provider_checkout_session_id: string | null;
+          provider_subscription_id: string;
+          membership_amount_cents: number;
+          wallet_recharge_amount_cents: number;
+          total_amount_cents: number;
+          currency: string;
+          billing_period_started_at: string | null;
+          billing_period_ends_at: string | null;
+          wallet_transaction_id: string | null;
+          paid_at: string | null;
+          failed_at: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          prime_account_id: string;
+          addon_subscription_id: string;
+          profile_id: string;
+          period_kind: "initial" | "renewal" | "adjustment";
+          status?: "pending" | "paid" | "failed" | "void" | "uncollectible";
+          provider?: "stripe";
+          provider_invoice_id: string;
+          provider_payment_intent_id?: string | null;
+          provider_checkout_session_id?: string | null;
+          provider_subscription_id: string;
+          membership_amount_cents: number;
+          wallet_recharge_amount_cents: number;
+          total_amount_cents: number;
+          currency?: string;
+          billing_period_started_at?: string | null;
+          billing_period_ends_at?: string | null;
+          wallet_transaction_id?: string | null;
+          paid_at?: string | null;
+          failed_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["prime_billing_periods"]["Insert"]
+        >;
+        Relationships: [];
+      };
       prime_account_events: {
         Row: {
           id: string;
@@ -2408,7 +2464,7 @@ export type Database = {
           id: string;
           wallet_id: string;
           profile_id: string;
-          type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+          type: "top_up" | "lead_purchase" | "refund" | "adjustment" | "prime_wallet_recharge";
           status: "pending" | "completed" | "failed" | "cancelled";
           amount_cents: number;
           balance_after_cents: number | null;
@@ -2424,7 +2480,7 @@ export type Database = {
           id?: string;
           wallet_id: string;
           profile_id: string;
-          type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+          type: "top_up" | "lead_purchase" | "refund" | "adjustment" | "prime_wallet_recharge";
           status?: "pending" | "completed" | "failed" | "cancelled";
           amount_cents: number;
           balance_after_cents?: number | null;
@@ -2440,7 +2496,7 @@ export type Database = {
           id?: string;
           wallet_id?: string;
           profile_id?: string;
-          type?: "top_up" | "lead_purchase" | "refund" | "adjustment";
+          type?: "top_up" | "lead_purchase" | "refund" | "adjustment" | "prime_wallet_recharge";
           status?: "pending" | "completed" | "failed" | "cancelled";
           amount_cents?: number;
           balance_after_cents?: number | null;

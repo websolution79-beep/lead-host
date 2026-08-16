@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
-import { BellRing, Crown } from "lucide-react";
+import { BellRing, Crown, ShieldCheck, WalletCards, Zap } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { PrimeLeadCard } from "@/components/prime-lead-card";
+import { PrimeCheckoutButton } from "@/components/prime-checkout-button";
+import { PrimeSubscriptionActions } from "@/components/prime-subscription-actions";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
+import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { getPrimeZoneLeadsForProfile } from "@/lib/domain/marketplace-leads";
 import { getPrimeAccessState } from "@/lib/prime/access";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +19,64 @@ export default async function PrimeZonePage() {
 
   const primeAccess = await getPrimeAccessState(session.profile.id);
 
-  if (!primeAccess.hasAccess) redirect("/app/marketplace");
+  if (!primeAccess.isVisible) redirect("/app/marketplace");
+
+  if (!primeAccess.hasAccess) {
+    const supabase = createServiceSupabaseClient();
+    const [{ settings }, productResult] = await Promise.all([
+      fetchCommercialSettings(supabase),
+      supabase
+        .from("addon_products")
+        .select("terms_url")
+        .eq("slug", "lead-host-prime")
+        .single(),
+    ]);
+    const firstTotal = settings.primeFirstMonthServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
+    const renewalTotal = settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
+
+    return (
+      <AppShell section="pm" eyebrow="Lead Host PRIME" title="La tua opportunità riservata">
+        <section className="overflow-hidden rounded-lg border border-amber-300 bg-white shadow-[0_22px_70px_rgba(146,94,13,0.14)]">
+          <div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3 py-1 text-xs font-extrabold uppercase text-slate-950">
+                <Crown size={15} fill="currentColor" /> Offerta riservata
+              </span>
+              <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+                Accedi alle opportunità PRIME prima del Marketplace pubblico.
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+                Ricevi una Prime Zone personale, acquista i lead assegnati esclusivamente
+                al tuo account e continua a usare normalmente tutto il Marketplace Lead Host.
+              </p>
+              <div className="mt-7">
+                <PrimeCheckoutButton
+                  firstMonthLabel={formatMoney(settings.primeFirstMonthServiceFeeCents)}
+                  renewalLabel={formatMoney(settings.primeRecurringServiceFeeCents)}
+                  walletRechargeLabel={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                  termsUrl={productResult.data?.terms_url ?? "/termini"}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 sm:p-6">
+              <p className="text-xs font-extrabold uppercase text-emerald-700">Il primo mese include</p>
+              <p className="mt-2 text-4xl font-semibold text-ink">{formatMoney(firstTotal)}</p>
+              <div className="mt-5 grid gap-3 text-sm text-slate-700">
+                <Feature icon={<Zap size={18} />} text="Accesso immediato alla tua Prime Zone" />
+                <Feature icon={<WalletCards size={18} />} text={`${formatMoney(settings.primeMonthlyWalletRechargeCents)} accreditati nel Wallet`} />
+                <Feature icon={<ShieldCheck size={18} />} text="Acquisto esclusivo delle opportunità assegnate" />
+              </div>
+              <p className="mt-5 border-t border-slate-200 pt-4 text-sm leading-6 text-muted">
+                Rinnovo mensile complessivo: <strong className="text-ink">{formatMoney(renewalTotal)}</strong>,
+                di cui {formatMoney(settings.primeMonthlyWalletRechargeCents)} diventano credito Wallet.
+              </p>
+            </div>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
 
   const leads = await getPrimeZoneLeadsForProfile(session.profile.id);
 
@@ -42,6 +103,7 @@ export default async function PrimeZonePage() {
               <BellRing size={18} />
               {leads.length} {leads.length === 1 ? "opportunità riservata" : "opportunità riservate"}
             </p>
+            <PrimeSubscriptionActions />
           </div>
         </div>
       </section>
@@ -66,4 +128,17 @@ export default async function PrimeZonePage() {
       )}
     </AppShell>
   );
+}
+
+function Feature({ icon, text }: { icon: React.ReactNode; text: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
+      <span className="text-emerald-700">{icon}</span>
+      <span className="font-semibold text-ink">{text}</span>
+    </div>
+  );
+}
+
+function formatMoney(cents: number) {
+  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
 }

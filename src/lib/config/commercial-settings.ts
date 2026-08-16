@@ -252,11 +252,6 @@ export async function saveCommercialSettings({
       updated_by: profileId,
     },
     {
-      key: SETTINGS_KEYS.primeDefaultAccessDurationHours,
-      value: settings.primeDefaultAccessDurationHours,
-      updated_by: profileId,
-    },
-    {
       key: SETTINGS_KEYS.priceRules,
       value: settings.priceRules,
       updated_by: profileId,
@@ -270,6 +265,33 @@ export async function saveCommercialSettings({
     ) => Promise<{ error: { code?: string; message?: string } | null }>;
   };
   const { error } = await settingsTable.upsert(rows, { onConflict: "key" });
+
+  if (error) throw error;
+}
+
+export async function savePrimeDefaultAccessDuration({
+  supabase,
+  profileId,
+  durationHours,
+}: {
+  supabase: ServiceClient;
+  profileId: string;
+  durationHours: number;
+}) {
+  const settingsTable = supabase.from("settings") as unknown as {
+    upsert: (
+      row: { key: string; value: Json; updated_by: string },
+      options: { onConflict: string },
+    ) => Promise<{ error: { code?: string; message?: string } | null }>;
+  };
+  const { error } = await settingsTable.upsert(
+    {
+      key: SETTINGS_KEYS.primeDefaultAccessDurationHours,
+      value: durationHours,
+      updated_by: profileId,
+    },
+    { onConflict: "key" },
+  );
 
   if (error) throw error;
 }

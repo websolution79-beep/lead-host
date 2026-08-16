@@ -131,6 +131,12 @@ const adminLinks: Array<{
     permission: "settings",
   },
   {
+    label: "Impostazioni PRIME",
+    href: "/admin/prime/impostazioni",
+    group: "Configurazione",
+    superAdminOnly: true,
+  },
+  {
     label: "Addons",
     href: "/admin/addons",
     group: "Configurazione",

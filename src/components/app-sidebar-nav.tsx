@@ -144,6 +144,7 @@ const adminLinks: AppNavLink[] = [
     icon: Crown,
     category: "Operatività",
     permission: "prime",
+    exact: true,
   },
   {
     label: "Assistenza",
@@ -228,6 +229,13 @@ const adminLinks: AppNavLink[] = [
     icon: Settings,
     category: "Configurazione",
     permission: "settings",
+  },
+  {
+    label: "Impostazioni PRIME",
+    href: "/admin/prime/impostazioni",
+    icon: Crown,
+    category: "Configurazione",
+    superAdminOnly: true,
   },
   {
     label: "Addons",

@@ -31,7 +31,6 @@ const commercialSettingsSchema = z.object({
   maxSharedBuyers: z.number().int().min(1).max(5),
   unavailableVisibilityDays: z.number().int().min(0).max(90),
   soldVisibilityDays: z.number().int().min(0).max(90),
-  primeDefaultAccessDurationHours: z.number().int().min(1).max(720),
   priceRules: z.array(priceRuleSchema).max(100),
 });
 
@@ -62,6 +61,8 @@ export async function PATCH(request: NextRequest) {
     const payload = commercialSettingsSchema.parse(await request.json());
     const settings: CommercialSettings = {
       ...payload,
+      primeDefaultAccessDurationHours:
+        previousSettings.primeDefaultAccessDurationHours,
       priceRules: payload.priceRules.map((rule) => ({
         ...rule,
         id: rule.id ?? crypto.randomUUID(),

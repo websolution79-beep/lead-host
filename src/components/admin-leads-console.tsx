@@ -9,6 +9,7 @@ import {
   Clock3,
   Crown,
   Eye,
+  Globe2,
   ListChecks,
   Pencil,
   RotateCcw,
@@ -131,6 +132,8 @@ export function AdminLeadsConsole() {
   const [manualTelegramRecord, setManualTelegramRecord] =
     useState<AdminLeadRecord | null>(null);
   const [republishRecord, setRepublishRecord] =
+    useState<AdminLeadRecord | null>(null);
+  const [primeReleaseRecord, setPrimeReleaseRecord] =
     useState<AdminLeadRecord | null>(null);
   const [filter, setFilter] = useState<FilterState>("new");
   const [query, setQuery] = useState("");
@@ -569,6 +572,45 @@ export function AdminLeadsConsole() {
     }
   }
 
+  async function confirmPrimeRelease() {
+    const record = primeReleaseRecord;
+    if (!record) return;
+
+    setActionLoading(record.ownerRequestId);
+    setError(null);
+    setNotice(null);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sessione non disponibile. Effettua di nuovo il login.");
+      const response = await fetch(
+        `/api/admin/leads/${record.ownerRequestId}/release-prime`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      );
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        setError(payload.error ?? "Pubblicazione PRIME non completata.");
+        return;
+      }
+
+      setPrimeReleaseRecord(null);
+      setSelectedId(null);
+      setFilter("published");
+      await loadRecords();
+      setNotice(
+        "Lead pubblicato nel Marketplace. Email, notifiche e Telegram sono stati avviati.",
+      );
+    } catch (releaseError) {
+      setError(
+        releaseError instanceof Error
+          ? releaseError.message
+          : "Pubblicazione PRIME non completata.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   return (
     <div className="grid gap-5">
       <div className="admin-kpi-grid">
@@ -815,6 +857,7 @@ export function AdminLeadsConsole() {
               onMoveToStatus={moveToStatus}
               onManualTelegram={requestManualTelegram}
               onRepublish={setRepublishRecord}
+              onReleasePrime={setPrimeReleaseRecord}
               onEdit={() => setEditingId(selectedRecord.ownerRequestId)}
               onClose={() => setSelectedId(null)}
               approvalDraft={getApprovalDraft(selectedRecord)}
@@ -869,6 +912,15 @@ export function AdminLeadsConsole() {
           onConfirm={() => void confirmRepublish()}
         />
       ) : null}
+
+      {primeReleaseRecord ? (
+        <PrimeReleaseConfirmationModal
+          record={primeReleaseRecord}
+          isPublishing={actionLoading === primeReleaseRecord.ownerRequestId}
+          onCancel={() => setPrimeReleaseRecord(null)}
+          onConfirm={() => void confirmPrimeRelease()}
+        />
+      ) : null}
     </div>
   );
 }
@@ -887,6 +939,7 @@ function LeadDetailPanel({
   onMoveToStatus,
   onManualTelegram,
   onRepublish,
+  onReleasePrime,
   onEdit,
   onClose,
   approvalDraft,
@@ -909,6 +962,7 @@ function LeadDetailPanel({
   ) => void;
   onManualTelegram: (record: AdminLeadRecord) => void;
   onRepublish: (record: AdminLeadRecord) => void;
+  onReleasePrime: (record: AdminLeadRecord) => void;
   onEdit: () => void;
   onClose: () => void;
   approvalDraft: ApprovalPriceDraft;
@@ -1235,6 +1289,17 @@ function LeadDetailPanel({
       ) : null}
 
       <div className="mt-5 grid gap-3">
+        {canPublishToPrime && canReleasePrimeLead(record) ? (
+          <button
+            className="btn btn-primary w-full"
+            type="button"
+            disabled={isBusy}
+            onClick={() => onReleasePrime(record)}
+          >
+            <Globe2 size={18} />
+            {isBusy ? "Pubblicazione..." : "Rendi pubblico ora"}
+          </button>
+        ) : null}
         {canManuallyPublishTelegram && canSendManualTelegram(record) ? (
           <button
             className="btn w-full border border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100"
@@ -1802,6 +1867,84 @@ function RepublishConfirmationModal({
   );
 }
 
+function PrimeReleaseConfirmationModal({
+  record,
+  isPublishing,
+  onCancel,
+  onConfirm,
+}: {
+  record: AdminLeadRecord;
+  isPublishing: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="prime-release-confirmation-title"
+    >
+      <div className="w-full bg-white shadow-2xl sm:max-w-lg sm:rounded-lg">
+        <div className="px-5 py-6 sm:px-6">
+          <span className="inline-flex rounded-lg bg-amber-100 p-2 text-amber-700">
+            <Globe2 size={21} />
+          </span>
+          <p className="mt-4 section-kicker text-amber-700">Prime Zone</p>
+          <h2
+            className="mt-1 text-xl font-semibold text-ink"
+            id="prime-release-confirmation-title"
+          >
+            Rendere pubblico il lead adesso?
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted">
+            <strong className="text-ink">
+              {record.lead?.title ?? buildDefaultTitle(record)}
+            </strong>{" "}
+            uscira dalla Prime Zone e sara subito acquistabile nel Marketplace
+            pubblico.
+          </p>
+          <p className="mt-3 rounded-lg border border-green/20 bg-green/10 p-3 text-sm font-semibold leading-6 text-green">
+            Verranno avviate tutte le automazioni della nuova pubblicazione:
+            notifiche interne, email ai PM e messaggio automatico su Telegram.
+          </p>
+        </div>
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={isPublishing}
+            onClick={onCancel}
+          >
+            Annulla
+          </button>
+          <button
+            className="btn btn-primary w-full sm:w-auto"
+            type="button"
+            disabled={isPublishing}
+            onClick={onConfirm}
+          >
+            <Globe2 size={17} />
+            {isPublishing ? "Pubblicazione..." : "Conferma pubblicazione"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({
   icon: Icon,
   label,
@@ -2081,6 +2224,15 @@ function canSendManualTelegram(record: AdminLeadRecord) {
     record.requestStatus === "published" &&
     Boolean(record.lead) &&
     ["available", "last_availability"].includes(record.lead?.publicStatus ?? "")
+  );
+}
+
+function canReleasePrimeLead(record: AdminLeadRecord) {
+  return (
+    record.lead?.visibilityMode === "prime_private" &&
+    record.lead.internalStatus === "available" &&
+    record.lead.sharedSlotsSold === 0 &&
+    !record.lead.exclusivePurchaseId
   );
 }
 

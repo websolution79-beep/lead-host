@@ -7,12 +7,11 @@ import {
   fetchCommercialSettings,
   resolveLeadPricing,
 } from "@/lib/config/commercial-settings";
-import { notifyImmediateNewLead } from "@/lib/email/notifications";
-import { notifyNewLeadOnTelegram } from "@/lib/telegram/service";
 import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import type { Database } from "@/lib/supabase/database.types";
 import { hasAdminPermission } from "@/lib/admin/permissions";
+import { notifyPublicLeadPublication } from "@/lib/leads/public-publication";
 
 type RouteContext = {
   params: Promise<{
@@ -307,40 +306,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Lead publication must not wait for one request per PM or for Telegram.
     // `after` keeps the post-publication notifications independent from the admin UI.
-    if (!isPrimePublication) after(async () => {
-      const notificationResults = await Promise.allSettled([
-        notifyImmediateNewLead({
-          id: leadId,
-          title: leadTitle,
-          city: property.city,
-          province: property.province,
-          shared_price_cents: sharedPriceCents,
-          exclusive_price_cents: exclusivePriceCents,
-        }),
-        notifyNewLeadOnTelegram({
-          id: leadId,
-          title: leadTitle,
-          city: property.city,
-          province: property.province,
-          propertyType: property.property_type,
-          sharedPriceCents,
-          exclusivePriceCents,
-          sharedSlotsSold: 0,
-          sublettingAvailable,
-        }),
-      ]);
+    if (!isPrimePublication) {
+      after(async () => {
+        const result = await notifyPublicLeadPublication(leadId).catch(
+          (notificationError) => {
+            console.warn(
+              "Public lead publication notifications failed:",
+              notificationError,
+            );
+            return null;
+          },
+        );
 
-      notificationResults.forEach((result, index) => {
-        if (result.status === "rejected") {
-          console.warn(
-            index === 0
-              ? "New lead email notification failed:"
-              : "New lead Telegram notification failed:",
-            result.reason,
-          );
+        if (result && !result.completed) {
+          console.warn("Public lead publication notifications incomplete:", result);
         }
       });
-    });
+    }
 
     return NextResponse.json({
       status: isPrimePublication ? "prime_private" : "published",

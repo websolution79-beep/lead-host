@@ -16,6 +16,7 @@ type MobileMenuLink = {
   grouped?: boolean;
   subitem?: boolean;
   subitemLast?: boolean;
+  groupId?: string;
   prime?: boolean;
 };
 
@@ -76,7 +77,7 @@ export function MobileMenu({
               if (link.subitem) return null;
 
               const previousGroup = links[index - 1]?.group;
-              const showGroup = Boolean(link.group && link.group !== previousGroup);
+              const showGroup = Boolean(link.group && link.group !== previousGroup && !link.grouped);
               const renderLink = (item: MobileMenuLink, subitem = false) => (
                 <Link
                   key={item.href}
@@ -104,6 +105,10 @@ export function MobileMenu({
                 </Link>
               );
 
+              const groupedLinks = link.groupId
+                ? links.filter((item) => item.subitem && item.groupId === link.groupId)
+                : [];
+
               return (
                 <Fragment key={link.href}>
                   {showGroup ? (
@@ -115,10 +120,10 @@ export function MobileMenu({
                       {link.group}
                     </p>
                   ) : null}
-                  {link.grouped && links.some((item) => item.subitem) ? (
+                  {link.grouped && groupedLinks.length > 0 ? (
                     <div className="rounded-lg border border-emerald-300 bg-emerald-50/35 p-1 shadow-[0_8px_24px_rgba(4,120,87,0.08)]">
                       {renderLink(link)}
-                      {links.filter((item) => item.subitem).map((item) => renderLink(item, true))}
+                      {groupedLinks.map((item) => renderLink(item, true))}
                     </div>
                   ) : (
                     renderLink(link)

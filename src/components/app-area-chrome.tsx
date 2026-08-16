@@ -42,14 +42,16 @@ const marketingPreviewLink = {
   label: "Marketing",
   href: "/app/marketing",
   grouped: true,
+  groupId: "marketing",
 };
 const marketingToolLinks = [
-  { label: "CRM", href: "/app/marketing/crm", subitem: true },
+  { label: "CRM", href: "/app/marketing/crm", subitem: true, groupId: "marketing" },
   {
     label: "Rendita Stimata",
     href: "/app/marketing/rendita-stimata",
     subitem: true,
     subitemLast: true,
+    groupId: "marketing",
   },
 ];
 
@@ -59,6 +61,10 @@ const adminLinks: Array<{
   group: string;
   permission?: AdminPermissionKey;
   superAdminOnly?: boolean;
+  grouped?: boolean;
+  subitem?: boolean;
+  subitemLast?: boolean;
+  groupId?: string;
 }> = [
   { label: "Dashboard", href: "/admin", group: "Panoramica", permission: "dashboard" },
   {
@@ -69,34 +75,33 @@ const adminLinks: Array<{
   },
   { label: "Lead", href: "/admin/leads", group: "Operatività", permission: "leads" },
   {
-    label: "Acquisizione",
-    href: "/admin/acquisizione",
-    group: "Operatività",
-    permission: "acquisition",
-  },
-  {
     label: "Property Manager",
     href: "/admin/property-manager",
     group: "Operatività",
     permission: "property_managers",
   },
   {
-    label: "Lead Host PRIME",
-    href: "/admin/prime",
-    group: "Operatività",
-    permission: "prime",
-  },
-  {
-    label: "Prime Zone",
-    href: "/admin/prime-zone",
-    group: "Operatività",
-    permission: "prime",
-  },
-  {
     label: "Assistenza",
     href: "/admin/segnalazioni",
     group: "Operatività",
     permission: "support",
+  },
+  {
+    label: "Lead Host PRIME",
+    href: "/admin/prime",
+    group: "Lead Host PRIME",
+    permission: "prime",
+    grouped: true,
+    groupId: "admin-prime",
+  },
+  {
+    label: "Prime Zone",
+    href: "/admin/prime-zone",
+    group: "Lead Host PRIME",
+    permission: "prime",
+    subitem: true,
+    subitemLast: true,
+    groupId: "admin-prime",
   },
   { label: "Pagamenti", href: "/admin/pagamenti", group: "Finanza", permission: "payments" },
   { label: "Coupon", href: "/admin/coupon", group: "Finanza", permission: "coupons" },
@@ -149,6 +154,12 @@ const adminLinks: Array<{
     href: "/admin/prime/impostazioni",
     group: "Configurazione",
     superAdminOnly: true,
+  },
+  {
+    label: "Acquisizione",
+    href: "/admin/acquisizione",
+    group: "Configurazione",
+    permission: "acquisition",
   },
   {
     label: "Addons",

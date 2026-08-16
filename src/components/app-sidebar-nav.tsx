@@ -56,6 +56,7 @@ type AppNavLink = {
   subitem?: boolean;
   subitemLast?: boolean;
   grouped?: boolean;
+  groupId?: string;
   prime?: boolean;
 };
 
@@ -85,6 +86,7 @@ const marketingPreviewLink: AppNavLink = {
   icon: Columns3,
   exact: true,
   grouped: true,
+  groupId: "marketing",
 };
 
 const marketingToolLinks: AppNavLink[] = [
@@ -93,6 +95,7 @@ const marketingToolLinks: AppNavLink[] = [
     href: "/app/marketing/crm",
     icon: Columns3,
     subitem: true,
+    groupId: "marketing",
   },
   {
     label: "Rendita Stimata",
@@ -100,6 +103,7 @@ const marketingToolLinks: AppNavLink[] = [
     icon: Calculator,
     subitem: true,
     subitemLast: true,
+    groupId: "marketing",
   },
 ];
 
@@ -135,13 +139,6 @@ const adminLinks: AppNavLink[] = [
     permission: "leads",
   },
   {
-    label: "Acquisizione",
-    href: "/admin/acquisizione",
-    icon: Megaphone,
-    category: "Operatività",
-    permission: "acquisition",
-  },
-  {
     label: "Property Manager",
     href: "/admin/property-manager",
     icon: Users,
@@ -149,27 +146,32 @@ const adminLinks: AppNavLink[] = [
     permission: "property_managers",
   },
   {
-    label: "Lead Host PRIME",
-    href: "/admin/prime",
-    icon: Crown,
-    category: "Operatività",
-    permission: "prime",
-    exact: true,
-  },
-  {
-    label: "Prime Zone",
-    href: "/admin/prime-zone",
-    icon: Crown,
-    category: "Operatività",
-    permission: "prime",
-    exact: true,
-  },
-  {
     label: "Assistenza",
     href: "/admin/segnalazioni",
     icon: ShieldAlert,
     category: "Operatività",
     permission: "support",
+  },
+  {
+    label: "Lead Host PRIME",
+    href: "/admin/prime",
+    icon: Crown,
+    category: "Lead Host PRIME",
+    permission: "prime",
+    exact: true,
+    grouped: true,
+    groupId: "admin-prime",
+  },
+  {
+    label: "Prime Zone",
+    href: "/admin/prime-zone",
+    icon: Crown,
+    category: "Lead Host PRIME",
+    permission: "prime",
+    exact: true,
+    subitem: true,
+    subitemLast: true,
+    groupId: "admin-prime",
   },
   {
     label: "Pagamenti",
@@ -254,6 +256,13 @@ const adminLinks: AppNavLink[] = [
     icon: Crown,
     category: "Configurazione",
     superAdminOnly: true,
+  },
+  {
+    label: "Acquisizione",
+    href: "/admin/acquisizione",
+    icon: Megaphone,
+    category: "Configurazione",
+    permission: "acquisition",
   },
   {
     label: "Addons",
@@ -356,7 +365,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
         const category = link.category;
         const previousLink = links[index - 1];
         const previousCategory = previousLink?.category;
-        const showCategory = Boolean(category && category !== previousCategory);
+        const showCategory = Boolean(category && category !== previousCategory && !link.grouped);
         const renderLink = (item: AppNavLink, subitem = false) => {
           const ItemIcon = item.icon;
           const itemIsActive = item.exact
@@ -417,7 +426,13 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
           );
         };
 
-        const marketingGroup = link.grouped && session.marketingAddon?.hasAccess;
+        const groupedLinks = link.groupId
+          ? links.filter((item) => item.subitem && item.groupId === link.groupId)
+          : [];
+        const groupedNavigation =
+          link.grouped &&
+          (link.groupId === "admin-prime" || session.marketingAddon?.hasAccess) &&
+          groupedLinks.length > 0;
 
         return (
           <Fragment key={link.href}>
@@ -426,10 +441,10 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
                 {category}
               </p>
             ) : null}
-            {marketingGroup ? (
+            {groupedNavigation ? (
               <div className="rounded-lg border border-emerald-300 bg-emerald-50/35 p-1 shadow-[0_8px_24px_rgba(4,120,87,0.08)]">
                 {renderLink(link)}
-                {marketingToolLinks.map((tool) => renderLink(tool, true))}
+                {groupedLinks.map((tool) => renderLink(tool, true))}
               </div>
             ) : (
               renderLink(link)

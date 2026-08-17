@@ -472,7 +472,7 @@ export function AdminPrimeConsole() {
   }
 
   return (
-    <div className="grid w-full max-w-full min-w-0 gap-6">
+    <div className="grid w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-6">
       <section className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
         <Stat label="PM visibili" value={data.stats.total} icon={Eye} tone="slate" />
         <Stat label="Offerta abilitata" value={data.stats.eligible} icon={UserCheck} tone="blue" />
@@ -482,7 +482,7 @@ export function AdminPrimeConsole() {
         <Stat label="Sospesi" value={data.stats.suspended} icon={PauseCircle} tone="red" />
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <section className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div>
           <div>
             <p className="section-kicker">Portafoglio PRIME</p>
@@ -597,11 +597,11 @@ export function AdminPrimeConsole() {
       {success ? <Notice tone="success">{success}</Notice> : null}
 
       {loading ? (
-        <section className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500">
+        <section className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500">
           Carico il portafoglio PRIME...
         </section>
       ) : data.propertyManagers.length ? (
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <section className="min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="grid gap-3 p-4 md:hidden">
             {data.propertyManagers.map((row) => (
               <article key={row.profile.id} className="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-4">
@@ -710,7 +710,7 @@ export function AdminPrimeConsole() {
           </div>
         </section>
       ) : (
-        <section className="rounded-lg border border-slate-200 bg-white p-10 text-center">
+        <section className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-white p-10 text-center">
           <Crown className="mx-auto size-8 text-slate-300" />
           <h3 className="mt-4 text-lg font-semibold text-ink">Nessun Property Manager trovato</h3>
           <p className="mt-2 text-sm text-slate-500">Modifica la ricerca oppure assegna un portafoglio PRIME al ruolo.</p>
@@ -718,7 +718,7 @@ export function AdminPrimeConsole() {
       )}
 
       {data.pagination.totalPages > 1 ? (
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex min-w-0 max-w-full items-center justify-center gap-3">
           <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={page <= 1}>Precedente</button>
           <span className="text-sm font-semibold text-slate-500">Pagina {data.pagination.page} di {data.pagination.totalPages}</span>
           <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-40" onClick={() => setPage((value) => Math.min(data.pagination.totalPages, value + 1))} disabled={page >= data.pagination.totalPages}>Successiva</button>

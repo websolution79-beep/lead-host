@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { AdminTeamCompensationSettings } from "@/components/admin-team-compensation-settings";
+import { AdminMemberCompensationRules } from "@/components/admin-member-compensation-rules";
 
 type AccessLevel = "read" | "write";
 
@@ -1230,6 +1231,7 @@ function MemberEditModal({
             </span>
           </div>
         </Field>
+        <AdminMemberCompensationRules memberId={member.id} />
         <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row">
             {member.status === "invited" ? (

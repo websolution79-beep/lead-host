@@ -472,8 +472,8 @@ export function AdminPrimeConsole() {
   }
 
   return (
-    <div className="grid max-w-full min-w-0 gap-6 overflow-x-hidden">
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+    <div className="grid w-full max-w-full min-w-0 gap-6">
+      <section className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
         <Stat label="PM visibili" value={data.stats.total} icon={Eye} tone="slate" />
         <Stat label="Offerta abilitata" value={data.stats.eligible} icon={UserCheck} tone="blue" />
         <Stat label="Abbonati PRIME" value={data.stats.subscribers} icon={Crown} tone="blue" />
@@ -604,7 +604,7 @@ export function AdminPrimeConsole() {
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <div className="grid gap-3 p-4 md:hidden">
             {data.propertyManagers.map((row) => (
-              <article key={row.profile.id} className="max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-4">
+              <article key={row.profile.id} className="w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white p-4">
                 <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
                   <div className="min-w-0">
                     <p className="font-semibold text-ink">{displayName(row)}</p>
@@ -613,7 +613,7 @@ export function AdminPrimeConsole() {
                   </div>
                   <StatusBadge status={row.account?.status ?? "inactive"} />
                 </div>
-                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
                   <InfoPill label="Città" value={row.pmProfile?.primary_city ?? "Non indicata"} />
                   <InfoPill label="Immobili" value={managedPropertiesLabel(row.pmProfile?.managed_properties_range, row.pmProfile?.managed_properties_count)} />
                   <InfoPill label="Wallet" value={formatMoney(row.wallet?.balance_cents ?? 0)} />
@@ -848,7 +848,7 @@ function PrimeRowActions({
 
 function InfoPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg bg-slate-50 p-3">
+    <div className="w-full min-w-0 max-w-full rounded-lg bg-slate-50 p-3">
       <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
       <p className="mt-1 break-words text-sm font-semibold text-slate-700">{value}</p>
     </div>
@@ -864,10 +864,10 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: number
     red: "bg-red-50 text-red-700",
   };
   return (
-    <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <article className="w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-semibold text-slate-500">{label}</p>
-        <span className={`flex size-9 items-center justify-center rounded-lg ${tones[tone]}`}><Icon size={18} /></span>
+        <p className="min-w-0 break-words text-sm font-semibold text-slate-500">{label}</p>
+        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}><Icon size={18} /></span>
       </div>
       <p className="mt-4 text-3xl font-semibold text-ink">{value}</p>
     </article>

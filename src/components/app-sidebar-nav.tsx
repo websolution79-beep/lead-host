@@ -15,6 +15,7 @@ import {
   Crosshair,
   Columns3,
   FileText,
+  HandCoins,
   Inbox,
   LifeBuoy,
   Mail,
@@ -51,6 +52,7 @@ type AppNavLink = {
   category?: string;
   permission?: AdminPermissionKey;
   superAdminOnly?: boolean;
+  teamMemberOnly?: boolean;
   highlighted?: boolean;
   exact?: boolean;
   subitem?: boolean;
@@ -274,6 +276,13 @@ const adminLinks: AppNavLink[] = [
     superAdminOnly: true,
   },
   {
+    label: "I miei guadagni",
+    href: "/admin/i-miei-guadagni",
+    icon: HandCoins,
+    category: "Configurazione",
+    teamMemberOnly: true,
+  },
+  {
     label: "Profilo",
     href: "/admin/profilo",
     icon: UserCircle,
@@ -310,7 +319,7 @@ export function AppSidebarNav({ section }: AppSidebarNavProps) {
   const links =
     section === "admin"
       ? session.isSuperAdmin
-        ? adminLinks
+        ? adminLinks.filter((link) => !link.teamMemberOnly)
         : allowedAdminLinks
       : isRestrictedTeamMember
         ? [

@@ -141,6 +141,18 @@ export async function requireAdminPermission(
   return context;
 }
 
+export async function requireActiveTeamMember(
+  request: NextRequest,
+): Promise<AdminContext & { teamMemberId: string }> {
+  const context = await requireAdminContext(request);
+
+  if (context.isSuperAdmin || !context.teamMemberId) {
+    throw new AdminApiError(403, "Area riservata ai collaboratori del Team.");
+  }
+
+  return context as AdminContext & { teamMemberId: string };
+}
+
 export function adminApiErrorResponse(error: unknown) {
   if (error instanceof AdminApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status });

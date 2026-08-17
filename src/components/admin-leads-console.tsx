@@ -25,6 +25,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
+import { AdminLeadVerificationCompensation } from "@/components/admin-lead-verification-compensation";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
@@ -1273,6 +1274,12 @@ function LeadDetailPanel({
           {record.qualificationNotes ?? "Nessuna nota inserita."}
         </p>
       </section>
+
+      {canManage ? (
+        <AdminLeadVerificationCompensation
+          ownerRequestId={record.ownerRequestId}
+        />
+      ) : null}
 
       {record.statusReason ? (
         <section className="mt-5 border-t border-slate-200 pt-5">

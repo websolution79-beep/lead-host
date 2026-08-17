@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAppSession } from "@/components/app-session-provider";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
-export function AccountSummary() {
+export function AccountSummary({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const session = useAppSession();
@@ -21,7 +21,7 @@ export function AccountSummary() {
   const displayName = [session.firstName, session.lastName].filter(Boolean).join(" ");
 
   return (
-    <div className="mt-5 rounded-lg border border-slate-200 bg-white p-3">
+    <div className={`${compact ? "" : "mt-5"} rounded-lg border border-slate-200 bg-white p-3`}>
       <div className="flex items-center gap-3">
         {session.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

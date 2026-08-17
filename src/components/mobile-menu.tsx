@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import { AccountSummary } from "@/components/account-summary";
 import { AdminLeadNavBadge } from "@/components/admin-lead-nav-badge";
 import { RoleSwitcher } from "@/components/role-switcher";
 import { SupportNavBadge } from "@/components/support-nav-badge";
@@ -67,13 +68,14 @@ export function MobileMenu({
             onClick={() => setIsOpen(false)}
           />
           <div
-            className={`fixed inset-x-4 top-24 z-[100] max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border p-2 shadow-[0_24px_70px_rgba(15,23,42,0.22)] ${
+            className={`fixed inset-x-4 top-24 z-[100] flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-xl border shadow-[0_24px_70px_rgba(15,23,42,0.22)] ${
               isDark
                 ? "border-cream/12 bg-graphite text-cream"
                 : "border-slate-200 bg-white text-ink"
             }`}
           >
-            {links.map((link, index) => {
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              {links.map((link, index) => {
               if (link.subitem) return null;
 
               const previousGroup = links[index - 1]?.group;
@@ -130,10 +132,14 @@ export function MobileMenu({
                   )}
                 </Fragment>
               );
-            })}
-            {roleSwitchSection ? (
-              <RoleSwitcher section={roleSwitchSection} compact />
-            ) : null}
+              })}
+              {roleSwitchSection ? (
+                <RoleSwitcher section={roleSwitchSection} compact />
+              ) : null}
+            </div>
+            <div className={isDark ? "shrink-0 border-t border-cream/12 p-2" : "shrink-0 border-t border-slate-200 p-2"}>
+              <AccountSummary compact />
+            </div>
           </div>
         </>
       ) : null}

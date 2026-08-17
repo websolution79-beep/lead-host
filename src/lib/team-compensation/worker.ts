@@ -163,6 +163,53 @@ export function runTeamCompensationWorkerSafely(batchSize = 25) {
   });
 }
 
+export async function captureTeamRefundCompensation(refundId: string) {
+  const supabase = createServiceSupabaseClient();
+  if (!(await isTeamCompensationEnabled(supabase))) return;
+
+  const rpc = supabase as unknown as {
+    rpc: (
+      fn: "capture_team_refund_compensation",
+      args: { p_refund_id: string },
+    ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  };
+  const { error } = await rpc.rpc("capture_team_refund_compensation", {
+    p_refund_id: refundId,
+  });
+  if (error) {
+    throw new Error(error.message ?? "Storno compenso non registrato.");
+  }
+}
+
+export function captureTeamRefundCompensationSafely(refundId: string) {
+  return captureTeamRefundCompensation(refundId).catch((error) => {
+    console.error(
+      "Team refund compensation failed:",
+      error instanceof Error ? error.message : "Errore sconosciuto.",
+    );
+  });
+}
+
+export async function reconcileTeamRefundCompensationsSafely() {
+  const supabase = createServiceSupabaseClient();
+  if (!(await isTeamCompensationEnabled(supabase))) return;
+
+  const rpc = supabase as unknown as {
+    rpc: (
+      fn: "reconcile_team_refund_compensations",
+    ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  };
+  const { data, error } = await rpc.rpc("reconcile_team_refund_compensations");
+  if (error) {
+    console.error(
+      "Team refund compensation reconciliation failed:",
+      error.message ?? "Errore sconosciuto.",
+    );
+    return;
+  }
+  return data;
+}
+
 async function enqueueOutbox(input: {
   eventType: string;
   sourceType: string;

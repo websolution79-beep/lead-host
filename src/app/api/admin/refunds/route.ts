@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
+import { captureTeamRefundCompensationSafely } from "@/lib/team-compensation/worker";
 
 const createRefundSchema = z.object({
   leadPurchaseId: z.string().uuid(),
@@ -224,7 +225,12 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: message }, { status: 422 });
       }
 
-      after(() => runBrevoWorkerSafely(10));
+      after(async () => {
+        await Promise.allSettled([
+          runBrevoWorkerSafely(10),
+          captureTeamRefundCompensationSafely(payload.refundId),
+        ]);
+      });
       return NextResponse.json({ ok: true, result: data });
     }
 

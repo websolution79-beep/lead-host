@@ -33,10 +33,11 @@ as $$
   with active_members as (
     select
       member.id,
-      member.email,
+      profile.email,
       role.name as role_name,
       regexp_replace(lower(trim(role.name)), '[^a-z]', '', 'g') as role_key
     from public.team_members member
+    join public.profiles profile on profile.id = member.profile_id
     join public.team_roles role on role.id = member.role_id
     where member.status = 'active'
   ),

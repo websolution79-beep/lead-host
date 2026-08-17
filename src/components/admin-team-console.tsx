@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { AdminTeamCompensationSettings } from "@/components/admin-team-compensation-settings";
 
 type AccessLevel = "read" | "write";
 
@@ -109,7 +110,9 @@ export function AdminTeamConsole() {
   const [permissions, setPermissions] = useState<TeamPermission[]>([]);
   const [roles, setRoles] = useState<TeamRole[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
-  const [activeTab, setActiveTab] = useState<"members" | "roles">("members");
+  const [activeTab, setActiveTab] = useState<
+    "members" | "roles" | "compensation-settings"
+  >("members");
   const [roleDraft, setRoleDraft] = useState<RoleDraft | null>(null);
   const [memberDraft, setMemberDraft] = useState<MemberDraft | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -559,12 +562,18 @@ export function AdminTeamConsole() {
             >
               Ruoli ({roles.length})
             </TabButton>
+            <TabButton
+              active={activeTab === "compensation-settings"}
+              onClick={() => setActiveTab("compensation-settings")}
+            >
+              Impostazioni compensi
+            </TabButton>
           </div>
         </div>
 
         {activeTab === "members" ? (
           <MembersList members={members} onEdit={openMemberEdit} />
-        ) : (
+        ) : activeTab === "roles" ? (
           <RolesList
             roles={roles}
             members={members}
@@ -572,6 +581,8 @@ export function AdminTeamConsole() {
             onDelete={deleteRole}
             saving={saving}
           />
+        ) : (
+          <AdminTeamCompensationSettings />
         )}
       </section>
 

@@ -77,6 +77,52 @@ export async function isTeamCompensationEnabled(
   return settings.featureEnabled;
 }
 
+export async function saveTeamCompensationSettings({
+  supabase,
+  profileId,
+  settings,
+}: {
+  supabase: ServiceClient;
+  profileId: string;
+  settings: Omit<TeamCompensationSettings, "featureEnabled" | "currency">;
+}): Promise<TeamCompensationSettings> {
+  const settingsTable = supabase.from(
+    "team_compensation_settings" as never,
+  ) as unknown as {
+    update: (values: Record<string, unknown>) => {
+      eq: (column: string, value: boolean) => {
+        select: (columns: string) => {
+          single: () => Promise<{
+            data: TeamCompensationSettingsRow | null;
+            error: { code?: string; message?: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+
+  const { data, error } = await settingsTable
+    .update({
+      lead_verification_cents: settings.leadVerificationCents,
+      prime_first_activation_cents: settings.primeFirstActivationCents,
+      prime_renewal_cents: settings.primeRenewalCents,
+      prime_lead_purchase_basis_points:
+        settings.primeLeadPurchaseBasisPoints,
+      updated_by: profileId,
+    })
+    .eq("id", true)
+    .select(
+      "feature_enabled,lead_verification_cents,prime_first_activation_cents,prime_renewal_cents,prime_lead_purchase_basis_points,currency",
+    )
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Impostazioni compensi non aggiornate.");
+  }
+
+  return normalizeTeamCompensationSettings(data);
+}
+
 export function normalizeTeamCompensationSettings(
   row: TeamCompensationSettingsRow,
 ): TeamCompensationSettings {

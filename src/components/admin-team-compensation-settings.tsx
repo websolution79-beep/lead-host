@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BadgeEuro, Percent, Save, ShieldCheck } from "lucide-react";
+import { BadgeEuro, Percent, Power, Save, ShieldCheck } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 type CompensationSettings = {
@@ -16,6 +16,13 @@ type CompensationSettings = {
 type SettingsResponse = {
   settings?: CompensationSettings;
   storageReady?: boolean;
+  readiness?: {
+    activeMembers: number;
+    configuredMembers: number;
+    missingRules: number;
+    accountManagers: number;
+    accountManagersReady: number;
+  } | null;
   error?: string;
 };
 
@@ -34,6 +41,7 @@ export function AdminTeamCompensationSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storageReady, setStorageReady] = useState(true);
+  const [readiness, setReadiness] = useState<SettingsResponse["readiness"]>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -64,6 +72,7 @@ export function AdminTeamCompensationSettings() {
     } else {
       setSettings(payload.settings);
       setStorageReady(payload.storageReady ?? true);
+      setReadiness(payload.readiness ?? null);
     }
     setLoading(false);
   }, [getToken]);
@@ -109,6 +118,48 @@ export function AdminTeamCompensationSettings() {
     setSaving(false);
   }
 
+  async function toggleFeature() {
+    const enabling = !settings.featureEnabled;
+    const confirmed = window.confirm(
+      enabling
+        ? "Attivare il motore compensi? Saranno conteggiate solo le nuove attività da questo momento."
+        : "Disattivare il motore compensi? I compensi già maturati resteranno invariati.",
+    );
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    const token = await getToken();
+    if (!token) {
+      setError("Sessione Super Admin non disponibile.");
+      setSaving(false);
+      return;
+    }
+
+    const response = await fetch("/api/admin/team/compensation-settings", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ featureEnabled: enabling }),
+    });
+    const payload = (await response.json()) as SettingsResponse;
+    if (!response.ok || !payload.settings) {
+      setError(payload.error ?? "Aggiornamento del motore compensi non riuscito.");
+    } else {
+      setSettings(payload.settings);
+      setReadiness(payload.readiness ?? readiness);
+      setSuccess(
+        payload.settings.featureEnabled
+          ? "Motore compensi attivato. Da ora saranno conteggiate solo le nuove attività."
+          : "Motore compensi disattivato.",
+      );
+    }
+    setSaving(false);
+  }
+
   if (loading) {
     return <p className="p-6 text-sm font-semibold text-muted">Carico impostazioni compensi...</p>;
   }
@@ -146,6 +197,27 @@ export function AdminTeamCompensationSettings() {
           </p>
         </div>
       ) : null}
+      <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-bold text-ink">
+            Motore compensi: {settings.featureEnabled ? "Attivo" : "Disattivato"}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            {readiness
+              ? `${readiness.configuredMembers}/${readiness.activeMembers} membri configurati · ${readiness.accountManagersReady}/${readiness.accountManagers} Account Manager pronti`
+              : "Controllo di attivazione non disponibile."}
+          </p>
+        </div>
+        <button
+          className={`btn w-full sm:w-auto ${settings.featureEnabled ? "btn-secondary" : "btn-primary"}`}
+          type="button"
+          disabled={saving || !storageReady || (!settings.featureEnabled && !readiness)}
+          onClick={() => void toggleFeature()}
+        >
+          <Power size={17} />
+          {settings.featureEnabled ? "Disattiva motore" : "Attiva motore"}
+        </button>
+      </div>
       {!storageReady ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
           Archivio compensi non disponibile. Verifica la migration prima di salvare.

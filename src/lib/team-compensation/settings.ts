@@ -12,6 +12,17 @@ export type TeamCompensationSettings = {
   currency: "EUR";
 };
 
+export type TeamCompensationReadiness = {
+  featureEnabled: boolean;
+  activeMembers: number;
+  configuredMembers: number;
+  missingRules: number;
+  accountManagers: number;
+  accountManagersReady: number;
+  events: number;
+  pendingOutbox: number;
+};
+
 type TeamCompensationSettingsRow = {
   feature_enabled: boolean | null;
   lead_verification_cents: number | null;
@@ -75,6 +86,75 @@ export async function isTeamCompensationEnabled(
 ): Promise<boolean> {
   const { settings } = await fetchTeamCompensationSettings(supabase);
   return settings.featureEnabled;
+}
+
+export async function fetchTeamCompensationReadiness(
+  supabase: ServiceClient,
+): Promise<TeamCompensationReadiness | null> {
+  const rpcClient = supabase as unknown as {
+    rpc: (name: string) => Promise<{
+      data: Record<string, unknown> | null;
+      error: { message?: string } | null;
+    }>;
+  };
+  const { data, error } = await rpcClient.rpc(
+    "get_team_compensation_activation_readiness",
+  );
+
+  if (error || !data) return null;
+
+  return {
+    featureEnabled: data.featureEnabled === true,
+    activeMembers: toCount(data.activeMembers),
+    configuredMembers: toCount(data.configuredMembers),
+    missingRules: toCount(data.missingRules),
+    accountManagers: toCount(data.accountManagers),
+    accountManagersReady: toCount(data.accountManagersReady),
+    events: toCount(data.events),
+    pendingOutbox: toCount(data.pendingOutbox),
+  };
+}
+
+export async function setTeamCompensationFeatureEnabled({
+  supabase,
+  profileId,
+  enabled,
+}: {
+  supabase: ServiceClient;
+  profileId: string;
+  enabled: boolean;
+}): Promise<TeamCompensationSettings> {
+  const settingsTable = supabase.from(
+    "team_compensation_settings" as never,
+  ) as unknown as {
+    update: (values: Record<string, unknown>) => {
+      eq: (column: string, value: boolean) => {
+        select: (columns: string) => {
+          single: () => Promise<{
+            data: TeamCompensationSettingsRow | null;
+            error: { message?: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+
+  const { data, error } = await settingsTable
+    .update({
+      feature_enabled: enabled,
+      updated_by: profileId,
+    })
+    .eq("id", true)
+    .select(
+      "feature_enabled,lead_verification_cents,prime_first_activation_cents,prime_renewal_cents,prime_lead_purchase_basis_points,currency",
+    )
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Stato motore compensi non aggiornato.");
+  }
+
+  return normalizeTeamCompensationSettings(data);
 }
 
 export async function saveTeamCompensationSettings({
@@ -162,4 +242,9 @@ function parseNonNegativeInteger(value: number | null, fallback: number) {
 function parseBasisPoints(value: number | null, fallback: number) {
   const parsed = parseNonNegativeInteger(value, fallback);
   return parsed <= 10_000 ? parsed : fallback;
+}
+
+function toCount(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0;
 }

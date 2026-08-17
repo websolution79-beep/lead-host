@@ -21,6 +21,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { AdminTeamCompensationSettings } from "@/components/admin-team-compensation-settings";
 import { AdminMemberCompensationRules } from "@/components/admin-member-compensation-rules";
+import { AdminTeamCompensations } from "@/components/admin-team-compensations";
 
 type AccessLevel = "read" | "write";
 
@@ -112,7 +113,7 @@ export function AdminTeamConsole() {
   const [roles, setRoles] = useState<TeamRole[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [activeTab, setActiveTab] = useState<
-    "members" | "roles" | "compensation-settings"
+    "members" | "roles" | "compensations" | "compensation-settings"
   >("members");
   const [roleDraft, setRoleDraft] = useState<RoleDraft | null>(null);
   const [memberDraft, setMemberDraft] = useState<MemberDraft | null>(null);
@@ -550,7 +551,7 @@ export function AdminTeamConsole() {
         </div>
 
         <div className="border-b border-slate-200 px-5 pt-4">
-          <div className="inline-flex rounded-lg bg-slate-100 p-1">
+          <div className="flex w-full gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1">
             <TabButton
               active={activeTab === "members"}
               onClick={() => setActiveTab("members")}
@@ -562,6 +563,12 @@ export function AdminTeamConsole() {
               onClick={() => setActiveTab("roles")}
             >
               Ruoli ({roles.length})
+            </TabButton>
+            <TabButton
+              active={activeTab === "compensations"}
+              onClick={() => setActiveTab("compensations")}
+            >
+              Compensi maturati
             </TabButton>
             <TabButton
               active={activeTab === "compensation-settings"}
@@ -582,6 +589,8 @@ export function AdminTeamConsole() {
             onDelete={deleteRole}
             saving={saving}
           />
+        ) : activeTab === "compensations" ? (
+          <AdminTeamCompensations />
         ) : (
           <AdminTeamCompensationSettings />
         )}

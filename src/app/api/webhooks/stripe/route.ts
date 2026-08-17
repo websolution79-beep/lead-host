@@ -22,6 +22,7 @@ import {
   syncPrimeAccountFromStripeSubscription,
   syncPrimeInvoiceFromStripe,
 } from "@/lib/prime/billing";
+import { capturePrimeBillingCompensation } from "@/lib/team-compensation/worker";
 
 type TopUpCompletionResult = {
   wallet_id: string;
@@ -232,17 +233,24 @@ export async function POST(request: NextRequest) {
         !primeResult.already_completed
       ) {
         after(async () => {
-          await sendPrimeBillingEmails({
-            profileId: primeResult.profile_id,
-            primeBillingPeriodId: primeResult.prime_billing_period_id,
-            periodKind: primeResult.periodKind,
-            membershipAmountCents: primeResult.membership_amount_cents,
-            walletRechargeAmountCents: primeResult.wallet_recharge_amount_cents,
-            totalAmountCents: primeResult.total_amount_cents,
-            walletBalanceCents: primeResult.balance_cents,
-            stripeInvoiceId: invoice.id!,
-            billingPeriodEndsAt: toIsoDate(invoice.period_end),
-          });
+          await Promise.allSettled([
+            sendPrimeBillingEmails({
+              profileId: primeResult.profile_id,
+              primeBillingPeriodId: primeResult.prime_billing_period_id,
+              periodKind: primeResult.periodKind,
+              membershipAmountCents: primeResult.membership_amount_cents,
+              walletRechargeAmountCents: primeResult.wallet_recharge_amount_cents,
+              totalAmountCents: primeResult.total_amount_cents,
+              walletBalanceCents: primeResult.balance_cents,
+              stripeInvoiceId: invoice.id!,
+              billingPeriodEndsAt: toIsoDate(invoice.period_end),
+            }),
+            capturePrimeBillingCompensation({
+              primeBillingPeriodId: primeResult.prime_billing_period_id,
+              profileId: primeResult.profile_id,
+              periodKind: primeResult.periodKind,
+            }),
+          ]);
         });
       }
 

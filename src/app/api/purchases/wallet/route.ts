@@ -13,6 +13,7 @@ import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
+import { capturePrimeLeadPurchaseCompensation } from "@/lib/team-compensation/worker";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
@@ -156,6 +157,12 @@ export async function POST(request: NextRequest) {
           balanceCents: purchase.balance_cents,
         }),
         runBrevoWorkerSafely(10),
+        capturePrimeLeadPurchaseCompensation({
+          purchaseId: purchase.purchase_id,
+          propertyManagerId: propertyManager.id,
+          leadId: purchase.lead_id,
+          amountCents: purchase.amount_cents,
+        }),
       ]);
     });
     revalidateTag(MARKETPLACE_LEADS_CACHE_TAG, "max");

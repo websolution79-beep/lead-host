@@ -53,6 +53,10 @@ type TeamMember = {
   creation_mode: "invite" | "manual";
   must_change_password: boolean;
   badge_color: string;
+  whatsapp_number: string | null;
+  telegram_contact: string | null;
+  contact_email: string | null;
+  paypal_email: string | null;
   invited_at: string | null;
   joined_at: string | null;
   created_at: string;
@@ -109,8 +113,14 @@ export function AdminTeamConsole() {
   const [roleDraft, setRoleDraft] = useState<RoleDraft | null>(null);
   const [memberDraft, setMemberDraft] = useState<MemberDraft | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [editMemberFirstName, setEditMemberFirstName] = useState("");
+  const [editMemberLastName, setEditMemberLastName] = useState("");
   const [editMemberRoleId, setEditMemberRoleId] = useState("");
   const [editMemberBadgeColor, setEditMemberBadgeColor] = useState("#2563EB");
+  const [editMemberWhatsappNumber, setEditMemberWhatsappNumber] = useState("");
+  const [editMemberTelegramContact, setEditMemberTelegramContact] = useState("");
+  const [editMemberContactEmail, setEditMemberContactEmail] = useState("");
+  const [editMemberPaypalEmail, setEditMemberPaypalEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -198,8 +208,14 @@ export function AdminTeamConsole() {
 
   function openMemberEdit(member: TeamMember) {
     setEditingMember(member);
+    setEditMemberFirstName(member.profile?.first_name ?? "");
+    setEditMemberLastName(member.profile?.last_name ?? "");
     setEditMemberRoleId(member.role_id);
     setEditMemberBadgeColor(member.badge_color ?? "#2563EB");
+    setEditMemberWhatsappNumber(member.whatsapp_number ?? "");
+    setEditMemberTelegramContact(member.telegram_contact ?? "");
+    setEditMemberContactEmail(member.contact_email ?? "");
+    setEditMemberPaypalEmail(member.paypal_email ?? "");
   }
 
   async function request(
@@ -352,9 +368,15 @@ export function AdminTeamConsole() {
       await request("PATCH", {
         action: "update_member",
         memberId: editingMember.id,
+        firstName: editMemberFirstName,
+        lastName: editMemberLastName,
         roleId: editMemberRoleId,
         status: editingMember.status === "suspended" ? "suspended" : "active",
         badgeColor: editMemberBadgeColor,
+        whatsappNumber: editMemberWhatsappNumber,
+        telegramContact: editMemberTelegramContact,
+        contactEmail: editMemberContactEmail,
+        paypalEmail: editMemberPaypalEmail,
       });
       setEditingMember(null);
       setSuccess("Membro Team aggiornato.");
@@ -393,9 +415,15 @@ export function AdminTeamConsole() {
       await request("PATCH", {
         action: "update_member",
         memberId: member.id,
+        firstName: member.profile?.first_name ?? "Membro",
+        lastName: member.profile?.last_name ?? "Team",
         roleId: member.role_id,
         status: nextStatus,
         badgeColor: member.badge_color ?? "#2563EB",
+        whatsappNumber: member.whatsapp_number ?? "",
+        telegramContact: member.telegram_contact ?? "",
+        contactEmail: member.contact_email ?? "",
+        paypalEmail: member.paypal_email ?? "",
       });
       setEditingMember(null);
       setSuccess(
@@ -572,12 +600,24 @@ export function AdminTeamConsole() {
       {editingMember ? (
         <MemberEditModal
           member={editingMember}
+          firstName={editMemberFirstName}
+          lastName={editMemberLastName}
           roleId={editMemberRoleId}
           badgeColor={editMemberBadgeColor}
+          whatsappNumber={editMemberWhatsappNumber}
+          telegramContact={editMemberTelegramContact}
+          contactEmail={editMemberContactEmail}
+          paypalEmail={editMemberPaypalEmail}
           roles={activeRoles}
           saving={saving}
+          onFirstNameChange={setEditMemberFirstName}
+          onLastNameChange={setEditMemberLastName}
           onRoleChange={setEditMemberRoleId}
           onBadgeColorChange={setEditMemberBadgeColor}
+          onWhatsappNumberChange={setEditMemberWhatsappNumber}
+          onTelegramContactChange={setEditMemberTelegramContact}
+          onContactEmailChange={setEditMemberContactEmail}
+          onPaypalEmailChange={setEditMemberPaypalEmail}
           onStatusToggle={() => void toggleMemberStatus(editingMember)}
           onResendInvite={() => void resendMemberInvite(editingMember)}
           onClose={() => setEditingMember(null)}
@@ -988,24 +1028,48 @@ function MemberCreationModal({
 
 function MemberEditModal({
   member,
+  firstName,
+  lastName,
   roleId,
   badgeColor,
+  whatsappNumber,
+  telegramContact,
+  contactEmail,
+  paypalEmail,
   roles,
   saving,
+  onFirstNameChange,
+  onLastNameChange,
   onRoleChange,
   onBadgeColorChange,
+  onWhatsappNumberChange,
+  onTelegramContactChange,
+  onContactEmailChange,
+  onPaypalEmailChange,
   onStatusToggle,
   onResendInvite,
   onClose,
   onSubmit,
 }: {
   member: TeamMember;
+  firstName: string;
+  lastName: string;
   roleId: string;
   badgeColor: string;
+  whatsappNumber: string;
+  telegramContact: string;
+  contactEmail: string;
+  paypalEmail: string;
   roles: TeamRole[];
   saving: boolean;
+  onFirstNameChange: (value: string) => void;
+  onLastNameChange: (value: string) => void;
   onRoleChange: (roleId: string) => void;
   onBadgeColorChange: (color: string) => void;
+  onWhatsappNumberChange: (value: string) => void;
+  onTelegramContactChange: (value: string) => void;
+  onContactEmailChange: (value: string) => void;
+  onPaypalEmailChange: (value: string) => void;
   onStatusToggle: () => void;
   onResendInvite: () => void;
   onClose: () => void;
@@ -1046,6 +1110,83 @@ function MemberEditModal({
               value={formatDate(member.invited_at ?? member.created_at)}
             />
           ) : null}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Nome *">
+            <input
+              className="form-input"
+              value={firstName}
+              minLength={2}
+              maxLength={80}
+              onChange={(event) => onFirstNameChange(event.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Cognome *">
+            <input
+              className="form-input"
+              value={lastName}
+              minLength={2}
+              maxLength={80}
+              onChange={(event) => onLastNameChange(event.target.value)}
+              required
+            />
+          </Field>
+        </div>
+        <Field label="Email di registrazione">
+          <input
+            className="form-input bg-slate-50 text-slate-500"
+            value={member.profile?.email ?? ""}
+            readOnly
+          />
+        </Field>
+        <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+          <p className="text-sm font-semibold text-ink">Recapiti operativi</p>
+          <p className="mt-1 text-xs leading-5 text-muted">
+            Questi dati sono interni al Team e possono essere diversi da quelli usati per accedere a Lead Host.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="Numero WhatsApp">
+              <input
+                className="form-input"
+                type="tel"
+                value={whatsappNumber}
+                maxLength={120}
+                onChange={(event) => onWhatsappNumberChange(event.target.value)}
+                placeholder="Es. +39 333 1234567"
+              />
+            </Field>
+            <Field label="Contatto Telegram">
+              <input
+                className="form-input"
+                value={telegramContact}
+                maxLength={120}
+                onChange={(event) => onTelegramContactChange(event.target.value)}
+                placeholder="Es. @nomeutente"
+              />
+            </Field>
+            <Field label="Email di contatto">
+              <input
+                className="form-input"
+                type="email"
+                autoComplete="email"
+                value={contactEmail}
+                maxLength={255}
+                onChange={(event) => onContactEmailChange(event.target.value)}
+                placeholder="Può essere diversa dall'email di registrazione"
+              />
+            </Field>
+            <Field label="Email PayPal">
+              <input
+                className="form-input"
+                type="email"
+                value={paypalEmail}
+                maxLength={255}
+                onChange={(event) => onPaypalEmailChange(event.target.value)}
+                placeholder="Email associata al conto PayPal"
+              />
+            </Field>
+          </div>
         </div>
         <Field label="Ruolo assegnato *">
           <select
@@ -1108,7 +1249,7 @@ function MemberEditModal({
               Chiudi
             </button>
             <button className="btn btn-primary" type="submit" disabled={saving}>
-              {saving ? "Salvataggio..." : "Salva ruolo"}
+              {saving ? "Salvataggio..." : "Salva modifiche"}
             </button>
           </div>
         </div>

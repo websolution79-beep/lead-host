@@ -29,6 +29,14 @@ const memberFieldsSchema = z.object({
   roleId: z.string().uuid(),
 });
 const badgeColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+const optionalEmailSchema = z
+  .union([z.string().trim().email().max(255), z.literal("")])
+  .transform((value) => value.trim().toLowerCase() || null);
+const optionalContactSchema = z
+  .string()
+  .trim()
+  .max(120)
+  .transform((value) => value || null);
 
 const postSchema = z.discriminatedUnion("action", [
   z.object({
@@ -60,9 +68,15 @@ const patchSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("update_member"),
     memberId: z.string().uuid(),
+    firstName: z.string().trim().min(2).max(80),
+    lastName: z.string().trim().min(2).max(80),
     roleId: z.string().uuid(),
     status: z.enum(["active", "suspended"]),
     badgeColor: badgeColorSchema,
+    whatsappNumber: optionalContactSchema,
+    telegramContact: optionalContactSchema,
+    contactEmail: optionalEmailSchema,
+    paypalEmail: optionalEmailSchema,
   }),
 ]);
 
@@ -368,6 +382,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     await ensureRoleIsActive(supabase, payload.data.roleId);
+    const { data: existingMember, error: existingMemberError } = await supabase
+      .from("team_members")
+      .select("id,profile_id")
+      .eq("id", payload.data.memberId)
+      .maybeSingle();
+
+    if (existingMemberError) throw existingMemberError;
+    if (!existingMember) {
+      throw new AdminApiError(404, "Membro Team non trovato.");
+    }
+
     const suspendedAt =
       payload.data.status === "suspended" ? new Date().toISOString() : null;
     const { data: member, error } = await supabase
@@ -376,8 +401,12 @@ export async function PATCH(request: NextRequest) {
         role_id: payload.data.roleId,
         status: payload.data.status,
         badge_color: payload.data.badgeColor,
+        whatsapp_number: payload.data.whatsappNumber,
+        telegram_contact: payload.data.telegramContact,
+        contact_email: payload.data.contactEmail,
+        paypal_email: payload.data.paypalEmail,
         suspended_at: suspendedAt,
-      })
+      } as never)
       .eq("id", payload.data.memberId)
       .select("*")
       .single();
@@ -385,6 +414,15 @@ export async function PATCH(request: NextRequest) {
     if (error || !member) {
       throw new AdminApiError(404, "Membro Team non trovato.");
     }
+
+    const { error: profileUpdateError } = await supabase
+      .from("profiles")
+      .update({
+        first_name: payload.data.firstName,
+        last_name: payload.data.lastName,
+      })
+      .eq("id", existingMember.profile_id);
+    if (profileUpdateError) throw profileUpdateError;
 
     await writeTeamAudit(
       supabase,
@@ -397,6 +435,10 @@ export async function PATCH(request: NextRequest) {
         role_id: payload.data.roleId,
         status: payload.data.status,
         badge_color: payload.data.badgeColor,
+        whatsapp_number: payload.data.whatsappNumber,
+        telegram_contact: payload.data.telegramContact,
+        contact_email: payload.data.contactEmail,
+        paypal_email: payload.data.paypalEmail,
       },
     );
 

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banknote,
+  CalendarRange,
   Coins,
+  Download,
   HandCoins,
   ReceiptText,
   RefreshCw,
@@ -77,12 +79,31 @@ type EarningsPayload = {
   error?: string;
 };
 
+type RangeKey =
+  | "today"
+  | "yesterday"
+  | "last_7_days"
+  | "last_30_days"
+  | "current_month"
+  | "previous_month"
+  | "current_year"
+  | "custom";
+
 export function TeamMemberEarnings() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [payload, setPayload] = useState<EarningsPayload | null>(null);
   const [page, setPage] = useState(1);
+  const [rangeKey, setRangeKey] = useState<RangeKey>("current_month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [eventType, setEventType] = useState("");
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState("");
+  const selectedRange = useMemo(
+    () => resolveRange(rangeKey, customFrom, customTo),
+    [customFrom, customTo, rangeKey],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,8 +117,12 @@ export function TeamMemberEarnings() {
       return;
     }
 
+    const params = new URLSearchParams({ page: String(page), pageSize: "25" });
+    if (selectedRange.dateFrom) params.set("dateFrom", selectedRange.dateFrom);
+    if (selectedRange.dateTo) params.set("dateTo", selectedRange.dateTo);
+    if (eventType) params.set("eventType", eventType);
     const response = await fetch(
-      `/api/admin/team/my-earnings?page=${page}&pageSize=25`,
+      `/api/admin/team/my-earnings?${params.toString()}`,
       {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
@@ -111,7 +136,7 @@ export function TeamMemberEarnings() {
       setPayload(result);
     }
     setLoading(false);
-  }, [page, supabase]);
+  }, [eventType, page, selectedRange.dateFrom, selectedRange.dateTo, supabase]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
@@ -137,6 +162,42 @@ export function TeamMemberEarnings() {
 
   const activeRules = getActiveRules(payload.rules);
 
+  async function downloadCsv() {
+    setDownloading(true);
+    setError("");
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) {
+      setError("Sessione Team non disponibile.");
+      setDownloading(false);
+      return;
+    }
+    const params = new URLSearchParams({ format: "csv" });
+    if (selectedRange.dateFrom) params.set("dateFrom", selectedRange.dateFrom);
+    if (selectedRange.dateTo) params.set("dateTo", selectedRange.dateTo);
+    if (eventType) params.set("eventType", eventType);
+    const response = await fetch(`/api/admin/team/my-earnings?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const result = (await response.json()) as { error?: string };
+      setError(result.error ?? "Non riesco a esportare i guadagni.");
+      setDownloading(false);
+      return;
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `guadagni-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setDownloading(false);
+  }
+
   return (
     <div className="grid min-w-0 gap-6">
       {!payload.featureEnabled ? (
@@ -156,11 +217,59 @@ export function TeamMemberEarnings() {
         </button>
       </section>
 
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2">
+          <CalendarRange className="text-green" size={18} />
+          <div>
+            <p className="section-kicker">Periodo</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">Analizza i tuoi compensi</h2>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+          <label className="grid gap-2 text-sm font-semibold text-ink">
+            Intervallo
+            <select className="input" value={rangeKey} onChange={(event) => { setRangeKey(event.target.value as RangeKey); setPage(1); }}>
+              <option value="today">Oggi</option>
+              <option value="yesterday">Ieri</option>
+              <option value="last_7_days">Ultimi 7 giorni</option>
+              <option value="last_30_days">Ultimi 30 giorni</option>
+              <option value="current_month">Mese in corso</option>
+              <option value="previous_month">Mese scorso</option>
+              <option value="current_year">Anno in corso</option>
+              <option value="custom">Periodo personalizzato</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-ink">
+            Attività
+            <select className="input" value={eventType} onChange={(event) => { setEventType(event.target.value); setPage(1); }}>
+              <option value="">Tutte le attività</option>
+              <option value="lead_verification">Verifica Lead</option>
+              <option value="prime_first_activation">Nuovo PM PRIME</option>
+              <option value="prime_renewal">Rinnovo PM PRIME</option>
+              <option value="prime_lead_purchase">Acquisto Lead PM PRIME</option>
+              <option value="refund_adjustment">Rettifiche rimborso</option>
+              <option value="manual_adjustment">Rettifiche manuali</option>
+            </select>
+          </label>
+          <button className="btn w-full lg:w-auto" type="button" onClick={() => void downloadCsv()} disabled={downloading}>
+            <Download size={16} /> {downloading ? "Esportazione..." : "Scarica CSV"}
+          </button>
+        </div>
+        {rangeKey === "custom" ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-semibold text-ink">Dal<input className="input" type="date" value={customFrom} onChange={(event) => { setCustomFrom(event.target.value); setPage(1); }} /></label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">Al<input className="input" type="date" value={customTo} onChange={(event) => { setCustomTo(event.target.value); setPage(1); }} /></label>
+          </div>
+        ) : null}
+        <p className="mt-3 text-sm text-muted">{selectedRange.label}</p>
+        {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Compensi maturati" value={payload.summary.grossAccruedCents} icon={Coins} tone="green" />
+        <SummaryCard label="Guadagnato nel periodo" value={payload.summary.netAccruedCents} icon={Coins} tone="green" />
         <SummaryCard label="Rettifiche" value={payload.summary.adjustmentsCents} icon={ReceiptText} tone="amber" />
-        <SummaryCard label="Già pagato" value={payload.summary.paidCents} icon={Banknote} tone="blue" />
-        <SummaryCard label="Da ricevere" value={payload.summary.dueCents} icon={HandCoins} tone="green" />
+        <SummaryCard label="Già pagato sul maturato" value={payload.summary.paidCents} icon={Banknote} tone="blue" />
+        <SummaryCard label="Da ricevere sul maturato" value={payload.summary.dueCents} icon={HandCoins} tone="green" />
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-5">
@@ -298,4 +407,59 @@ function paymentMethodLabel(method: string) {
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function resolveRange(range: RangeKey, customFrom: string, customTo: string) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let from: Date | null = null;
+  let to: Date | null = null;
+
+  if (range === "today") {
+    from = today;
+    to = addDays(today, 1);
+  } else if (range === "yesterday") {
+    from = addDays(today, -1);
+    to = today;
+  } else if (range === "last_7_days") {
+    from = addDays(today, -6);
+    to = addDays(today, 1);
+  } else if (range === "last_30_days") {
+    from = addDays(today, -29);
+    to = addDays(today, 1);
+  } else if (range === "current_month") {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  } else if (range === "previous_month") {
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else if (range === "current_year") {
+    from = new Date(now.getFullYear(), 0, 1);
+    to = new Date(now.getFullYear() + 1, 0, 1);
+  } else {
+    from = customFrom ? localDate(customFrom) : null;
+    to = customTo ? addDays(localDate(customTo), 1) : null;
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" });
+  const label = from && to
+    ? `Dal ${dateFormatter.format(from)} al ${dateFormatter.format(new Date(to.getTime() - 1))}`
+    : range === "custom"
+      ? "Seleziona data iniziale e finale."
+      : "Tutto il periodo disponibile.";
+
+  return {
+    dateFrom: from?.toISOString() ?? "",
+    dateTo: to?.toISOString() ?? "",
+    label,
+  };
+}
+
+function localDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addDays(value: Date, days: number) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate() + days);
 }

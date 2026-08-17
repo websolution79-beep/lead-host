@@ -153,14 +153,12 @@ const adminLinks: AppNavLink[] = [
     permission: "support",
   },
   {
-    label: "Lead Host PRIME",
+    label: "Gestione PM Prime",
     href: "/admin/prime",
     icon: Crown,
     category: "Lead Host PRIME",
     permission: "prime",
     exact: true,
-    grouped: true,
-    groupId: "admin-prime",
   },
   {
     label: "Prime Zone",
@@ -169,9 +167,6 @@ const adminLinks: AppNavLink[] = [
     category: "Lead Host PRIME",
     permission: "prime",
     exact: true,
-    subitem: true,
-    subitemLast: true,
-    groupId: "admin-prime",
   },
   {
     label: "Pagamenti",

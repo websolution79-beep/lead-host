@@ -104,6 +104,9 @@ export async function GET(request: NextRequest) {
     const scope = request.nextUrl.searchParams.get("scope") ??
       (isSuperAdmin ? "all" : "unassigned");
     const subscriberStatus = request.nextUrl.searchParams.get("subscriberStatus") ?? "all";
+    const subscriberManagerId = z.string().uuid().optional().catch(undefined).parse(
+      request.nextUrl.searchParams.get("subscriberManagerId") || undefined,
+    );
     const requestedPage = Number(request.nextUrl.searchParams.get("page") ?? "1");
     const page = Number.isFinite(requestedPage) ? Math.max(1, requestedPage) : 1;
     const pageSize = 25;
@@ -242,6 +245,9 @@ export async function GET(request: NextRequest) {
           );
           if (!isSubscriber) return false;
           if (!isSuperAdmin && row.account?.account_manager_member_id !== teamMemberId) {
+            return false;
+          }
+          if (subscriberManagerId && row.account?.account_manager_member_id !== subscriberManagerId) {
             return false;
           }
           return matchesSubscriberStatus(row, subscriberStatus);

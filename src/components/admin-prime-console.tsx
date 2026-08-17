@@ -235,6 +235,7 @@ export function AdminPrimeConsole() {
     useState<ManagedPropertiesFilter>("");
   const [scope, setScope] = useState("unassigned");
   const [subscriberStatus, setSubscriberStatus] = useState("all");
+  const [subscriberManagerId, setSubscriberManagerId] = useState("");
   const [page, setPage] = useState(1);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<PrimePmDetail | null>(null);
@@ -269,7 +270,10 @@ export function AdminPrimeConsole() {
     if (search) query.set("search", search);
     if (managedPropertiesFilter) query.set("managedProperties", managedPropertiesFilter);
     query.set("scope", scope);
-    if (scope === "subscribers") query.set("subscriberStatus", subscriberStatus);
+    if (scope === "subscribers") {
+      query.set("subscriberStatus", subscriberStatus);
+      if (subscriberManagerId) query.set("subscriberManagerId", subscriberManagerId);
+    }
     const response = await fetch(`/api/admin/prime?${query}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
@@ -281,7 +285,7 @@ export function AdminPrimeConsole() {
       setData(payload);
     }
     setLoading(false);
-  }, [getToken, managedPropertiesFilter, page, scope, search, subscriberStatus]);
+  }, [getToken, managedPropertiesFilter, page, scope, search, subscriberManagerId, subscriberStatus]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadPrime(), 0);
@@ -512,6 +516,10 @@ export function AdminPrimeConsole() {
               onClick={() => {
                 setPage(1);
                 setScope(value);
+                if (value !== "subscribers") {
+                  setSubscriberStatus("all");
+                  setSubscriberManagerId("");
+                }
               }}
             >
               {label}
@@ -519,27 +527,50 @@ export function AdminPrimeConsole() {
           ))}
         </div>
         {scope === "subscribers" ? (
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Stato abbonamenti PRIME">
-            {[
-              ["all", "Tutti gli abbonati"],
-              ["active", "Attivi"],
-              ["expiring", "In scadenza entro 7 giorni"],
-              ["canceling", "Rinnovo annullato"],
-              ["attention", "Pagamento da gestire"],
-              ["cancelled", "Cancellati"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                className={`min-h-9 shrink-0 rounded-lg border px-3 text-xs font-bold transition ${subscriberStatus === value ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"}`}
-                type="button"
-                onClick={() => {
-                  setPage(1);
-                  setSubscriberStatus(value);
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] lg:items-end">
+            <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Stato abbonamenti PRIME">
+              {[
+                ["all", "Tutti gli abbonati"],
+                ["active", "Attivi"],
+                ["expiring", "In scadenza entro 7 giorni"],
+                ["canceling", "Rinnovo annullato"],
+                ["attention", "Pagamento da gestire"],
+                ["cancelled", "Cancellati"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  className={`min-h-9 shrink-0 rounded-lg border px-3 text-xs font-bold transition ${subscriberStatus === value ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"}`}
+                  type="button"
+                  onClick={() => {
+                    setPage(1);
+                    setSubscriberStatus(value);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {data.access.isSuperAdmin ? (
+              <label className="block min-w-0">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Account Manager</span>
+                <span className="relative block">
+                  <UserRoundCog className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <select
+                    className="min-h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm font-semibold text-ink outline-none focus:border-green focus:ring-2 focus:ring-green/10"
+                    value={subscriberManagerId}
+                    onChange={(event) => {
+                      setPage(1);
+                      setSubscriberManagerId(event.target.value);
+                    }}
+                  >
+                    <option value="">Tutti gli Account Manager</option>
+                    {data.managers.map((manager) => (
+                      <option key={manager.memberId} value={manager.memberId}>{manager.name}</option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+            ) : null}
           </div>
         ) : null}
         <form className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)_auto_auto] lg:items-end" onSubmit={submitSearch}>

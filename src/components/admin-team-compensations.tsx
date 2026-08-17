@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
+import { AdminTeamPayouts } from "@/components/admin-team-payouts";
 
 type EventStatus = "accrued" | "pending_attribution" | "voided";
 type EventType =
@@ -226,6 +227,8 @@ export function AdminTeamCompensations() {
         ) : <p className="mt-4 text-sm text-muted">Nessun compenso attribuito.</p>}
       </section>
 
+      <AdminTeamPayouts onChanged={() => void load()} />
+
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <div className="flex flex-col gap-3 xl:flex-row">
           <label className="flex min-h-11 flex-1 items-center gap-2 rounded-lg border border-slate-200 px-3">
@@ -319,4 +322,3 @@ function eventTypeLabel(type: EventType) { return eventTypeOptions.find((item) =
 function statusLabel(status: EventStatus) { return status === "accrued" ? "Maturato" : status === "pending_attribution" ? "Da attribuire" : "Annullato"; }
 function statusClass(status: EventStatus) { return status === "accrued" ? "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700" : status === "pending_attribution" ? "rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700" : "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600"; }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)); }
-

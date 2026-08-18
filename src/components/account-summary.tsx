@@ -12,6 +12,13 @@ export function AccountSummary({ compact = false }: { compact?: boolean }) {
   const session = useAppSession();
 
   async function handleLogout() {
+    try {
+      window.sessionStorage.removeItem(
+        `leadhost:telegram-prompt:closed:${session.userId}`,
+      );
+    } catch {
+      // Logout must continue when browser storage is unavailable.
+    }
     await fetch("/api/auth/session", { method: "DELETE" });
     await supabase.auth.signOut();
     router.push("/login");

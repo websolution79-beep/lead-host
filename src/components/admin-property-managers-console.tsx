@@ -30,6 +30,7 @@ import {
 } from "@/lib/domain/pm-onboarding";
 import { AdminCustomerAnalysis } from "@/components/admin-customer-analysis";
 import { useAppSession } from "@/components/app-session-provider";
+import { PropertyManagerExportModal } from "@/components/property-manager-export-modal";
 
 type ManagedPropertiesFilter = "" | ManagedPropertiesRange | "not_indicated";
 
@@ -153,6 +154,7 @@ export function AdminPropertyManagersConsole() {
   const [bonusTarget, setBonusTarget] = useState<PropertyManagerRecord | null>(null);
   const [isBonusSaving, setIsBonusSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -400,13 +402,25 @@ export function AdminPropertyManagersConsole() {
             <p className="section-kicker">Iscrizioni PM</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">Property Manager</h2>
           </div>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={() => loadPropertyManagers(page)}
-          >
-            Aggiorna
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {session.isSuperAdmin ? (
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => setIsExportOpen(true)}
+              >
+                <ArrowDownToLine className="size-4" aria-hidden="true" />
+                Esporta
+              </button>
+            ) : null}
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => loadPropertyManagers(page)}
+            >
+              Aggiorna
+            </button>
+          </div>
         </div>
 
         <div className="border-b border-slate-200 p-4 sm:p-5">
@@ -734,6 +748,14 @@ export function AdminPropertyManagersConsole() {
       </section>
         </>
       )}
+      <PropertyManagerExportModal
+        open={isExportOpen}
+        profileId={session.profileId}
+        search={debouncedSearchTerm}
+        managedProperties={managedPropertiesFilter}
+        getAccessToken={getAccessToken}
+        onClose={() => setIsExportOpen(false)}
+      />
       {bonusTarget ? (
         <WalletBonusModal
           key={bonusTarget.profileId}

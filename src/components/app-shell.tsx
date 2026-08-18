@@ -32,10 +32,7 @@ export function AppShell({ title, eyebrow, children, section }: AppShellProps) {
                 title="Apri il canale Telegram Lead Host"
               >
                 <Send aria-hidden="true" className="size-4" />
-                <span className="sm:hidden">Aggiornamenti su Telegram</span>
-                <span className="hidden sm:inline">
-                  Ricevi nuovi immobili su Telegram
-                </span>
+                <span className="text-center">Avvisami quando arriva un nuovo immobile</span>
               </a>
             ) : null}
           </div>

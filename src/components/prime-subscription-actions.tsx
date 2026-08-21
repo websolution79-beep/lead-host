@@ -108,7 +108,7 @@ export function PrimeSubscriptionActions({ variant = "inline" }: { variant?: "in
 
 function PrimeShell({ variant, children }: { variant: "inline" | "card"; children: React.ReactNode }) {
   if (variant === "inline") return <>{children}</>;
-  return <section className="card border border-green/20 bg-green/5 p-5">{children}</section>;
+  return <section className="card scroll-mt-28 border border-green/20 bg-green/5 p-5" id="abbonamento-prime">{children}</section>;
 }
 
 function subscriptionStatusLabel(status: string) {

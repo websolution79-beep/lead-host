@@ -2822,6 +2822,15 @@ export type Database = {
         };
         Returns: Database["public"]["Tables"]["pm_marketing_preferences"]["Row"];
       };
+      self_deactivate_property_manager: {
+        Args: {
+          p_profile_id: string;
+          p_reason?: string | null;
+          p_policy_version?: string;
+          p_evidence?: Json;
+        };
+        Returns: string;
+      };
       claim_brevo_outbox: {
         Args: {
           p_worker_id: string;

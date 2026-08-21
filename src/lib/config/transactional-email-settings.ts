@@ -7,6 +7,7 @@ type ServiceClient = SupabaseClient<Database>;
 export const transactionalEmailTemplateIds = [
   "pm.welcome",
   "pm.verified",
+  "pm.account_deactivated",
   "admin.owner_request_pending",
   "lead.purchased",
   "admin.lead_purchased",
@@ -89,6 +90,22 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     ctaLabel: "Apri il marketplace",
     ctaUrl: "/app/marketplace",
     variables: ["first_name", "first_name_suffix"],
+  },
+  {
+    id: "pm.account_deactivated",
+    label: "Account PM disattivato",
+    description: "Invio conclusivo quando il Property Manager disattiva autonomamente l’account.",
+    enabled: true,
+    subject: "Account Lead Host disattivato",
+    preview: "La disattivazione del tuo account è stata completata.",
+    title: "Account disattivato{{first_name_suffix}}.",
+    body:
+      "Il tuo account Lead Host è stato disattivato. L’accesso alla piattaforma e le comunicazioni automatiche sono stati interrotti.",
+    extra:
+      "Saldo Wallet, acquisti, fatture e storico economico restano conservati secondo gli obblighi applicabili. Data disattivazione: {{deactivated_at}}.",
+    ctaLabel: "Vai a Lead Host",
+    ctaUrl: "/login",
+    variables: ["first_name", "first_name_suffix", "deactivated_at"],
   },
   {
     id: "admin.owner_request_pending",

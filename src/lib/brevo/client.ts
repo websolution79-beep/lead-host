@@ -120,9 +120,13 @@ export async function upsertBrevoContact(
       listIds: [config.listId],
       updateEnabled: true,
       getId: true,
-      ...(options.explicitlyRestoreMarketingPermission
-        ? { emailBlacklisted: false }
-        : {}),
+      emailBlacklisted:
+        snapshot.account_status !== "active" ||
+        snapshot.marketing_consent_status !== "granted"
+          ? true
+          : options.explicitlyRestoreMarketingPermission
+            ? false
+            : undefined,
     }),
   });
 }

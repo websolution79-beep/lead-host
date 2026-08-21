@@ -13,6 +13,7 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const supabase = createPublicSupabaseClient();
   const isEmailConfirmed = searchParams.get("confirmed") === "1";
+  const isAccountDeactivated = searchParams.get("account") === "deactivated";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -90,6 +91,11 @@ export function LoginForm() {
       {isEmailConfirmed ? (
         <p className="rounded-lg border border-green/20 bg-green/8 px-4 py-3 text-sm font-semibold text-green">
           Email confermata. Ora puoi accedere al tuo account.
+        </p>
+      ) : null}
+      {isAccountDeactivated ? (
+        <p className="rounded-lg border border-green/20 bg-green/8 px-4 py-3 text-sm font-semibold text-green">
+          Account disattivato con successo. Non riceverai più le comunicazioni automatiche di Lead Host.
         </p>
       ) : null}
       <label className="grid gap-2 text-sm font-semibold text-ink">

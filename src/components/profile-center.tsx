@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   BellRing,
@@ -11,7 +10,6 @@ import {
   ReceiptText,
   ShieldCheck,
   UserCircle,
-  UserRoundX,
   Wallet,
   X,
 } from "lucide-react";
@@ -20,6 +18,7 @@ import { useAppSession } from "@/components/app-session-provider";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { MarketingSubscriptionManager } from "@/components/marketing-subscription-manager";
 import { PrimeSubscriptionActions } from "@/components/prime-subscription-actions";
+import { AccountDeactivationPanel } from "@/components/account-deactivation-panel";
 
 type Profile = {
   id: string;
@@ -989,24 +988,7 @@ export function ProfileCenter() {
           </form>
         </section>
 
-        <section className="card p-5">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-              <UserRoundX size={20} />
-            </span>
-            <h2 className="font-semibold text-ink">Chiusura account</h2>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-muted">
-            La richiesta non cancella automaticamente account, saldo, acquisti o
-            transazioni. Il team Lead Host ti contatterà per gestire la chiusura.
-          </p>
-          <Link
-            className="btn btn-secondary mt-4 w-full"
-            href="/app/assistenza?subject=general_information&message=Richiesta%20chiusura%20account"
-          >
-            Richiedi chiusura account
-          </Link>
-        </section>
+        <AccountDeactivationPanel />
       </aside>
     </div>
   );

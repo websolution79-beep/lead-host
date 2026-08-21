@@ -6,6 +6,7 @@ import {
   ArrowDownToLine,
   Building2,
   CirclePause,
+  Crown,
   Eye,
   Filter,
   Gift,
@@ -148,6 +149,7 @@ export function AdminPropertyManagersConsole() {
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
+    prime: 0,
     suspended: 0,
   });
   const [activeView, setActiveView] = useState<"directory" | "analysis">("directory");
@@ -235,6 +237,7 @@ export function AdminPropertyManagersConsole() {
       payload.stats ?? {
         total: payload.propertyManagers?.length ?? 0,
         active: payload.propertyManagers?.length ?? 0,
+        prime: 0,
         suspended: 0,
       },
     );
@@ -391,9 +394,9 @@ export function AdminPropertyManagersConsole() {
       ) : (
         <>
       <section className="grid gap-3 lg:grid-cols-3">
-        <KpiCard icon={Users} label="PM totali" value={stats.total.toString()} />
-        <KpiCard icon={UserCheck} label="Attivi" value={stats.active.toString()} />
-        <KpiCard icon={CirclePause} label="Sospesi" value={stats.suspended.toString()} />
+        <KpiCard icon={UserCheck} label="PM Attivi" value={stats.active.toString()} />
+        <KpiCard icon={Crown} label="PM PRIME" value={stats.prime.toString()} />
+        <KpiCard icon={CirclePause} label="PM Sospesi" value={stats.suspended.toString()} />
       </section>
 
       <section className="card">

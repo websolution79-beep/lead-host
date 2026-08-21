@@ -160,6 +160,7 @@ export async function GET(request: NextRequest) {
         stats: {
           total: 0,
           active: 0,
+          prime: 0,
           suspended: 0,
         },
       });
@@ -175,7 +176,9 @@ export async function GET(request: NextRequest) {
       });
       const [
         { data: profiles, error: profilesError, count: profilesCount },
-        { count: suspendedCount, error: suspendedCountError },
+        { data: summaryProfiles, error: summaryProfilesError },
+        { data: summaryPmProfiles, error: summaryPmProfilesError },
+        { data: primeAccounts, error: primeAccountsError },
       ] = await Promise.all([
         filteredProfileIds.length
           ?
@@ -190,14 +193,52 @@ export async function GET(request: NextRequest) {
           .range(pagination.from, pagination.to)
           : Promise.resolve({ data: [], error: null, count: 0 }),
         supabase
+          .from("profiles")
+          .select("id,status")
+          .in("id", allProfileIds),
+        supabase
           .from("property_manager_profiles")
-          .select("id", { count: "exact", head: true })
+          .select("profile_id,verification_status")
+          .in("profile_id", allProfileIds),
+        supabase
+          .from("prime_accounts")
+          .select("profile_id,status,prime_expires_at")
           .in("profile_id", allProfileIds)
-          .eq("verification_status", "suspended"),
+          .eq("status", "active"),
       ]);
 
       if (profilesError) throw profilesError;
-      if (suspendedCountError) throw suspendedCountError;
+      if (summaryProfilesError) throw summaryProfilesError;
+      if (summaryPmProfilesError) throw summaryPmProfilesError;
+      if (primeAccountsError) throw primeAccountsError;
+
+      const profileStatusById = new Map(
+        (summaryProfiles ?? []).map((profile) => [profile.id, profile.status]),
+      );
+      const verificationStatusById = new Map(
+        (summaryPmProfiles ?? []).map((propertyManager) => [
+          propertyManager.profile_id,
+          propertyManager.verification_status,
+        ]),
+      );
+      const activeProfileIds = new Set(
+        allProfileIds.filter(
+          (profileId) =>
+            profileStatusById.get(profileId) === "active" &&
+            verificationStatusById.get(profileId) !== "suspended",
+        ),
+      );
+      const now = Date.now();
+      const activePrimeProfileIds = new Set(
+        (primeAccounts ?? [])
+          .filter(
+            (account) =>
+              activeProfileIds.has(account.profile_id) &&
+              (!account.prime_expires_at ||
+                new Date(account.prime_expires_at).getTime() > now),
+          )
+          .map((account) => account.profile_id),
+      );
 
       const profileRows = (profiles ?? []) as ProfileRow[];
       const pageProfileIds = profileRows.map((profile) => profile.id);
@@ -291,8 +332,9 @@ export async function GET(request: NextRequest) {
             ),
           stats: {
             total: allProfileIds.length,
-            active: Math.max(0, allProfileIds.length - (suspendedCount ?? 0)),
-            suspended: suspendedCount ?? 0,
+            active: activeProfileIds.size,
+            prime: activePrimeProfileIds.size,
+            suspended: Math.max(0, allProfileIds.length - activeProfileIds.size),
           },
         },
         {

@@ -18,9 +18,15 @@ import { MarketingCheckoutButton } from "@/components/marketing-checkout-button"
 import { getMarketingAddonState } from "@/lib/addons/access";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 
-export default async function MarketingPage() {
+type MarketingPageProps = {
+  searchParams: Promise<{ preview?: string }>;
+};
+
+export default async function MarketingPage({ searchParams }: MarketingPageProps) {
   const session = await getServerSessionProfile();
   if (!session) redirect("/login?redirect=/app/marketing");
+
+  const params = await searchParams;
 
   const addon = await getMarketingAddonState(
     session.profile.id,
@@ -28,7 +34,8 @@ export default async function MarketingPage() {
   );
   if (!addon.menuVisible) redirect("/app/marketplace");
 
-  if (!addon.hasAccess) {
+  const previewOffer = session.isSuperAdmin && params.preview === "offer";
+  if (!addon.hasAccess || previewOffer) {
     return <MarketingOffer addon={addon} />;
   }
 

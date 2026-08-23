@@ -6,6 +6,7 @@ import {
   CircleAlert,
   Clock3,
   CreditCard,
+  ExternalLink,
   Gift,
   Image as ImageIcon,
   PackageOpen,
@@ -201,15 +202,26 @@ export function AdminAddonsConsole() {
               <p className="mt-2 text-sm text-muted">Codice prodotto: marketing</p>
             </div>
           </div>
-          <button
-            className="btn btn-primary w-full lg:w-auto"
-            type="button"
-            disabled={saving}
-            onClick={() => void saveProduct()}
-          >
-            <Save size={17} />
-            {saving ? "Salvataggio..." : "Salva configurazione"}
-          </button>
+          <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row">
+            <a
+              className="btn btn-secondary w-full lg:w-auto"
+              href="/app/marketing?preview=offer"
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink size={17} />
+              Apri pagina di vendita
+            </a>
+            <button
+              className="btn btn-primary w-full lg:w-auto"
+              type="button"
+              disabled={saving}
+              onClick={() => void saveProduct()}
+            >
+              <Save size={17} />
+              {saving ? "Salvataggio..." : "Salva configurazione"}
+            </button>
+          </div>
         </div>
 
         {error ? (

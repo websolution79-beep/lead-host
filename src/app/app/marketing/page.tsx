@@ -127,7 +127,7 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
                 Dall’acquisizione alla gestione: tutto ciò che ti serve per far crescere il tuo portfolio immobili.
               </h2>
               <p className="mt-5 text-base leading-7 text-muted sm:text-lg">
-                {product?.description || product?.shortDescription || "CRM, Rendita Stimata e Gestione Immobili in un unico spazio operativo per Property Manager."}
+                CRM, Rendita Stimata e Gestione Immobili in un unico spazio operativo per Property Manager.
               </p>
               {hasTrial ? (
                 <p className="mt-5 text-base font-bold text-emerald-800">

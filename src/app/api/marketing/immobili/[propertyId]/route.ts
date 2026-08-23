@@ -14,7 +14,7 @@ const propertySchema = z.object({
   ownerNotes: nullable(5000), operationalNotes: nullable(5000),
 });
 const contactSchema = z.object({ serviceType: z.string().trim().min(2).max(100), name: nullable(140), companyName: nullable(160), phone: nullable(50), email: z.string().trim().email().max(255).nullable(), whatsapp: nullable(50), notes: nullable(5000) });
-const otaSchema = z.object({ label: z.string().trim().min(2).max(80), url: z.string().trim().url().max(2048).refine((value) => /^https?:\/\//i.test(value), "Inserisci un URL http o https valido.") });
+const otaSchema = z.object({ label: z.string().trim().min(2).max(80), url: z.string().trim().min(3).max(2048) });
 const maintenanceSchema = z.object({ happenedAt: z.string().date(), category: z.string().trim().min(2).max(100), title: z.string().trim().min(2).max(180), description: nullable(5000), supplierName: nullable(160), costCents: nullableInt(0, 100000000), nextDueAt: z.string().date().nullable() });
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("update_property"), property: propertySchema }),
@@ -63,10 +63,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
     if (payload.action === "delete_contact") { const { error } = await supabase.from("marketing_managed_property_contacts").delete().eq("id", payload.contactId).eq("property_id", propertyId).eq("profile_id", profile.id); if (error) throw error; entityType = "marketing_managed_property_contact"; entityId = payload.contactId; }
     if (payload.action === "create_ota") {
+      const url = normalizeOtaUrl(payload.ota.url);
       const count = await nextPosition(supabase, "marketing_managed_property_ota_links", propertyId, profile.id);
-      const { data, error } = await supabase.from("marketing_managed_property_ota_links").insert({ property_id: propertyId, profile_id: profile.id, label: payload.ota.label, url: payload.ota.url, position: count }).select("id").single(); if (error) throw error; entityType = "marketing_managed_property_ota"; entityId = data.id;
+      const { data, error } = await supabase.from("marketing_managed_property_ota_links").insert({ property_id: propertyId, profile_id: profile.id, label: payload.ota.label, url, position: count }).select("id").single(); if (error) throw error; entityType = "marketing_managed_property_ota"; entityId = data.id;
     }
-    if (payload.action === "update_ota") { const { error } = await supabase.from("marketing_managed_property_ota_links").update({ label: payload.ota.label, url: payload.ota.url }).eq("id", payload.otaId).eq("property_id", propertyId).eq("profile_id", profile.id); if (error) throw error; entityType = "marketing_managed_property_ota"; entityId = payload.otaId; }
+    if (payload.action === "update_ota") { const url = normalizeOtaUrl(payload.ota.url); const { error } = await supabase.from("marketing_managed_property_ota_links").update({ label: payload.ota.label, url }).eq("id", payload.otaId).eq("property_id", propertyId).eq("profile_id", profile.id); if (error) throw error; entityType = "marketing_managed_property_ota"; entityId = payload.otaId; }
     if (payload.action === "delete_ota") { const { error } = await supabase.from("marketing_managed_property_ota_links").delete().eq("id", payload.otaId).eq("property_id", propertyId).eq("profile_id", profile.id); if (error) throw error; entityType = "marketing_managed_property_ota"; entityId = payload.otaId; }
     if (payload.action === "create_maintenance") {
       const m = payload.maintenance; const { data, error } = await supabase.from("marketing_managed_property_maintenance").insert({ property_id: propertyId, profile_id: profile.id, happened_at: m.happenedAt, category: m.category, title: m.title, description: nullIfEmpty(m.description), supplier_name: nullIfEmpty(m.supplierName), cost_cents: m.costCents, next_due_at: m.nextDueAt }).select("id").single(); if (error) throw error; entityType = "marketing_managed_property_maintenance"; entityId = data.id;
@@ -76,7 +77,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin, actorRole: isSuperAdmin ? "super_admin" : "property_manager", entityType, entityId, action: `marketing.managed_property.${payload.action}`, after: { propertyId } });
     return NextResponse.json(await getPropertyPayload(supabase, profile.id, propertyId));
-  } catch (error) { return adminApiErrorResponse(error); }
+  } catch (error) { if (error instanceof z.ZodError) return NextResponse.json({ error: "Controlla i dati inseriti e riprova." }, { status: 422 }); return adminApiErrorResponse(error); }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ propertyId: string }> }) {
@@ -113,3 +114,4 @@ async function ensureProperty(supabase: Awaited<ReturnType<typeof requireMarketi
 }
 async function nextPosition(supabase: Awaited<ReturnType<typeof requireMarketingAddonAccess>>["supabase"], table: "marketing_managed_property_contacts" | "marketing_managed_property_ota_links", propertyId: string, profileId: string) { const { data, error } = await supabase.from(table).select("position").eq("property_id", propertyId).eq("profile_id", profileId).order("position", { ascending: false }).limit(1); if (error) throw error; return (data?.[0]?.position ?? -1) + 1; }
 function nullIfEmpty(value: string | null) { return value?.trim() || null; }
+function normalizeOtaUrl(value: string) { const candidate = /^https?:\/\//i.test(value) ? value : `https://${value}`; try { const parsed = new URL(candidate); if (!/^https?:$/i.test(parsed.protocol)) throw new Error("Protocollo non valido"); return parsed.toString(); } catch { throw new AdminApiError(422, "Inserisci un link OTA valido, ad esempio https://www.airbnb.it/…"); } }

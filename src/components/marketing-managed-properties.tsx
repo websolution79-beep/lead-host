@@ -86,10 +86,43 @@ function PropertyCard({ property }: { property: ManagedProperty }) {
 }
 function CreateModal({ draft, saving, onChange, onClose, onSave }: { draft: Draft; saving: boolean; onChange: (draft: Draft) => void; onClose: () => void; onSave: () => void }) {
   const set = (key: keyof Draft, value: string) => onChange({ ...draft, [key]: value });
-  return <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-950/45 p-4 sm:p-8"><div className="mx-auto my-4 max-w-2xl rounded-xl bg-white shadow-2xl"><div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 sm:p-6"><div><p className="section-kicker">Nuovo immobile</p><h2 className="mt-2 text-2xl font-semibold text-ink">Aggiungi un immobile gestito</h2></div><button aria-label="Chiudi" className="rounded-md p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} type="button"><X size={20} /></button></div><div className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6"><Field label="Nome immobile *" value={draft.name} onChange={(value) => set("name", value)} placeholder="Es. Casa Vista Mare" /><SelectField label="Tipologia" value={draft.propertyType} onChange={(value) => set("propertyType", value)} options={OWNER_PROPERTY_TYPES} /><Field label="Città" value={draft.city} onChange={(value) => set("city", value)} /><Field label="Indirizzo" value={draft.propertyAddress} onChange={(value) => set("propertyAddress", value)} /><Field label="Nome proprietario" value={draft.ownerFullName} onChange={(value) => set("ownerFullName", value)} /><Field label="Telefono proprietario" value={draft.ownerPhone} onChange={(value) => set("ownerPhone", value)} /><div className="sm:col-span-2"><Field label="Email proprietario" type="email" value={draft.ownerEmail} onChange={(value) => set("ownerEmail", value)} /></div></div><div className="flex flex-col-reverse gap-3 border-t border-slate-200 p-5 sm:flex-row sm:justify-end sm:p-6"><button className="btn btn-secondary" disabled={saving} onClick={onClose} type="button">Annulla</button><button className="btn btn-primary" disabled={saving || draft.name.trim().length < 2} onClick={onSave} type="button">{saving ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}Crea immobile</button></div></div></div>;
+  return (
+    <div className="fixed inset-0 z-[90] overflow-y-auto bg-slate-950/45 p-3 sm:p-8">
+      <div className="mx-auto my-3 max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 sm:p-7">
+          <div>
+            <p className="section-kicker">Nuovo immobile</p>
+            <h2 className="mt-2 text-2xl font-semibold text-ink">Aggiungi un immobile gestito</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">Inserisci le informazioni essenziali. Potrai completare contatti, documenti e manutenzioni nella scheda dopo il salvataggio.</p>
+          </div>
+          <button aria-label="Chiudi" className="rounded-md p-2 text-slate-500 hover:bg-slate-100" onClick={onClose} type="button"><X size={20} /></button>
+        </div>
+        <div className="grid gap-7 p-5 sm:p-7">
+          <section className="rounded-lg border border-emerald-100 bg-emerald-50/45 p-4 sm:p-5">
+            <div className="mb-4"><p className="text-sm font-bold text-emerald-900">Informazioni immobile</p><p className="mt-1 text-xs leading-5 text-emerald-800">Il nome interno serve per riconoscere facilmente l’immobile.</p></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nome immobile *" value={draft.name} onChange={(value) => set("name", value)} placeholder="Es. Casa Vista Mare" />
+              <SelectField label="Tipologia" value={draft.propertyType} onChange={(value) => set("propertyType", value)} options={OWNER_PROPERTY_TYPES} />
+              <Field label="Città" value={draft.city} onChange={(value) => set("city", value)} placeholder="Es. Roma" />
+              <Field label="Indirizzo" value={draft.propertyAddress} onChange={(value) => set("propertyAddress", value)} placeholder="Es. Via del Corso 10" />
+            </div>
+          </section>
+          <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+            <div className="mb-4"><p className="text-sm font-bold text-ink">Proprietario</p><p className="mt-1 text-xs leading-5 text-muted">Questi dati restano privati e visibili solo nel tuo spazio.</p></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nome e cognome" value={draft.ownerFullName} onChange={(value) => set("ownerFullName", value)} placeholder="Es. Mario Rossi" />
+              <Field label="Telefono" value={draft.ownerPhone} onChange={(value) => set("ownerPhone", value)} placeholder="Es. 333 1234567" />
+              <div className="sm:col-span-2"><Field label="Email" type="email" value={draft.ownerEmail} onChange={(value) => set("ownerEmail", value)} placeholder="Es. mario@email.it" /></div>
+            </div>
+          </section>
+        </div>
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50/70 p-5 sm:flex-row sm:justify-end sm:p-6"><button className="btn btn-secondary" disabled={saving} onClick={onClose} type="button">Annulla</button><button className="btn btn-primary" disabled={saving || draft.name.trim().length < 2} onClick={onSave} type="button">{saving ? <LoaderCircle className="animate-spin" size={18} /> : <Plus size={18} />}Crea immobile</button></div>
+      </div>
+    </div>
+  );
 }
-function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) { return <label className="grid gap-1.5 text-sm font-semibold text-ink"><span>{label}</span><input className="field" onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} value={value} /></label>; }
-function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: readonly string[] }) { return <label className="grid gap-1.5 text-sm font-semibold text-ink"><span>{label}</span><select className="field" onChange={(event) => onChange(event.target.value)} value={value}><option value="">Seleziona</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>; }
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) { return <label className="grid gap-2 text-sm font-semibold text-ink"><span>{label}</span><input className="field field-prominent" onChange={(event) => onChange(event.target.value)} placeholder={placeholder} type={type} value={value} /></label>; }
+function SelectField({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: readonly string[] }) { return <label className="grid gap-2 text-sm font-semibold text-ink"><span>{label}</span><select className="field field-prominent" onChange={(event) => onChange(event.target.value)} value={value}><option value="">Seleziona una tipologia</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>; }
 function EmptyState({ onCreate }: { onCreate: () => void }) { return <section className="card grid min-h-64 place-items-center p-8 text-center"><div><span className="mx-auto grid size-14 place-items-center rounded-lg bg-emerald-50 text-emerald-700"><Building2 size={28} /></span><h2 className="mt-5 text-xl font-semibold text-ink">Nessun immobile inserito</h2><p className="mt-2 max-w-md text-sm leading-6 text-muted">Aggiungi il primo immobile già acquisito per organizzare dati, fornitori, documenti e manutenzioni.</p><button className="btn btn-primary mt-6" onClick={onCreate} type="button"><Plus size={18} />Aggiungi immobile</button></div></section>; }
 function LoadingState() { return <section className="card grid min-h-64 place-items-center text-muted"><span className="inline-flex items-center gap-2"><LoaderCircle className="animate-spin" size={18} />Carico gli immobili…</span></section>; }
 function nullable(value: string) { return value.trim() || null; }

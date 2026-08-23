@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Building2, LoaderCircle, MapPin, Plus, Search, UserRound, X } from "lucide-react";
@@ -80,7 +79,7 @@ export function MarketingManagedProperties() {
 
 function PropertyCard({ property }: { property: ManagedProperty }) {
   return <Link className="group overflow-hidden rounded-lg border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-lg" href={`/app/marketing/immobili/${property.id}`}>
-    <div className="relative aspect-[16/9] bg-gradient-to-br from-emerald-50 via-slate-100 to-slate-200">{property.cover_image_url ? <Image alt={`Copertina ${property.name}`} className="object-cover transition duration-300 group-hover:scale-[1.02]" fill sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" src={property.cover_image_url} /> : <div className="grid h-full place-items-center text-emerald-700"><Building2 size={44} strokeWidth={1.5} /></div>}</div>
+    <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-emerald-50 via-slate-100 to-slate-200">{property.cover_image_url ? <img alt={`Copertina ${property.name}`} className="size-full object-cover transition duration-300 group-hover:scale-[1.02]" src={property.cover_image_url} /> : <div className="grid h-full place-items-center text-emerald-700"><Building2 size={44} strokeWidth={1.5} /></div>}</div>
     <div className="p-5"><p className="text-xs font-bold uppercase text-emerald-700">{property.property_type || "Immobile"}</p><h3 className="mt-2 text-xl font-semibold text-ink">{property.name}</h3><p className="mt-3 flex min-h-6 items-start gap-2 text-sm leading-6 text-muted"><MapPin className="mt-0.5 shrink-0 text-slate-400" size={16} />{[property.city, property.property_address].filter(Boolean).join(", ") || "Indirizzo non indicato"}</p><p className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600"><UserRound size={16} className="text-slate-400" />{property.owner_full_name || "Proprietario non indicato"}</p></div>
   </Link>;
 }

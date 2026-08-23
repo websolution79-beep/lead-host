@@ -7,6 +7,7 @@ import {
   Calculator,
   Check,
   Columns3,
+  Building2,
   CreditCard,
   FileDown,
   Sparkles,
@@ -47,8 +48,8 @@ export default async function MarketingPage() {
                 Il tuo spazio operativo per acquisire e valutare immobili.
               </h2>
               <p className="mt-4 max-w-2xl leading-7 text-muted">
-                Organizza i proprietari nella pipeline e prepara relazioni professionali
-                sulla rendita stimata degli immobili.
+                Organizza i proprietari nella pipeline, prepara relazioni professionali
+                e gestisci gli immobili già acquisiti in un unico spazio.
               </p>
               {addon.accessExpiresAt ? (
                 <p className="mt-4 text-sm font-semibold text-amber-700">
@@ -63,7 +64,7 @@ export default async function MarketingPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <ToolLink
             href="/app/marketing/crm"
             icon={Columns3}
@@ -77,6 +78,13 @@ export default async function MarketingPage() {
             title="Rendita Stimata"
             description="Crea valutazioni professionali e PDF personalizzati da presentare ai proprietari."
             cta="Crea una valutazione"
+          />
+          <ToolLink
+            href="/app/marketing/immobili"
+            icon={Building2}
+            title="Gestione Immobili"
+            description="Organizza immobili già acquisiti, contatti operativi, documenti, manutenzioni e annunci OTA."
+            cta="Gestisci gli immobili"
           />
         </section>
       </div>
@@ -94,6 +102,7 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
         "CRM con pipeline personalizzabile",
         "Schede proprietario e immobile complete",
         "Rendita Stimata con PDF professionale",
+        "Gestione Immobili con contatti, documenti e manutenzioni",
         "Documenti e immagini organizzati nel CRM",
       ];
 
@@ -105,7 +114,7 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
                 <Sparkles size={14} />
-                CRM e strumenti di valutazione per Property Manager
+                CRM, valutazioni e gestione operativa per Property Manager
               </div>
               <h2 className="mt-5 text-3xl font-semibold leading-tight text-ink sm:text-4xl lg:text-[2.65rem]">
                 Trasforma ogni contatto in una trattativa organizzata e professionale.

@@ -107,6 +107,14 @@ const marketingToolLinks: AppNavLink[] = [
     subitemLast: true,
     groupId: "marketing",
   },
+  {
+    label: "Gestione Immobili",
+    href: "/app/marketing/immobili",
+    icon: Building2,
+    subitem: true,
+    subitemLast: true,
+    groupId: "marketing",
+  },
 ];
 
 const primeZoneLink: AppNavLink = {

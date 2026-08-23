@@ -1335,6 +1335,96 @@ export type Database = {
         };
         Relationships: [];
       };
+      marketing_managed_properties: {
+        Row: {
+          id: string;
+          profile_id: string;
+          name: string;
+          property_type: string | null;
+          property_address: string | null;
+          region: string | null;
+          province: string | null;
+          city: string | null;
+          bedrooms: number | null;
+          bathrooms: number | null;
+          beds: number | null;
+          area_sqm: number | null;
+          owner_full_name: string | null;
+          owner_email: string | null;
+          owner_phone: string | null;
+          owner_notes: string | null;
+          operational_notes: string | null;
+          cover_image_path: string | null;
+          cover_image_name: string | null;
+          cover_image_content_type: string | null;
+          cover_image_byte_size: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string; profile_id: string; name: string; property_type?: string | null;
+          property_address?: string | null; region?: string | null; province?: string | null;
+          city?: string | null; bedrooms?: number | null; bathrooms?: number | null;
+          beds?: number | null; area_sqm?: number | null; owner_full_name?: string | null;
+          owner_email?: string | null; owner_phone?: string | null; owner_notes?: string | null;
+          operational_notes?: string | null; cover_image_path?: string | null;
+          cover_image_name?: string | null; cover_image_content_type?: string | null;
+          cover_image_byte_size?: number | null; created_at?: string; updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_managed_properties"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_managed_property_contacts: {
+        Row: {
+          id: string; property_id: string; profile_id: string; service_type: string;
+          name: string | null; company_name: string | null; phone: string | null;
+          email: string | null; whatsapp: string | null; notes: string | null;
+          position: number; created_at: string; updated_at: string;
+        };
+        Insert: {
+          id?: string; property_id: string; profile_id: string; service_type: string;
+          name?: string | null; company_name?: string | null; phone?: string | null;
+          email?: string | null; whatsapp?: string | null; notes?: string | null;
+          position?: number; created_at?: string; updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_managed_property_contacts"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_managed_property_ota_links: {
+        Row: { id: string; property_id: string; profile_id: string; label: string; url: string; position: number; created_at: string; updated_at: string; };
+        Insert: { id?: string; property_id: string; profile_id: string; label: string; url: string; position?: number; created_at?: string; updated_at?: string; };
+        Update: Partial<Database["public"]["Tables"]["marketing_managed_property_ota_links"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_managed_property_maintenance: {
+        Row: {
+          id: string; property_id: string; profile_id: string; happened_at: string;
+          category: string; title: string; description: string | null;
+          supplier_name: string | null; cost_cents: number | null; next_due_at: string | null;
+          created_at: string; updated_at: string;
+        };
+        Insert: {
+          id?: string; property_id: string; profile_id: string; happened_at?: string;
+          category: string; title: string; description?: string | null; supplier_name?: string | null;
+          cost_cents?: number | null; next_due_at?: string | null; created_at?: string; updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_managed_property_maintenance"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_managed_property_documents: {
+        Row: {
+          id: string; property_id: string; maintenance_id: string | null; profile_id: string;
+          category: "contract" | "floorplan" | "manual" | "maintenance" | "other";
+          storage_path: string; original_name: string; content_type: string; byte_size: number; created_at: string;
+        };
+        Insert: {
+          id?: string; property_id: string; maintenance_id?: string | null; profile_id: string;
+          category?: "contract" | "floorplan" | "manual" | "maintenance" | "other";
+          storage_path: string; original_name: string; content_type: string; byte_size: number; created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_managed_property_documents"]["Insert"]>;
+        Relationships: [];
+      };
       marketing_revenue_templates: {
         Row: {
           id: string;

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const propertyType = request.nextUrl.searchParams.get("propertyType")?.trim() ?? "";
     const { data, error } = await supabase
       .from("marketing_managed_properties")
-      .select("id,name,property_type,property_address,city,owner_full_name,cover_image_path,updated_at")
+      .select("id,name,property_type,property_address,city,owner_full_name,owner_phone,cover_image_path,updated_at")
       .eq("profile_id", profile.id)
       .order("updated_at", { ascending: false });
     if (error) throw error;

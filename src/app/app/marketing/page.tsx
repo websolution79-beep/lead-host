@@ -9,9 +9,7 @@ import {
   Columns3,
   Building2,
   CreditCard,
-  FileDown,
   Sparkles,
-  UserRoundCheck,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { MarketingCheckoutButton } from "@/components/marketing-checkout-button";
@@ -103,15 +101,17 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
   const product = addon.product;
   const trialDays = product?.trialDays ?? 0;
   const hasTrial = trialDays > 0;
-  const features = product?.features.length
-    ? product.features
-    : [
-        "CRM con pipeline personalizzabile",
-        "Schede proprietario e immobile complete",
-        "Rendita Stimata con PDF professionale",
-        "Gestione Immobili con contatti, documenti e manutenzioni",
-        "Documenti e immagini organizzati nel CRM",
-      ];
+  const defaultFeatures = [
+    "CRM con pipeline personalizzabile",
+    "Schede proprietario e immobile complete",
+    "Rendita Stimata con PDF professionale",
+    "Gestione Immobili con contatti, documenti e manutenzioni",
+    "Documenti e immagini organizzati nel CRM",
+  ];
+  const configuredFeatures = product?.features.length ? product.features : defaultFeatures;
+  const features = configuredFeatures.some((feature) => feature.toLowerCase().includes("gestione immobili"))
+    ? configuredFeatures
+    : [...configuredFeatures, "Gestione Immobili con contatti, documenti e manutenzioni"];
 
   return (
     <AppShell section="pm" eyebrow="Marketing" title={product?.name ?? "Modulo Marketing"}>
@@ -121,13 +121,13 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">
                 <Sparkles size={14} />
-                CRM, valutazioni e gestione operativa per Property Manager
+                CRM, Rendita Stimata e Gestione Immobili per Property Manager
               </div>
               <h2 className="mt-5 text-3xl font-semibold leading-tight text-ink sm:text-4xl lg:text-[2.65rem]">
-                Trasforma ogni contatto in una trattativa organizzata e professionale.
+                Dall’acquisizione alla gestione: tutto ciò che ti serve per far crescere il tuo portfolio immobili.
               </h2>
               <p className="mt-5 text-base leading-7 text-muted sm:text-lg">
-                {product?.description || product?.shortDescription || "Gestisci i proprietari, segui ogni trattativa e crea relazioni di rendita personalizzate in un unico spazio di lavoro."}
+                {product?.description || product?.shortDescription || "CRM, Rendita Stimata e Gestione Immobili in un unico spazio operativo per Property Manager."}
               </p>
               {hasTrial ? (
                 <p className="mt-5 text-base font-bold text-emerald-800">
@@ -177,16 +177,34 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
           </div>
         </section>
 
+        <section className="border-y border-slate-200 bg-slate-50 px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[.82fr_1.18fr] lg:items-center">
+            <div>
+              <p className="text-xs font-bold uppercase text-emerald-700">Gestione Immobili</p>
+              <h2 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">Gli immobili già acquisiti, organizzati in un unico spazio.</h2>
+              <p className="mt-4 leading-7 text-muted">
+                Dopo l’acquisizione, conserva per ogni immobile le informazioni che servono alla gestione quotidiana: proprietario, contatti operativi, annunci OTA, manutenzioni e documenti.
+              </p>
+              <FeatureList items={[
+                "Scheda completa con immagine, indirizzo e proprietario",
+                "Referenti per pulizie, check-in, check-out e manutenzioni",
+                "Link OTA, contratti, planimetrie e manuali sempre reperibili",
+              ]} />
+            </div>
+            <ProductPreview alt="Esempio della gestione operativa degli immobili nel Modulo Marketing" src="/images/marketing-managed-properties-preview.png" />
+          </div>
+        </section>
+
         <section className="border-y border-slate-200 bg-slate-950 px-5 py-10 text-white sm:px-8 lg:px-12 lg:py-14">
           <div className="mx-auto max-w-6xl">
             <div className="max-w-2xl">
               <p className="text-xs font-bold uppercase text-emerald-300">Un flusso completo</p>
-              <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Dall’interesse del proprietario alla proposta.</h2>
+              <h2 className="mt-3 text-2xl font-semibold sm:text-3xl">Dalla trattativa alla gestione quotidiana.</h2>
             </div>
             <div className="mt-8 grid gap-px overflow-hidden rounded-lg border border-white/15 bg-white/15 md:grid-cols-3">
-              <ProcessStep number="01" title="Organizza" text="Inserisci il proprietario e raccogli tutte le informazioni dell’immobile." />
-              <ProcessStep number="02" title="Segui" text="Gestisci contatti, appuntamenti e avanzamento direttamente dalla pipeline." />
-              <ProcessStep number="03" title="Presenta" text="Crea la stima, genera il PDF e collegalo alla scheda CRM." />
+              <ProcessStep icon={Columns3} number="01" title="Acquisisci" text="Organizza i proprietari e ogni trattativa nel CRM." />
+              <ProcessStep icon={Calculator} number="02" title="Valuta" text="Presenta una Rendita Stimata professionale, con la tua identità." />
+              <ProcessStep icon={Building2} number="03" title="Gestisci" text="Centralizza immobili già acquisiti, attività operative e documenti." />
             </div>
           </div>
         </section>
@@ -195,7 +213,7 @@ function MarketingOffer({ addon }: { addon: Awaited<ReturnType<typeof getMarketi
           <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
             <div>
               <p className="text-xs font-bold uppercase text-emerald-700">Tutto nel modulo</p>
-              <h2 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">Gli strumenti che servono per acquisire nuovi immobili.</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-ink sm:text-3xl">Gli strumenti che servono per acquisire e gestire immobili.</h2>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {features.map((feature) => (
                   <div className="flex min-w-0 items-start gap-3 rounded-lg border border-slate-200 bg-white p-4" key={feature}>
@@ -314,13 +332,12 @@ function FeatureList({ items }: { items: string[] }) {
   );
 }
 
-function ProcessStep({ number, title, text }: { number: string; title: string; text: string }) {
+function ProcessStep({ icon: Icon, number, title, text }: { icon: typeof Columns3; number: string; title: string; text: string }) {
   return (
     <article className="bg-slate-950 p-5 sm:p-6">
       <span className="text-sm font-bold text-emerald-300">{number}</span>
-      <h3 className="mt-4 flex items-center gap-2 text-lg font-semibold"><UserRoundCheck size={18} />{title}</h3>
+      <h3 className="mt-4 flex items-center gap-2 text-lg font-semibold"><Icon size={18} />{title}</h3>
       <p className="mt-3 text-sm leading-6 text-slate-300">{text}</p>
-      {number === "03" ? <FileDown className="mt-5 text-emerald-300" size={20} /> : null}
     </article>
   );
 }

@@ -28,7 +28,13 @@ type ResponsePayload = {
   error?: string;
 };
 
-export function AdminMemberCompensationRules({ memberId }: { memberId: string }) {
+export function AdminMemberCompensationRules({
+  memberId,
+  onDirtyChange,
+}: {
+  memberId: string;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [rules, setRules] = useState<Rules | null>(null);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
@@ -60,9 +66,10 @@ export function AdminMemberCompensationRules({ memberId }: { memberId: string })
     } else {
       setRules(payload.rules);
       setGlobalSettings(payload.globalSettings);
+      onDirtyChange?.(false);
     }
     setLoading(false);
-  }, [getToken, memberId]);
+  }, [getToken, memberId, onDirtyChange]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadRules(), 0);
@@ -99,6 +106,7 @@ export function AdminMemberCompensationRules({ memberId }: { memberId: string })
     } else {
       setRules(payload.rules);
       setSuccess("Regole compensi del membro aggiornate.");
+      onDirtyChange?.(false);
     }
     setSaving(false);
   }
@@ -122,7 +130,7 @@ export function AdminMemberCompensationRules({ memberId }: { memberId: string })
           onClick={() => void saveRules()}
         >
           <Save size={16} />
-          {saving ? "Salvataggio..." : "Salva compensi"}
+          {saving ? "Salvataggio..." : "Salva regole compensi"}
         </button>
       </div>
 
@@ -132,10 +140,10 @@ export function AdminMemberCompensationRules({ memberId }: { memberId: string })
 
       {rules && globalSettings ? (
         <div className="mt-4 grid gap-3">
-          <RuleRow label="Verifica Lead interessato" enabled={rules.leadVerificationEnabled} override={rules.leadVerificationCentsOverride} defaultValue={globalSettings.leadVerificationCents} kind="money" onEnabledChange={(value) => setRules({ ...rules, leadVerificationEnabled: value })} onOverrideChange={(value) => setRules({ ...rules, leadVerificationCentsOverride: value })} />
-          <RuleRow label="Acquisizione nuovo PM PRIME" enabled={rules.primeFirstActivationEnabled} override={rules.primeFirstActivationCentsOverride} defaultValue={globalSettings.primeFirstActivationCents} kind="money" onEnabledChange={(value) => setRules({ ...rules, primeFirstActivationEnabled: value })} onOverrideChange={(value) => setRules({ ...rules, primeFirstActivationCentsOverride: value })} />
-          <RuleRow label="Rinnovo mensile PM PRIME" enabled={rules.primeRenewalEnabled} override={rules.primeRenewalCentsOverride} defaultValue={globalSettings.primeRenewalCents} kind="money" onEnabledChange={(value) => setRules({ ...rules, primeRenewalEnabled: value })} onOverrideChange={(value) => setRules({ ...rules, primeRenewalCentsOverride: value })} />
-          <RuleRow label="Acquisto Lead da PM PRIME" enabled={rules.primeLeadPurchaseEnabled} override={rules.primeLeadPurchaseBasisPointsOverride} defaultValue={globalSettings.primeLeadPurchaseBasisPoints} kind="percentage" onEnabledChange={(value) => setRules({ ...rules, primeLeadPurchaseEnabled: value })} onOverrideChange={(value) => setRules({ ...rules, primeLeadPurchaseBasisPointsOverride: value })} />
+          <RuleRow label="Verifica Lead interessato" enabled={rules.leadVerificationEnabled} override={rules.leadVerificationCentsOverride} defaultValue={globalSettings.leadVerificationCents} kind="money" onEnabledChange={(value) => { setRules({ ...rules, leadVerificationEnabled: value }); onDirtyChange?.(true); }} onOverrideChange={(value) => { setRules({ ...rules, leadVerificationCentsOverride: value }); onDirtyChange?.(true); }} />
+          <RuleRow label="Acquisizione nuovo PM PRIME" enabled={rules.primeFirstActivationEnabled} override={rules.primeFirstActivationCentsOverride} defaultValue={globalSettings.primeFirstActivationCents} kind="money" onEnabledChange={(value) => { setRules({ ...rules, primeFirstActivationEnabled: value }); onDirtyChange?.(true); }} onOverrideChange={(value) => { setRules({ ...rules, primeFirstActivationCentsOverride: value }); onDirtyChange?.(true); }} />
+          <RuleRow label="Rinnovo mensile PM PRIME" enabled={rules.primeRenewalEnabled} override={rules.primeRenewalCentsOverride} defaultValue={globalSettings.primeRenewalCents} kind="money" onEnabledChange={(value) => { setRules({ ...rules, primeRenewalEnabled: value }); onDirtyChange?.(true); }} onOverrideChange={(value) => { setRules({ ...rules, primeRenewalCentsOverride: value }); onDirtyChange?.(true); }} />
+          <RuleRow label="Acquisto Lead da PM PRIME" enabled={rules.primeLeadPurchaseEnabled} override={rules.primeLeadPurchaseBasisPointsOverride} defaultValue={globalSettings.primeLeadPurchaseBasisPoints} kind="percentage" onEnabledChange={(value) => { setRules({ ...rules, primeLeadPurchaseEnabled: value }); onDirtyChange?.(true); }} onOverrideChange={(value) => { setRules({ ...rules, primeLeadPurchaseBasisPointsOverride: value }); onDirtyChange?.(true); }} />
         </div>
       ) : null}
     </section>

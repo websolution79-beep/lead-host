@@ -126,6 +126,7 @@ export function AdminTeamConsole() {
   const [editMemberTelegramContact, setEditMemberTelegramContact] = useState("");
   const [editMemberContactEmail, setEditMemberContactEmail] = useState("");
   const [editMemberPaypalEmail, setEditMemberPaypalEmail] = useState("");
+  const [compensationRulesDirty, setCompensationRulesDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -221,6 +222,7 @@ export function AdminTeamConsole() {
     setEditMemberTelegramContact(member.telegram_contact ?? "");
     setEditMemberContactEmail(member.contact_email ?? "");
     setEditMemberPaypalEmail(member.paypal_email ?? "");
+    setCompensationRulesDirty(false);
   }
 
   async function request(
@@ -629,6 +631,7 @@ export function AdminTeamConsole() {
           telegramContact={editMemberTelegramContact}
           contactEmail={editMemberContactEmail}
           paypalEmail={editMemberPaypalEmail}
+          compensationRulesDirty={compensationRulesDirty}
           roles={activeRoles}
           saving={saving}
           onFirstNameChange={setEditMemberFirstName}
@@ -639,6 +642,7 @@ export function AdminTeamConsole() {
           onTelegramContactChange={setEditMemberTelegramContact}
           onContactEmailChange={setEditMemberContactEmail}
           onPaypalEmailChange={setEditMemberPaypalEmail}
+          onCompensationRulesDirtyChange={setCompensationRulesDirty}
           onStatusToggle={() => void toggleMemberStatus(editingMember)}
           onResendInvite={() => void resendMemberInvite(editingMember)}
           onClose={() => setEditingMember(null)}
@@ -1057,6 +1061,7 @@ function MemberEditModal({
   telegramContact,
   contactEmail,
   paypalEmail,
+  compensationRulesDirty,
   roles,
   saving,
   onFirstNameChange,
@@ -1067,6 +1072,7 @@ function MemberEditModal({
   onTelegramContactChange,
   onContactEmailChange,
   onPaypalEmailChange,
+  onCompensationRulesDirtyChange,
   onStatusToggle,
   onResendInvite,
   onClose,
@@ -1081,6 +1087,7 @@ function MemberEditModal({
   telegramContact: string;
   contactEmail: string;
   paypalEmail: string;
+  compensationRulesDirty: boolean;
   roles: TeamRole[];
   saving: boolean;
   onFirstNameChange: (value: string) => void;
@@ -1091,6 +1098,7 @@ function MemberEditModal({
   onTelegramContactChange: (value: string) => void;
   onContactEmailChange: (value: string) => void;
   onPaypalEmailChange: (value: string) => void;
+  onCompensationRulesDirtyChange: (dirty: boolean) => void;
   onStatusToggle: () => void;
   onResendInvite: () => void;
   onClose: () => void;
@@ -1240,7 +1248,10 @@ function MemberEditModal({
             </span>
           </div>
         </Field>
-        <AdminMemberCompensationRules memberId={member.id} />
+        <AdminMemberCompensationRules
+          memberId={member.id}
+          onDirtyChange={onCompensationRulesDirtyChange}
+        />
         <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row">
             {member.status === "invited" ? (
@@ -1270,8 +1281,13 @@ function MemberEditModal({
             <button className="btn btn-secondary" type="button" onClick={onClose}>
               Chiudi
             </button>
-            <button className="btn btn-primary" type="submit" disabled={saving}>
-              {saving ? "Salvataggio..." : "Salva modifiche"}
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={saving || compensationRulesDirty}
+              title={compensationRulesDirty ? "Salva prima le regole compensi con il pulsante dedicato." : undefined}
+            >
+              {saving ? "Salvataggio..." : "Salva dati membro"}
             </button>
           </div>
         </div>

@@ -12,99 +12,29 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function PrimeZonePage() {
+type PrimeZonePageProps = {
+  searchParams: Promise<{ preview?: string }>;
+};
+
+export default async function PrimeZonePage({ searchParams }: PrimeZonePageProps) {
   const session = await getServerSessionProfile();
 
   if (!session) redirect("/login?redirect=/app/prime");
+
+  const params = await searchParams;
+  const previewOffer =
+    params.preview === "offer" &&
+    (session.isSuperAdmin || isAccountManager(session.teamAccess?.roleName));
+
+  if (previewOffer) {
+    return <PrimeOffer preview />;
+  }
 
   const primeAccess = await getPrimeAccessState(session.profile.id);
 
   if (!primeAccess.isVisible) redirect("/app/marketplace");
 
-  if (!primeAccess.hasAccess) {
-    const supabase = createServiceSupabaseClient();
-    const [{ settings }, productResult] = await Promise.all([
-      fetchCommercialSettings(supabase),
-      supabase
-        .from("addon_products")
-        .select("terms_url")
-        .eq("slug", "lead-host-prime")
-        .single(),
-    ]);
-    const firstTotal = settings.primeFirstMonthServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
-    const renewalTotal = settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
-    const startupFee = settings.primeFirstMonthServiceFeeCents - settings.primeRecurringServiceFeeCents;
-
-    return (
-      <AppShell section="pm" eyebrow="Lead Host PRIME" title="La tua opportunità riservata">
-        <section className="overflow-hidden rounded-lg border border-amber-300 bg-white shadow-[0_22px_70px_rgba(146,94,13,0.14)]">
-          <div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3 py-1 text-xs font-extrabold uppercase text-slate-950">
-                <Crown size={15} fill="currentColor" /> Offerta riservata
-              </span>
-              <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-                Accedi alle opportunità PRIME prima del Marketplace pubblico.
-              </h2>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
-                Ricevi una Prime Zone personale e un Account Manager dedicato, che potrai
-                contattare direttamente per qualsiasi esigenza o domanda. Acquista i lead
-                assegnati esclusivamente al tuo account e continua a usare normalmente tutto
-                il Marketplace Lead Host.
-              </p>
-              <div className="mt-7">
-                <PrimeCheckoutButton
-                  startupLabel={formatMoney(startupFee)}
-                  renewalLabel={formatMoney(settings.primeRecurringServiceFeeCents)}
-                  walletRechargeLabel={formatMoney(settings.primeMonthlyWalletRechargeCents)}
-                  termsUrl={productResult.data?.terms_url ?? "/termini"}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 sm:p-6">
-              <p className="text-xs font-extrabold uppercase text-emerald-700">Primo mese</p>
-              <p className="mt-2 text-4xl font-semibold text-ink">{formatMoney(firstTotal)}</p>
-              <div className="mt-4 grid gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
-                <PriceRow
-                  label="Costi di startup e attivazione PRIME"
-                  value={formatMoney(startupFee)}
-                />
-                <PriceRow
-                  label="Servizio PRIME del primo mese"
-                  value={formatMoney(settings.primeRecurringServiceFeeCents)}
-                />
-                <PriceRow
-                  label="Credito caricato nel Wallet"
-                  value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
-                />
-              </div>
-              <div className="mt-5 grid gap-3 text-sm text-slate-700">
-                <Feature icon={<Zap size={18} />} text="Accesso immediato alla tua Prime Zone" />
-                <Feature icon={<WalletCards size={18} />} text={`${formatMoney(settings.primeMonthlyWalletRechargeCents)} accreditati nel Wallet`} />
-                <Feature icon={<ShieldCheck size={18} />} text="Acquisto esclusivo delle opportunità assegnate" />
-                <Feature icon={<UserRoundCheck size={18} />} text="Account Manager dedicato e contattabile direttamente" />
-              </div>
-              <div className="mt-5 border-t border-slate-200 pt-4">
-                <p className="text-xs font-extrabold uppercase text-emerald-700">Dal secondo mese</p>
-                <p className="mt-1 text-2xl font-semibold text-ink">{formatMoney(renewalTotal)} al mese</p>
-                <div className="mt-3 grid gap-2 text-sm text-slate-700">
-                  <PriceRow
-                    label="Abbonamento PRIME"
-                    value={formatMoney(settings.primeRecurringServiceFeeCents)}
-                  />
-                  <PriceRow
-                    label="Credito caricato nel Wallet"
-                    value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </AppShell>
-    );
-  }
+  if (!primeAccess.hasAccess) return <PrimeOffer />;
 
   const leads = await getPrimeZoneLeadsForProfile(session.profile.id);
 
@@ -156,6 +86,97 @@ export default async function PrimeZonePage() {
       )}
     </AppShell>
   );
+}
+
+async function PrimeOffer({ preview = false }: { preview?: boolean }) {
+  const supabase = createServiceSupabaseClient();
+  const [{ settings }, productResult] = await Promise.all([
+    fetchCommercialSettings(supabase),
+    supabase
+      .from("addon_products")
+      .select("terms_url")
+      .eq("slug", "lead-host-prime")
+      .single(),
+  ]);
+  const firstTotal = settings.primeFirstMonthServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
+  const renewalTotal = settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
+  const startupFee = settings.primeFirstMonthServiceFeeCents - settings.primeRecurringServiceFeeCents;
+
+  return (
+    <AppShell section="pm" eyebrow="Lead Host PRIME" title={preview ? "Anteprima pagina di vendita" : "La tua opportunità riservata"}>
+        <section className="overflow-hidden rounded-lg border border-amber-300 bg-white shadow-[0_22px_70px_rgba(146,94,13,0.14)]">
+          <div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-3 py-1 text-xs font-extrabold uppercase text-slate-950">
+                <Crown size={15} fill="currentColor" /> Offerta riservata
+              </span>
+              <h2 className="mt-5 max-w-3xl text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+                Accedi alle opportunità PRIME prima del Marketplace pubblico.
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-muted">
+                Ricevi una Prime Zone personale e un Account Manager dedicato, che potrai
+                contattare direttamente per qualsiasi esigenza o domanda. Acquista i lead
+                assegnati esclusivamente al tuo account e continua a usare normalmente tutto
+                il Marketplace Lead Host.
+              </p>
+              <div className="mt-7">
+                <PrimeCheckoutButton
+                  startupLabel={formatMoney(startupFee)}
+                  renewalLabel={formatMoney(settings.primeRecurringServiceFeeCents)}
+                  walletRechargeLabel={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                  termsUrl={productResult.data?.terms_url ?? "/termini"}
+                  preview={preview}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-5 sm:p-6">
+              <p className="text-xs font-extrabold uppercase text-emerald-700">Primo mese</p>
+              <p className="mt-2 text-4xl font-semibold text-ink">{formatMoney(firstTotal)}</p>
+              <div className="mt-4 grid gap-2 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
+                <PriceRow
+                  label="Costi di startup e attivazione PRIME"
+                  value={formatMoney(startupFee)}
+                />
+                <PriceRow
+                  label="Servizio PRIME del primo mese"
+                  value={formatMoney(settings.primeRecurringServiceFeeCents)}
+                />
+                <PriceRow
+                  label="Credito caricato nel Wallet"
+                  value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                />
+              </div>
+              <div className="mt-5 grid gap-3 text-sm text-slate-700">
+                <Feature icon={<Zap size={18} />} text="Accesso immediato alla tua Prime Zone" />
+                <Feature icon={<WalletCards size={18} />} text={`${formatMoney(settings.primeMonthlyWalletRechargeCents)} accreditati nel Wallet`} />
+                <Feature icon={<ShieldCheck size={18} />} text="Acquisto esclusivo delle opportunità assegnate" />
+                <Feature icon={<UserRoundCheck size={18} />} text="Account Manager dedicato e contattabile direttamente" />
+              </div>
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <p className="text-xs font-extrabold uppercase text-emerald-700">Dal secondo mese</p>
+                <p className="mt-1 text-2xl font-semibold text-ink">{formatMoney(renewalTotal)} al mese</p>
+                <div className="mt-3 grid gap-2 text-sm text-slate-700">
+                  <PriceRow
+                    label="Abbonamento PRIME"
+                    value={formatMoney(settings.primeRecurringServiceFeeCents)}
+                  />
+                  <PriceRow
+                    label="Credito caricato nel Wallet"
+                    value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+    </AppShell>
+  );
+}
+
+function isAccountManager(roleName: string | undefined) {
+  const roleKey = (roleName ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
+  return roleKey === "accountmanager" || roleKey === "accounmanager";
 }
 
 function Feature({ icon, text }: { icon: React.ReactNode; text: string }) {

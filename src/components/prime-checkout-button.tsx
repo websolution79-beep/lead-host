@@ -10,11 +10,13 @@ export function PrimeCheckoutButton({
   renewalLabel,
   walletRechargeLabel,
   termsUrl,
+  preview = false,
 }: {
   startupLabel: string;
   renewalLabel: string;
   walletRechargeLabel: string;
   termsUrl: string;
+  preview?: boolean;
 }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [open, setOpen] = useState(false);
@@ -58,9 +60,15 @@ export function PrimeCheckoutButton({
 
   return (
     <>
-      <button className="btn bg-amber-400 text-slate-950 hover:bg-amber-300" type="button" onClick={() => setOpen(true)}>
+      <button
+        className="btn bg-amber-400 text-slate-950 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-70"
+        type="button"
+        disabled={preview}
+        title={preview ? "Anteprima commerciale riservata al Team." : undefined}
+        onClick={() => setOpen(true)}
+      >
         <Crown size={18} fill="currentColor" />
-        Attiva Lead Host PRIME
+        {preview ? "Anteprima riservata al Team" : "Attiva Lead Host PRIME"}
       </button>
 
       {open ? (

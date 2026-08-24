@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Crown,
   Eye,
+  ExternalLink,
   Filter,
   PauseCircle,
   Search,
@@ -487,7 +488,7 @@ export function AdminPrimeConsole() {
       </section>
 
       <section className="min-w-0 max-w-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="section-kicker">Portafoglio PRIME</p>
             <h2 className="mt-2 text-xl font-semibold text-ink">Property Manager</h2>
@@ -495,6 +496,15 @@ export function AdminPrimeConsole() {
               Consulta i PM disponibili e prendi in carico quelli che seguirai per Lead Host PRIME.
             </p>
           </div>
+          <a
+            className="btn btn-secondary w-full shrink-0 sm:w-auto"
+            href="/app/prime?preview=offer"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={16} />
+            Apri pagina di vendita
+          </a>
         </div>
         <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
           {(data.access.isSuperAdmin

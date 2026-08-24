@@ -5,6 +5,7 @@ import {
   Bath,
   BedDouble,
   CalendarClock,
+  ChevronDown,
   Crown,
   MapPin,
   Ruler,
@@ -100,27 +101,44 @@ export function AdminPrimeZoneConsole() {
               area riservata e le relative scadenze.
             </p>
           </div>
-          <label className="block text-sm font-semibold text-ink">
-            Property Manager PRIME
-            <select
-              className="input mt-2 w-full"
-              value={selectedProfileId}
-              disabled={loading || payload.propertyManagers.length === 0}
-              onChange={(event) => {
-                setSelectedProfileId(event.target.value);
-                void load(event.target.value);
-              }}
-            >
-              {payload.propertyManagers.length === 0 ? (
-                <option value="">Nessun PM PRIME disponibile</option>
-              ) : null}
-              {payload.propertyManagers.map((manager) => (
-                <option key={manager.profileId} value={manager.profileId}>
-                  {manager.name} · {manager.email}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-amber-200 text-amber-950">
+                <Crown size={17} fill="currentColor" />
+              </span>
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-amber-800">
+                  Property Manager PRIME
+                </p>
+                <p className="mt-0.5 text-xs text-amber-950/70">
+                  Seleziona la zona riservata da visualizzare
+                </p>
+              </div>
+            </div>
+            <label className="relative mt-3 block">
+              <UserRound className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" />
+              <select
+                className="min-h-12 w-full appearance-none rounded-lg border border-slate-200 bg-white py-3 pl-12 pr-11 text-sm font-semibold text-ink outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                value={selectedProfileId}
+                disabled={loading || payload.propertyManagers.length === 0}
+                aria-label="Seleziona Property Manager PRIME"
+                onChange={(event) => {
+                  setSelectedProfileId(event.target.value);
+                  void load(event.target.value);
+                }}
+              >
+                {payload.propertyManagers.length === 0 ? (
+                  <option value="">Nessun PM PRIME disponibile</option>
+                ) : null}
+                {payload.propertyManagers.map((manager) => (
+                  <option key={manager.profileId} value={manager.profileId}>
+                    {manager.name} · {manager.email}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-slate-500" />
+            </label>
+          </div>
         </div>
       </section>
 

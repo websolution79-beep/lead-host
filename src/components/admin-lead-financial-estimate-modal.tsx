@@ -369,5 +369,11 @@ function ErrorMessage({ text }: { text: string }) {
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(value);
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    useGrouping: true,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }

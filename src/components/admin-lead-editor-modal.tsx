@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BadgeEuro,
+  Calculator,
   FileCheck2,
   Home,
   Save,
   UserRound,
   X,
 } from "lucide-react";
+import { AdminLeadFinancialEstimateModal } from "@/components/admin-lead-financial-estimate-modal";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
 import {
@@ -79,6 +81,7 @@ export function AdminLeadEditorModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [financialEstimateOpen, setFinancialEstimateOpen] = useState(false);
   const regions = useMemo(
     () => mergeOptions(ITALY_GEO.map((item) => item.region), draft.region),
     [draft.region],
@@ -490,6 +493,27 @@ export function AdminLeadEditorModal({
                     ? "Le modifiche si applicano ai prossimi acquisti. Importi e transazioni già registrati restano invariati."
                     : "Questi importi saranno utilizzati quando il lead verrà approvato e pubblicato nel Marketplace."}
                 </p>
+                {record.lead ? (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-blue-950">
+                          Stima finanziaria Marketplace
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-blue-800">
+                          Prepara la previsione interna del lead. Non sarà visibile ai Property Manager finché non verrà attivata nella prossima fase.
+                        </p>
+                      </div>
+                      <button
+                        className="btn btn-secondary shrink-0 border-blue-200 bg-white text-blue-900 hover:bg-blue-100"
+                        type="button"
+                        onClick={() => setFinancialEstimateOpen(true)}
+                      >
+                        <Calculator size={17} /> Gestisci stima
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </EditorSection>
 
@@ -552,6 +576,14 @@ export function AdminLeadEditorModal({
           </button>
         </footer>
       </div>
+      {financialEstimateOpen && record.lead ? (
+        <AdminLeadFinancialEstimateModal
+          ownerRequestId={record.ownerRequestId}
+          leadTitle={draft.leadTitle || record.lead.title}
+          onClose={() => setFinancialEstimateOpen(false)}
+          onSaved={onSaved}
+        />
+      ) : null}
     </div>
   );
 }

@@ -21,6 +21,7 @@ export const telegramTemplateVariables = [
   "available_slots",
   "max_shared_slots",
   "subletting",
+  "estimated_annual_gross",
 ] as const;
 
 export const defaultTelegramChannelSettings: TelegramChannelSettings = {
@@ -31,6 +32,9 @@ export const defaultTelegramChannelSettings: TelegramChannelSettings = {
     "{{title}}",
     "Località: {{location}}",
     "Tipologia: {{property_type}}",
+    "",
+    "{{subletting}}",
+    "{{estimated_annual_gross}}",
     "",
     "Condiviso: {{shared_price}}",
     "Esclusiva: {{exclusive_price}}",

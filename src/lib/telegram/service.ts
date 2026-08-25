@@ -48,6 +48,7 @@ export type TelegramLeadSummary = {
   sharedSlotsSold: number;
   maxSharedSlots?: number;
   sublettingAvailable?: boolean;
+  estimatedAnnualGross?: number | null;
 };
 
 export class TelegramServiceError extends Error {}
@@ -109,9 +110,10 @@ export async function sendTelegramTestMessage() {
 
 export async function notifyNewLeadOnTelegram(lead: TelegramLeadSummary) {
   const supabase = createServiceSupabaseClient();
-  const [{ settings }, { promotion }] = await Promise.all([
+  const [{ settings }, { promotion }, estimatedAnnualGross] = await Promise.all([
     fetchTelegramChannelSettings(supabase),
     fetchEffectiveMarketplacePromotion(supabase),
+    fetchEstimatedAnnualGross(supabase, lead.id),
   ]);
 
   if (!settings.enabled) {
@@ -120,7 +122,10 @@ export async function notifyNewLeadOnTelegram(lead: TelegramLeadSummary) {
 
   const messageText = renderTelegramLeadMessage(
     settings,
-    applyPromotionToTelegramLead(lead, promotion),
+    {
+      ...applyPromotionToTelegramLead(lead, promotion),
+      estimatedAnnualGross,
+    },
   );
   const log = await reserveLeadDelivery(lead.id, messageText);
 
@@ -161,14 +166,18 @@ export async function notifyNewLeadOnTelegram(lead: TelegramLeadSummary) {
 // explicitly authorised admin to re-share one still-purchasable lead.
 export async function sendManualLeadToTelegram(lead: TelegramLeadSummary) {
   const supabase = createServiceSupabaseClient();
-  const [{ settings }, { promotion }] = await Promise.all([
+  const [{ settings }, { promotion }, estimatedAnnualGross] = await Promise.all([
     fetchTelegramChannelSettings(supabase),
     fetchEffectiveMarketplacePromotion(supabase),
+    fetchEstimatedAnnualGross(supabase, lead.id),
   ]);
   const result = await sendTelegramMessage({
     text: renderTelegramLeadMessage(
       settings,
-      applyPromotionToTelegramLead(lead, promotion),
+      {
+        ...applyPromotionToTelegramLead(lead, promotion),
+        estimatedAnnualGross,
+      },
     ),
     buttonUrl: buildLeadUrl(lead.id),
     buttonLabel: "Vedi il lead",
@@ -216,15 +225,54 @@ export function renderTelegramLeadMessage(
     subletting: lead.sublettingAvailable
       ? "🏠 Disponibile alla Sublocazione"
       : "",
+    estimated_annual_gross:
+      lead.estimatedAnnualGross !== null &&
+      lead.estimatedAnnualGross !== undefined
+        ? `💰 Incasso lordo annuo stimato: ${formatCurrencyCents(
+            Math.round(lead.estimatedAnnualGross * 100),
+          )}`
+        : "",
   };
-  const template = lead.sublettingAvailable
+  let template = lead.sublettingAvailable
     ? settings.messageTemplate
     : removeEmptyStandaloneShortcode(settings.messageTemplate, "subletting");
+
+  if (
+    lead.estimatedAnnualGross === null ||
+    lead.estimatedAnnualGross === undefined
+  ) {
+    template = removeEmptyStandaloneShortcode(
+      template,
+      "estimated_annual_gross",
+    );
+  }
 
   return template.replace(
     /\{\{([a-z_]+)\}\}/g,
     (match, key: string) => variables[key] ?? match,
   );
+}
+
+async function fetchEstimatedAnnualGross(
+  supabase: ReturnType<typeof createServiceSupabaseClient>,
+  leadId: string,
+) {
+  const { data, error } = await supabase
+    .from("marketplace_financial_estimates")
+    .select("gross_annual_revenue")
+    .eq("lead_id", leadId)
+    .eq("is_visible", true)
+    .maybeSingle();
+
+  if (error) {
+    console.warn(
+      "Telegram financial estimate lookup failed:",
+      error.message,
+    );
+    return null;
+  }
+
+  return data?.gross_annual_revenue ?? null;
 }
 
 function removeEmptyStandaloneShortcode(template: string, shortcode: string) {

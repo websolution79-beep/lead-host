@@ -38,6 +38,7 @@ const estimateSchema = z
     contactDetails: nullableText(1200),
     logoPath: nullableText(500),
     disclaimer: z.string().trim().min(20).max(2000),
+    isVisible: z.boolean(),
   })
   .superRefine((value, context) => {
     const mix = value.airbnbMixRate + value.bookingMixRate + value.directMixRate;
@@ -119,7 +120,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       taxRate: payload.taxRate,
     });
     const values = {
-      is_visible: existing.data?.is_visible ?? false,
+      is_visible: payload.isVisible,
       adr_per_night: payload.adrPerNight,
       occupancy_rate: payload.occupancyRate,
       days_available: payload.daysAvailable,

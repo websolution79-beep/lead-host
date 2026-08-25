@@ -35,6 +35,7 @@ type EstimateForm = {
   contactDetails: string | null;
   logoPath: string | null;
   disclaimer: string;
+  isVisible: boolean;
 };
 
 type ApiEstimate = {
@@ -60,9 +61,10 @@ type ApiEstimate = {
   contact_details: string | null;
   logo_path: string | null;
   disclaimer: string;
+  is_visible: boolean;
 };
 
-type ApiTemplate = Omit<ApiEstimate, "adr_per_night" | "occupancy_rate">;
+type ApiTemplate = Omit<ApiEstimate, "adr_per_night" | "occupancy_rate" | "is_visible">;
 
 export function AdminLeadFinancialEstimateModal({
   ownerRequestId,
@@ -265,6 +267,19 @@ export function AdminLeadFinancialEstimateModal({
                 </div>
               </section>
 
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                <input
+                  className="mt-0.5 size-4 accent-emerald-700"
+                  type="checkbox"
+                  checked={form.isVisible}
+                  onChange={(event) => update("isVisible", event.target.checked)}
+                />
+                <span>
+                  <strong className="block">Mostra la stima nel Marketplace</strong>
+                  <span className="mt-1 block leading-5">Il Property Manager potrà vedere l&apos;anteprima economica e aprire la stima dettagliata prima dell&apos;acquisto.</span>
+                </span>
+              </label>
+
               <details className="rounded-lg border border-slate-200 bg-white">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-sm font-bold text-ink sm:p-5">
                   <span className="flex items-center gap-2"><SlidersHorizontal size={17} /> Personalizza parametri per questo lead</span>
@@ -353,6 +368,7 @@ function toForm(estimate: ApiEstimate | null, template: ApiTemplate): EstimateFo
     contactDetails: source.contact_details,
     logoPath: source.logo_path,
     disclaimer: source.disclaimer,
+    isVisible: estimate?.is_visible ?? false,
   };
 }
 

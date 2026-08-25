@@ -578,6 +578,7 @@ export function AdminLeadEditorModal({
         <AdminLeadFinancialEstimateModal
           ownerRequestId={record.ownerRequestId}
           leadTitle={draft.leadTitle || record.lead?.title || "Nuovo lead"}
+          location={[draft.preciseAddress, draft.city].filter(Boolean).join(", ") || null}
           onClose={() => setFinancialEstimateOpen(false)}
           onSaved={onSaved}
         />

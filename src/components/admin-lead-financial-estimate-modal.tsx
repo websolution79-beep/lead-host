@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Calculator, LoaderCircle, Save, SlidersHorizontal, X } from "lucide-react";
+import {
+  MarketplaceFinancialEstimatePreviewModal,
+  type MarketplaceFinancialEstimatePreviewData,
+} from "@/components/marketplace-financial-estimate-preview-modal";
 import { calculateRevenueEstimate } from "@/lib/financial/revenue-calculation";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
@@ -60,11 +64,13 @@ type ApiTemplate = Omit<ApiEstimate, "adr_per_night" | "occupancy_rate">;
 export function AdminLeadFinancialEstimateModal({
   ownerRequestId,
   leadTitle,
+  location,
   onClose,
   onSaved,
 }: {
   ownerRequestId: string;
   leadTitle: string;
+  location: string | null;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -72,6 +78,8 @@ export function AdminLeadFinancialEstimateModal({
   const [form, setForm] = useState<EstimateForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -104,6 +112,7 @@ export function AdminLeadFinancialEstimateModal({
         error?: string;
         estimate?: ApiEstimate | null;
         template?: ApiTemplate;
+        logoUrl?: string | null;
       };
       if (cancelled) return;
       if (!response.ok || !payload.template) {
@@ -112,6 +121,7 @@ export function AdminLeadFinancialEstimateModal({
         return;
       }
       setForm(toForm(payload.estimate ?? null, payload.template));
+      setLogoUrl(payload.logoUrl ?? null);
       setLoading(false);
     }
     void load();
@@ -287,13 +297,29 @@ export function AdminLeadFinancialEstimateModal({
 
         <footer className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
           <button className="btn btn-secondary" type="button" disabled={saving} onClick={onClose}>Annulla</button>
+          <button className="btn btn-secondary" type="button" disabled={loading || !form} onClick={() => setPreviewOpen(true)}>Apri anteprima</button>
           <button className="btn btn-primary" type="button" disabled={loading || saving || !form} onClick={() => void save()}>
             <Save size={17} /> {saving ? "Salvataggio..." : "Salva stima"}
           </button>
         </footer>
       </div>
+      {previewOpen && form ? (
+        <MarketplaceFinancialEstimatePreviewModal
+          data={toPreviewData(form, logoUrl)}
+          leadTitle={leadTitle}
+          location={location}
+          onClose={() => setPreviewOpen(false)}
+        />
+      ) : null}
     </div>
   );
+}
+
+function toPreviewData(
+  form: EstimateForm,
+  logoUrl: string | null,
+): MarketplaceFinancialEstimatePreviewData {
+  return { ...form, logoUrl };
 }
 
 function toForm(estimate: ApiEstimate | null, template: ApiTemplate): EstimateForm {

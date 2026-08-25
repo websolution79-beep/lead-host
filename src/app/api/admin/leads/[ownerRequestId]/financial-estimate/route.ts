@@ -66,8 +66,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     ]);
     if (estimateResult.error) throw estimateResult.error;
 
+    const logoPath = estimateResult.data?.logo_path ?? template.logo_path;
+    const signedLogo = logoPath
+      ? await supabase.storage
+          .from("marketplace-financial-branding")
+          .createSignedUrl(logoPath, 3600)
+      : null;
+    if (signedLogo?.error) throw signedLogo.error;
+
     return NextResponse.json(
-      { leadId: lead?.id ?? null, estimate: estimateResult.data, template },
+      {
+        leadId: lead?.id ?? null,
+        estimate: estimateResult.data,
+        template,
+        logoUrl: signedLogo?.data?.signedUrl ?? null,
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

@@ -6,7 +6,10 @@ import {
   MarketplaceFinancialEstimatePreviewModal,
   type MarketplaceFinancialEstimatePreviewData,
 } from "@/components/marketplace-financial-estimate-preview-modal";
-import { calculateRevenueEstimate } from "@/lib/financial/revenue-calculation";
+import {
+  calculateRevenueEstimate,
+  getMarketplaceFinancialSummary,
+} from "@/lib/financial/revenue-calculation";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 type EstimateForm = {
@@ -148,6 +151,9 @@ export function AdminLeadFinancialEstimateModal({
         taxRate: form.taxRate,
       })
     : null;
+  const marketplaceSummary = result
+    ? getMarketplaceFinancialSummary(result)
+    : null;
 
   function update<K extends keyof EstimateForm>(key: K, value: EstimateForm[K]) {
     setForm((current) => (current ? { ...current, [key]: value } : current));
@@ -220,7 +226,7 @@ export function AdminLeadFinancialEstimateModal({
               <LoaderCircle className="animate-spin" size={20} /> Caricamento stima...
             </div>
           ) : null}
-          {!loading && form && result ? (
+          {!loading && form && result && marketplaceSummary ? (
             <div className="grid gap-7">
               <section>
                 <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
@@ -252,8 +258,8 @@ export function AdminLeadFinancialEstimateModal({
               <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-5">
                 <p className="section-kicker">Anteprima calcolo</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <Summary label="Netto mensile stimato" value={formatCurrency(result.owner_monthly_net)} featured />
-                  <Summary label="Netto annuale stimato" value={formatCurrency(result.owner_annual_net)} />
+                  <Summary label="Netto mensile immobile" value={formatCurrency(marketplaceSummary.monthlyNet)} featured />
+                  <Summary label="Netto annuo immobile" value={formatCurrency(marketplaceSummary.annualNet)} />
                   <Summary label="Incasso lordo annuo" value={formatCurrency(result.gross_annual_revenue)} />
                   <Summary label="Costi OTA inclusa IVA" value={formatCurrency(result.ota_commission_gross)} />
                 </div>

@@ -1,7 +1,10 @@
 "use client";
 
 import { Eye, X } from "lucide-react";
-import { calculateRevenueEstimate } from "@/lib/financial/revenue-calculation";
+import {
+  calculateRevenueEstimate,
+  getMarketplaceFinancialSummary,
+} from "@/lib/financial/revenue-calculation";
 
 export type MarketplaceFinancialEstimatePreviewData = {
   reportTitle: string;
@@ -55,6 +58,13 @@ export function MarketplaceFinancialEstimatePreviewModal({
     pmVatRate: data.pmVatRate,
     taxRate: data.taxRate,
   });
+  const marketplaceSummary = getMarketplaceFinancialSummary(result);
+  const disclaimer = data.disclaimer
+    .replace(
+      /\s*Le valutazioni fiscali sono indicative e devono essere verificate con il proprio consulente\.?/i,
+      "",
+    )
+    .trim();
 
   return (
     <div
@@ -90,21 +100,16 @@ export function MarketplaceFinancialEstimatePreviewModal({
             </div>
 
             <section className="mx-4 mt-6 border border-slate-300 bg-blue-50 px-5 py-6 text-center sm:mx-10 sm:mt-9 sm:px-8 sm:py-9">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-950">Netto mensile proprietario</p>
-              <p className="mt-3 text-4xl font-bold text-ink sm:text-5xl">{formatCurrency(result.owner_monthly_net)}</p>
-              <p className="mt-3 text-lg font-semibold text-ink">Netto annuo: {formatCurrency(result.owner_annual_net)}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-950">Netto mensile immobile</p>
+              <p className="mt-3 text-4xl font-bold text-ink sm:text-5xl">{formatCurrency(marketplaceSummary.monthlyNet)}</p>
+              <p className="mt-3 text-lg font-semibold text-ink">Netto annuo immobile: {formatCurrency(marketplaceSummary.annualNet)}</p>
             </section>
 
             <section className="px-4 pb-4 pt-9 sm:px-10 sm:pb-8 sm:pt-12">
               <h4 className="border-b-4 border-green pb-3 text-xl font-bold text-ink">Analisi finanziaria</h4>
               <dl className="mt-5 overflow-hidden border border-slate-200">
                 <FinancialRow label="Incasso lordo annuo" value={formatCurrency(result.gross_annual_revenue)} />
-                <FinancialRow label={data.otaCostLabel} value={`- ${formatCurrency(result.ota_commission_gross)}`} negative />
-                <FinancialRow label={data.managementCostLabel} value={`- ${formatCurrency(result.pm_fee_gross)}`} negative />
-                <FinancialRow label="Incasso proprietario (pre-tax)" value={formatCurrency(result.owner_pre_tax)} />
-                <FinancialRow label={data.taxCostLabel} value={`- ${formatCurrency(result.tax_amount)}`} negative />
-                <FinancialRow label="Netto annuo" value={formatCurrency(result.owner_annual_net)} emphasis />
-                <FinancialRow label="Netto mensile" value={formatCurrency(result.owner_monthly_net)} emphasis />
+                <FinancialRow label="Commissioni OTA" value={`- ${formatCurrency(result.ota_commission_gross)}`} negative />
               </dl>
             </section>
 
@@ -118,8 +123,8 @@ export function MarketplaceFinancialEstimatePreviewModal({
             </section>
 
             <section className="mx-4 mb-4 rounded-lg bg-amber-50 p-5 text-sm leading-6 text-ink sm:mx-10 sm:mb-8 sm:p-6">
-              <p><strong>Parametri:</strong> Mix Airbnb {formatPercent(data.airbnbMixRate)} · Booking {formatPercent(data.bookingMixRate)} · Diretto {formatPercent(data.directMixRate)} · Fee PM {formatPercent(data.pmFeeRate)} · Aliquota fiscale {formatPercent(data.taxRate)}</p>
-              <p className="mt-4">{data.disclaimer}</p>
+              <p><strong>Parametri:</strong> Mix Airbnb {formatPercent(data.airbnbMixRate)} · Booking {formatPercent(data.bookingMixRate)} · Diretto {formatPercent(data.directMixRate)}</p>
+              {disclaimer ? <p className="mt-4">{disclaimer}</p> : null}
             </section>
 
             {data.contactDetails ? <footer className="border-t border-slate-200 px-6 py-6 text-center text-sm text-muted sm:px-10">{data.contactDetails}</footer> : null}
@@ -130,8 +135,8 @@ export function MarketplaceFinancialEstimatePreviewModal({
   );
 }
 
-function FinancialRow({ label, value, negative = false, emphasis = false }: { label: string; value: string; negative?: boolean; emphasis?: boolean }) {
-  return <div className={emphasis ? "flex items-center justify-between gap-5 border-b border-white bg-green px-5 py-4 text-white last:border-b-0" : "flex items-center justify-between gap-5 border-b border-slate-200 px-5 py-4 last:border-b-0"}><dt className={emphasis ? "font-bold uppercase" : "text-ink"}>{label}</dt><dd className={emphasis ? "shrink-0 text-lg font-bold" : negative ? "shrink-0 font-bold text-red-600" : "shrink-0 font-bold text-ink"}>{value}</dd></div>;
+function FinancialRow({ label, value, negative = false }: { label: string; value: string; negative?: boolean }) {
+  return <div className="flex items-center justify-between gap-5 border-b border-slate-200 px-5 py-4 last:border-b-0"><dt className="text-ink">{label}</dt><dd className={negative ? "shrink-0 font-bold text-red-600" : "shrink-0 font-bold text-ink"}>{value}</dd></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

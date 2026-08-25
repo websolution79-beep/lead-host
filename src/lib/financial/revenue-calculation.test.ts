@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateRevenueEstimate } from "@/lib/financial/revenue-calculation";
+import {
+  calculateRevenueEstimate,
+  getMarketplaceFinancialSummary,
+} from "@/lib/financial/revenue-calculation";
 
 test("calculates the established ADR and occupancy scenario without changing monetary rounding", () => {
   const result = calculateRevenueEstimate({
@@ -26,6 +29,11 @@ test("calculates the established ADR and occupancy scenario without changing mon
   assert.equal(result.pm_fee_gross, 5126.09);
   assert.equal(result.owner_annual_net, 20504.38);
   assert.equal(result.owner_monthly_net, 1708.7);
+
+  assert.deepEqual(getMarketplaceFinancialSummary(result), {
+    annualNet: 25630.47,
+    monthlyNet: 2135.87,
+  });
 });
 
 test("uses an explicit annual revenue input when requested", () => {

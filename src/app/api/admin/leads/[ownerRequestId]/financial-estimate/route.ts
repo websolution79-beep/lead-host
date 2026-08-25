@@ -55,32 +55,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { ownerRequestId } = await context.params;
     const { supabase } = await requireSuperAdmin(request);
     const lead = await getLead(supabase, ownerRequestId);
-    if (!lead) {
-      return NextResponse.json(
-        {
-          error:
-            "La stima finanziaria può essere salvata dopo la pubblicazione del lead.",
-        },
-        { status: 409 },
-      );
-    }
 
     const [estimateResult, template] = await Promise.all([
       supabase
         .from("marketplace_financial_estimates")
         .select("*")
-        .eq("lead_id", lead.id)
+        .eq("owner_request_id", ownerRequestId)
         .maybeSingle(),
       getTemplate(supabase),
     ]);
     if (estimateResult.error) throw estimateResult.error;
 
     return NextResponse.json(
-      { leadId: lead.id, estimate: estimateResult.data, template },
+      { leadId: lead?.id ?? null, estimate: estimateResult.data, template },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
-    return adminApiErrorResponse(error);
+    return financialEstimateErrorResponse(error);
   }
 }
 
@@ -90,20 +81,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const payload = estimateSchema.parse(await request.json());
     const { supabase, profile, isSuperAdmin } = await requireSuperAdmin(request);
     const lead = await getLead(supabase, ownerRequestId);
-    if (!lead) {
-      return NextResponse.json(
-        {
-          error:
-            "Pubblica prima il lead per poter salvare la relativa stima finanziaria.",
-        },
-        { status: 409 },
-      );
-    }
 
     const existing = await supabase
       .from("marketplace_financial_estimates")
       .select("*")
-      .eq("lead_id", lead.id)
+      .eq("owner_request_id", ownerRequestId)
       .maybeSingle();
     if (existing.error) throw existing.error;
 
@@ -124,7 +106,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       taxRate: payload.taxRate,
     });
     const values = {
-      is_visible: false,
+      is_visible: existing.data?.is_visible ?? false,
       adr_per_night: payload.adrPerNight,
       occupancy_rate: payload.occupancyRate,
       days_available: payload.daysAvailable,
@@ -159,7 +141,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
           .single()
       : await supabase
           .from("marketplace_financial_estimates")
-          .insert({ lead_id: lead.id, created_by_profile_id: profile.id, ...values })
+          .insert({
+            lead_id: lead?.id ?? null,
+            owner_request_id: ownerRequestId,
+            created_by_profile_id: profile.id,
+            ...values,
+          })
           .select("*")
           .single();
     if (saved.error) throw saved.error;
@@ -188,7 +175,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ estimate: saved.data });
   } catch (error) {
-    return adminApiErrorResponse(error);
+    return financialEstimateErrorResponse(error);
   }
 }
 
@@ -252,4 +239,26 @@ function toDatabasePayload(payload: MarketplaceFinancialTemplatePayload) {
 
 function emptyToNull(value: string | null) {
   return value?.trim() || null;
+}
+
+function financialEstimateErrorResponse(error: unknown) {
+  if (isMissingOwnerRequestIdColumn(error)) {
+    return NextResponse.json(
+      {
+        error:
+          "Database non aggiornato per le bozze della stima Marketplace. Applica la migration e riprova.",
+      },
+      { status: 409 },
+    );
+  }
+  return adminApiErrorResponse(error);
+}
+
+function isMissingOwnerRequestIdColumn(error: unknown) {
+  const databaseError = error as { code?: string; message?: string } | null;
+  return (
+    databaseError?.code === "42703" ||
+    databaseError?.code === "PGRST204" ||
+    Boolean(databaseError?.message?.includes("owner_request_id"))
+  );
 }

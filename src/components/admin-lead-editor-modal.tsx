@@ -493,15 +493,14 @@ export function AdminLeadEditorModal({
                     ? "Le modifiche si applicano ai prossimi acquisti. Importi e transazioni già registrati restano invariati."
                     : "Questi importi saranno utilizzati quando il lead verrà approvato e pubblicato nel Marketplace."}
                 </p>
-                {record.lead ? (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-bold text-blue-950">
                           Stima finanziaria Marketplace
                         </p>
                         <p className="mt-1 text-xs leading-5 text-blue-800">
-                          Prepara la previsione interna del lead. Non sarà visibile ai Property Manager finché non verrà attivata nella prossima fase.
+                          Preparala già prima della pubblicazione. Verrà collegata automaticamente al lead e non sarà ancora visibile ai Property Manager.
                         </p>
                       </div>
                       <button
@@ -513,7 +512,6 @@ export function AdminLeadEditorModal({
                       </button>
                     </div>
                   </div>
-                ) : null}
               </div>
             </EditorSection>
 
@@ -576,10 +574,10 @@ export function AdminLeadEditorModal({
           </button>
         </footer>
       </div>
-      {financialEstimateOpen && record.lead ? (
+      {financialEstimateOpen ? (
         <AdminLeadFinancialEstimateModal
           ownerRequestId={record.ownerRequestId}
-          leadTitle={draft.leadTitle || record.lead.title}
+          leadTitle={draft.leadTitle || record.lead?.title || "Nuovo lead"}
           onClose={() => setFinancialEstimateOpen(false)}
           onSaved={onSaved}
         />

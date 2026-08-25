@@ -211,6 +211,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
+    await attachFinancialEstimateToLead({
+      supabase,
+      ownerRequestId,
+      leadId,
+    });
+
     const primeAccessDurationHours =
       payload.data.primeAccessDurationHours ??
       settings.primeDefaultAccessDurationHours;
@@ -348,6 +354,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
+}
+
+async function attachFinancialEstimateToLead({
+  supabase,
+  ownerRequestId,
+  leadId,
+}: {
+  supabase: ServiceClient;
+  ownerRequestId: string;
+  leadId: string;
+}) {
+  const result = await supabase
+    .from("marketplace_financial_estimates")
+    .update({ lead_id: leadId })
+    .eq("owner_request_id", ownerRequestId)
+    .is("lead_id", null);
+
+  // The estimate editor is additive. If a deployment reaches production just
+  // before its migration, publishing leads must continue to work normally.
+  if (result.error && !isMissingFinancialEstimateDraftColumn(result.error)) {
+    throw result.error;
+  }
+}
+
+function isMissingFinancialEstimateDraftColumn(error: {
+  code?: string;
+  message?: string;
+}) {
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    Boolean(error.message?.includes("owner_request_id"))
+  );
 }
 
 async function fetchOwnerRequestForApproval(

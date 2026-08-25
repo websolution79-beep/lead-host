@@ -1650,7 +1650,8 @@ export type Database = {
       marketplace_financial_estimates: {
         Row: {
           id: string;
-          lead_id: string;
+          lead_id: string | null;
+          owner_request_id: string | null;
           is_visible: boolean;
           adr_per_night: number;
           occupancy_rate: number;
@@ -1691,7 +1692,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          lead_id: string;
+          lead_id?: string | null;
+          owner_request_id?: string | null;
           is_visible?: boolean;
           adr_per_night: number;
           occupancy_rate: number;
@@ -1732,7 +1734,8 @@ export type Database = {
         };
         Update: {
           id?: string;
-          lead_id?: string;
+          lead_id?: string | null;
+          owner_request_id?: string | null;
           is_visible?: boolean;
           adr_per_night?: number;
           occupancy_rate?: number;

@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Calculator, LoaderCircle, Save, SlidersHorizontal, X } from "lucide-react";
+import {
+  Calculator,
+  LoaderCircle,
+  MapPin,
+  Save,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from "lucide-react";
 import {
   MarketplaceFinancialEstimatePreviewModal,
   type MarketplaceFinancialEstimatePreviewData,
@@ -66,6 +74,24 @@ type ApiEstimate = {
 
 type ApiTemplate = Omit<ApiEstimate, "adr_per_night" | "occupancy_rate" | "is_visible">;
 
+type BnbcalcInput = {
+  fullAddress: string;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  accommodates: number | null;
+};
+
+type BnbcalcResult = {
+  runId: string;
+  adrEur: number;
+  occupancyPercentage: number;
+  sourceCurrency: string;
+  convertedFromUsd: boolean;
+  conversionRate: number;
+  exchangeRateDate: string | null;
+  reportUrl: string | null;
+};
+
 export function AdminLeadFinancialEstimateModal({
   ownerRequestId,
   leadTitle,
@@ -83,9 +109,14 @@ export function AdminLeadFinancialEstimateModal({
   const [form, setForm] = useState<EstimateForm | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [analysisError, setAnalysisError] = useState("");
+  const [bnbcalcConfigured, setBnbcalcConfigured] = useState(true);
+  const [bnbcalcInput, setBnbcalcInput] = useState<BnbcalcInput | null>(null);
+  const [lastAnalysis, setLastAnalysis] = useState<BnbcalcResult | null>(null);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -109,15 +140,25 @@ export function AdminLeadFinancialEstimateModal({
         }
         return;
       }
-      const response = await fetch(
-        `/api/admin/leads/${ownerRequestId}/financial-estimate`,
-        { headers: { Authorization: `Bearer ${data.session.access_token}` } },
-      );
+      const headers = { Authorization: `Bearer ${data.session.access_token}` };
+      const [response, bnbcalcResponse] = await Promise.all([
+        fetch(`/api/admin/leads/${ownerRequestId}/financial-estimate`, { headers }),
+        fetch(
+          `/api/admin/leads/${ownerRequestId}/financial-estimate/bnbcalc`,
+          { headers },
+        ),
+      ]);
       const payload = (await response.json()) as {
         error?: string;
         estimate?: ApiEstimate | null;
         template?: ApiTemplate;
         logoUrl?: string | null;
+      };
+      const bnbcalcPayload = (await bnbcalcResponse.json()) as {
+        error?: string;
+        configured?: boolean;
+        defaults?: BnbcalcInput;
+        latestAnalysis?: BnbcalcResult | null;
       };
       if (cancelled) return;
       if (!response.ok || !payload.template) {
@@ -125,8 +166,28 @@ export function AdminLeadFinancialEstimateModal({
         setLoading(false);
         return;
       }
-      setForm(toForm(payload.estimate ?? null, payload.template));
+      const nextForm = toForm(payload.estimate ?? null, payload.template);
+      if (
+        !payload.estimate &&
+        bnbcalcResponse.ok &&
+        bnbcalcPayload.latestAnalysis
+      ) {
+        nextForm.adrPerNight = bnbcalcPayload.latestAnalysis.adrEur;
+        nextForm.occupancyRate =
+          bnbcalcPayload.latestAnalysis.occupancyPercentage / 100;
+      }
+      setForm(nextForm);
       setLogoUrl(payload.logoUrl ?? null);
+      if (bnbcalcResponse.ok && bnbcalcPayload.defaults) {
+        setBnbcalcInput(bnbcalcPayload.defaults);
+        setBnbcalcConfigured(bnbcalcPayload.configured ?? false);
+        setLastAnalysis(bnbcalcPayload.latestAnalysis ?? null);
+      } else {
+        setBnbcalcConfigured(false);
+        setAnalysisError(
+          bnbcalcPayload.error ?? "Non riesco a preparare l'analisi BNBCalc.",
+        );
+      }
       setLoading(false);
     }
     void load();
@@ -159,6 +220,83 @@ export function AdminLeadFinancialEstimateModal({
 
   function update<K extends keyof EstimateForm>(key: K, value: EstimateForm[K]) {
     setForm((current) => (current ? { ...current, [key]: value } : current));
+  }
+
+  function updateBnbcalc<K extends keyof BnbcalcInput>(
+    key: K,
+    value: BnbcalcInput[K],
+  ) {
+    setBnbcalcInput((current) =>
+      current ? { ...current, [key]: value } : current,
+    );
+  }
+
+  async function analyzeWithBnbcalc() {
+    if (!bnbcalcInput || !form || analyzing) return;
+    if (
+      !bnbcalcInput.fullAddress.trim() ||
+      bnbcalcInput.bedrooms === null ||
+      bnbcalcInput.bathrooms === null ||
+      bnbcalcInput.accommodates === null
+    ) {
+      setAnalysisError(
+        "Compila indirizzo, camere, bagni e posti letto prima di avviare l'analisi.",
+      );
+      return;
+    }
+    if (
+      !window.confirm(
+        "Avviare l'analisi BNBCalc? Questa operazione utilizza un credito API.",
+      )
+    ) {
+      return;
+    }
+
+    setAnalyzing(true);
+    setAnalysisError("");
+    const { data } = await supabase.auth.getSession();
+    if (!data.session?.access_token) {
+      setAnalysisError("Sessione admin non disponibile.");
+      setAnalyzing(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/admin/leads/${ownerRequestId}/financial-estimate/bnbcalc`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${data.session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requestKey: crypto.randomUUID(),
+            fullAddress: bnbcalcInput.fullAddress,
+            bedrooms: bnbcalcInput.bedrooms,
+            bathrooms: bnbcalcInput.bathrooms,
+            accommodates: bnbcalcInput.accommodates,
+          }),
+        },
+      );
+      const payload = (await response.json()) as BnbcalcResult & { error?: string };
+      if (!response.ok) {
+        setAnalysisError(payload.error ?? "Analisi BNBCalc non riuscita.");
+        return;
+      }
+
+      update("adrPerNight", payload.adrEur);
+      update("occupancyRate", payload.occupancyPercentage / 100);
+      setLastAnalysis(payload);
+    } catch (analysisRequestError) {
+      setAnalysisError(
+        analysisRequestError instanceof Error
+          ? analysisRequestError.message
+          : "Analisi BNBCalc non riuscita.",
+      );
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   async function save() {
@@ -236,6 +374,85 @@ export function AdminLeadFinancialEstimateModal({
                   <p>
                     Questa stima è interna. Verrà associata al lead ma non è ancora visibile nel Marketplace.
                   </p>
+                </div>
+                <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                  <div className="flex items-start gap-3">
+                    <MapPin className="mt-0.5 shrink-0 text-green" size={19} />
+                    <div>
+                      <h3 className="text-base font-bold text-ink">Dati immobile per l&apos;analisi</h3>
+                      <p className="mt-1 text-sm leading-5 text-muted">
+                        Verifica i dati recuperati dalla scheda. Puoi correggerli prima della ricerca.
+                      </p>
+                    </div>
+                  </div>
+                  {bnbcalcInput ? (
+                    <div className="mt-4 grid gap-4">
+                      <TextInput
+                        label="Indirizzo completo"
+                        value={bnbcalcInput.fullAddress}
+                        placeholder="Via, numero civico, città, provincia, Italia"
+                        onChange={(value) => updateBnbcalc("fullAddress", value)}
+                      />
+                      <div className="grid gap-4 sm:grid-cols-3">
+                        <NullableNumberInput
+                          label="Numero di stanze/camere"
+                          value={bnbcalcInput.bedrooms}
+                          min={0}
+                          max={50}
+                          step={1}
+                          onChange={(value) => updateBnbcalc("bedrooms", value)}
+                        />
+                        <NullableNumberInput
+                          label="Numero di bagni"
+                          value={bnbcalcInput.bathrooms}
+                          min={0}
+                          max={50}
+                          step={0.5}
+                          onChange={(value) => updateBnbcalc("bathrooms", value)}
+                        />
+                        <NullableNumberInput
+                          label="Numero di posti letto"
+                          value={bnbcalcInput.accommodates}
+                          min={1}
+                          max={100}
+                          step={1}
+                          onChange={(value) => updateBnbcalc("accommodates", value)}
+                        />
+                      </div>
+                      <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs leading-5 text-muted">
+                          Ogni analisi utilizza un credito BNBCalc. Un messaggio di conferma evita avvii accidentali.
+                        </p>
+                        <button
+                          className="btn btn-primary shrink-0"
+                          type="button"
+                          disabled={!bnbcalcConfigured || analyzing}
+                          onClick={() => void analyzeWithBnbcalc()}
+                        >
+                          {analyzing ? (
+                            <LoaderCircle className="animate-spin" size={17} />
+                          ) : (
+                            <Sparkles size={17} />
+                          )}
+                          {analyzing ? "Analisi in corso..." : "Fai l'analisi"}
+                        </button>
+                      </div>
+                      {!bnbcalcConfigured ? (
+                        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                          Chiave BNBCalc non configurata nell&apos;ambiente di produzione.
+                        </p>
+                      ) : null}
+                      {analysisError ? <ErrorMessage text={analysisError} /> : null}
+                      {lastAnalysis ? (
+                        <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
+                          Ultima analisi disponibile: ADR {formatCurrency(lastAnalysis.adrEur)} · occupazione {formatPercentage(lastAnalysis.occupancyPercentage)}
+                          {lastAnalysis.convertedFromUsd
+                            ? " · importo convertito da USD in EUR con tasso BCE"
+                            : " · valuta EUR"}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <NumberInput
@@ -376,6 +593,14 @@ function NumberInput({ label, value, onChange, suffix, ...input }: { label: stri
   return <label className="grid gap-2 text-sm font-semibold text-ink"><span>{label}</span><span className="relative"><input {...input} className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 pr-10 outline-none focus:border-green" type="number" value={Number.isFinite(value) ? value : 0} onChange={(event) => onChange(Number(event.target.value))} />{suffix ? <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-bold text-muted">{suffix}</span> : null}</span></label>;
 }
 
+function NullableNumberInput({ label, value, onChange, ...input }: { label: string; value: number | null; onChange: (value: number | null) => void } & Omit<React.ComponentProps<"input">, "value" | "onChange" | "type">) {
+  return <label className="grid gap-2 text-sm font-semibold text-ink"><span>{label}</span><input {...input} className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-green" type="number" value={value ?? ""} onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))} /></label>;
+}
+
+function TextInput({ label, value, onChange, ...input }: { label: string; value: string; onChange: (value: string) => void } & Omit<React.ComponentProps<"input">, "value" | "onChange" | "type">) {
+  return <label className="grid gap-2 text-sm font-semibold text-ink"><span>{label}</span><input {...input} className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 outline-none focus:border-green" type="text" value={value} onChange={(event) => onChange(event.target.value)} /></label>;
+}
+
 function Summary({ label, value, featured = false }: { label: string; value: string; featured?: boolean }) {
   return <div className={featured ? "rounded-lg bg-green p-4 text-white" : "rounded-lg border border-slate-200 bg-white p-4"}><p className={featured ? "text-xs font-bold uppercase tracking-wide text-green-50" : "text-xs font-bold uppercase tracking-wide text-muted"}>{label}</p><p className={featured ? "mt-2 text-xl font-bold" : "mt-2 text-lg font-bold text-ink"}>{value}</p></div>;
 }
@@ -392,4 +617,11 @@ function formatCurrency(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatPercentage(value: number) {
+  return new Intl.NumberFormat("it-IT", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(value) + "%";
 }

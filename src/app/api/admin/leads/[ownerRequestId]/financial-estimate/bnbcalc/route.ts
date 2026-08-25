@@ -34,12 +34,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { ownerRequestId } = await context.params;
     const { supabase } = await requireSuperAdmin(request);
-    const defaults = await getPropertyDefaults(supabase, ownerRequestId);
+    const [defaults, latest] = await Promise.all([
+      getPropertyDefaults(supabase, ownerRequestId),
+      supabase
+        .from("bnbcalc_analysis_runs")
+        .select("*")
+        .eq("owner_request_id", ownerRequestId)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (latest.error) throw latest.error;
 
     return NextResponse.json(
       {
         configured: Boolean(getEnv("BNBCALC_API_KEY")),
         defaults,
+        latestAnalysis: latest.data ? toPublicResult(latest.data) : null,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BadgeEuro,
   BadgePercent,
+  Calculator,
   MapPin,
   Plus,
   Save,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { AdminPmRegistrationSettings } from "@/components/admin-pm-registration-settings";
 import { AdminMarketplacePromotions } from "@/components/admin-marketplace-promotions";
+import { AdminMarketplaceFinancialTemplateSettings } from "@/components/admin-marketplace-financial-template-settings";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
@@ -34,7 +36,8 @@ type ActiveTab =
   | "wallet"
   | "lead_prices"
   | "geo_rules"
-  | "promotions";
+  | "promotions"
+  | "financial_estimate";
 
 const emptySettings: CommercialSettings = {
   firstTopUpMinCents: 3000,
@@ -176,7 +179,7 @@ export function AdminCommercialSettings() {
               approvazione lead. Gli acquisti lead usano sempre il credito wallet interno.
             </p>
           </div>
-          {activeTab !== "registrations" && activeTab !== "promotions" ? (
+          {activeTab !== "registrations" && activeTab !== "promotions" && activeTab !== "financial_estimate" ? (
             <button
               className="btn btn-primary"
               type="button"
@@ -208,7 +211,7 @@ export function AdminCommercialSettings() {
         ) : null}
       </section>
 
-      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-2 rounded-xl bg-slate-100 p-1 sm:grid-cols-2 xl:grid-cols-6">
         <TabButton
           active={activeTab === "registrations"}
           icon={UserPlus}
@@ -239,6 +242,12 @@ export function AdminCommercialSettings() {
           label="Promozioni Marketplace"
           onClick={() => setActiveTab("promotions")}
         />
+        <TabButton
+          active={activeTab === "financial_estimate"}
+          icon={Calculator}
+          label="Stima Marketplace"
+          onClick={() => setActiveTab("financial_estimate")}
+        />
       </div>
 
       {loading ? (
@@ -268,6 +277,10 @@ export function AdminCommercialSettings() {
 
       {!loading && activeTab === "promotions" ? (
         <AdminMarketplacePromotions />
+      ) : null}
+
+      {!loading && activeTab === "financial_estimate" ? (
+        <AdminMarketplaceFinancialTemplateSettings />
       ) : null}
     </div>
   );

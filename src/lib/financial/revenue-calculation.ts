@@ -1,0 +1,76 @@
+export type RevenueCalculationInput = {
+  calculationMode?: "adr_occupancy" | "annual_revenue";
+  adrPerNight?: number | null;
+  occupancyRate?: number | null;
+  daysAvailable: number;
+  annualGrossRevenueInput?: number | null;
+  pmFeeRate: number;
+  airbnbMixRate: number;
+  bookingMixRate: number;
+  directMixRate: number;
+  airbnbCommissionRate: number;
+  bookingCommissionRate: number;
+  directCommissionRate: number;
+  otaVatRate: number;
+  pmVatRate: number;
+  taxRate: number;
+};
+
+export type RevenueCalculationResult = {
+  effective_ota_rate: number;
+  gross_annual_revenue: number;
+  ota_commission_net: number;
+  ota_commission_gross: number;
+  pm_fee_base: number;
+  pm_fee_net: number;
+  pm_fee_gross: number;
+  owner_pre_tax: number;
+  tax_amount: number;
+  owner_annual_net: number;
+  owner_monthly_net: number;
+};
+
+/**
+ * Keeps every intermediate monetary result at two decimals. This is the same
+ * economic rule already used by the Marketing Rendita Stimata report.
+ */
+export function calculateRevenueEstimate(
+  value: RevenueCalculationInput,
+): RevenueCalculationResult {
+  const round = (amount: number) =>
+    Math.round((amount + Number.EPSILON) * 100) / 100;
+  const effectiveOtaRate =
+    value.airbnbMixRate * value.airbnbCommissionRate +
+    value.bookingMixRate * value.bookingCommissionRate +
+    value.directMixRate * value.directCommissionRate;
+  const grossAnnualRevenue =
+    value.calculationMode === "annual_revenue"
+      ? round(value.annualGrossRevenueInput ?? 0)
+      : round(
+          (value.adrPerNight ?? 0) *
+            (value.occupancyRate ?? 0) *
+            value.daysAvailable,
+        );
+  const otaCommissionNet = round(grossAnnualRevenue * effectiveOtaRate);
+  const otaCommissionGross = round(otaCommissionNet * (1 + value.otaVatRate));
+  const pmFeeBase = round(grossAnnualRevenue - otaCommissionGross);
+  const pmFeeNet = round(pmFeeBase * value.pmFeeRate);
+  const pmFeeGross = round(pmFeeNet * (1 + value.pmVatRate));
+  const ownerPreTax = round(grossAnnualRevenue - otaCommissionGross - pmFeeGross);
+  const taxAmount = round(ownerPreTax * value.taxRate);
+  const ownerAnnualNet = round(ownerPreTax - taxAmount);
+
+  return {
+    effective_ota_rate: effectiveOtaRate,
+    gross_annual_revenue: grossAnnualRevenue,
+    ota_commission_net: otaCommissionNet,
+    ota_commission_gross: otaCommissionGross,
+    pm_fee_base: pmFeeBase,
+    pm_fee_net: pmFeeNet,
+    pm_fee_gross: pmFeeGross,
+    owner_pre_tax: ownerPreTax,
+    tax_amount: taxAmount,
+    owner_annual_net: ownerAnnualNet,
+    owner_monthly_net: round(ownerAnnualNet / 12),
+  };
+}

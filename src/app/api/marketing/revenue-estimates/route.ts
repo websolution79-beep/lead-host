@@ -3,6 +3,7 @@ import { z } from "zod";
 import { adminApiErrorResponse } from "@/lib/admin/auth";
 import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
+import { calculateRevenueEstimate } from "@/lib/financial/revenue-calculation";
 
 const percentage = z.number().min(0).max(1);
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
@@ -131,7 +132,7 @@ async function saveEstimate(request: NextRequest, isUpdate: boolean) {
         { error: "Valutazione non trovata." },
         { status: 400 },
       );
-    const calculation = calculate(payload);
+    const calculation = calculateRevenueEstimate(payload);
     const values = {
       profile_id: profile.id,
       crm_contact_id: payload.crmContactId,
@@ -201,46 +202,6 @@ async function saveEstimate(request: NextRequest, isUpdate: boolean) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
-}
-
-function calculate(value: z.infer<typeof estimateSchema>) {
-  const round = (amount: number) =>
-    Math.round((amount + Number.EPSILON) * 100) / 100;
-  const effectiveOtaRate =
-    value.airbnbMixRate * value.airbnbCommissionRate +
-    value.bookingMixRate * value.bookingCommissionRate +
-    value.directMixRate * value.directCommissionRate;
-  const grossAnnualRevenue =
-    value.calculationMode === "adr_occupancy"
-      ? round(
-          (value.adrPerNight ?? 0) *
-            (value.occupancyRate ?? 0) *
-            value.daysAvailable,
-        )
-      : round(value.annualGrossRevenueInput ?? 0);
-  const otaCommissionNet = round(grossAnnualRevenue * effectiveOtaRate);
-  const otaCommissionGross = round(otaCommissionNet * (1 + value.otaVatRate));
-  const pmFeeBase = round(grossAnnualRevenue - otaCommissionGross);
-  const pmFeeNet = round(pmFeeBase * value.pmFeeRate);
-  const pmFeeGross = round(pmFeeNet * (1 + value.pmVatRate));
-  const ownerPreTax = round(
-    grossAnnualRevenue - otaCommissionGross - pmFeeGross,
-  );
-  const taxAmount = round(ownerPreTax * value.taxRate);
-  const ownerAnnualNet = round(ownerPreTax - taxAmount);
-  return {
-    effective_ota_rate: effectiveOtaRate,
-    gross_annual_revenue: grossAnnualRevenue,
-    ota_commission_net: otaCommissionNet,
-    ota_commission_gross: otaCommissionGross,
-    pm_fee_base: pmFeeBase,
-    pm_fee_net: pmFeeNet,
-    pm_fee_gross: pmFeeGross,
-    owner_pre_tax: ownerPreTax,
-    tax_amount: taxAmount,
-    owner_annual_net: ownerAnnualNet,
-    owner_monthly_net: round(ownerAnnualNet / 12),
-  };
 }
 
 function emptyToNull(value: string | null) {

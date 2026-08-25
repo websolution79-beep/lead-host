@@ -32,6 +32,7 @@ import { SublettingAvailableBadge } from "@/components/subletting-available-badg
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { MarketplaceLeadViewTracker } from "@/components/marketplace-lead-view-tracker";
+import { MarketplaceLeadFinancialEstimate } from "@/components/marketplace-lead-financial-estimate";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -175,7 +176,14 @@ export default async function LeadDetailPage({
         </article>
 
         <aside className="card h-fit p-5">
-          <p className="section-kicker">Acquisto lead</p>
+          {lead.financialEstimate ? (
+            <MarketplaceLeadFinancialEstimate
+              estimate={lead.financialEstimate}
+              leadTitle={lead.title}
+              location={lead.address}
+            />
+          ) : null}
+          <p className="mt-6 section-kicker">Acquisto lead</p>
           <h3 className="mt-3 text-2xl font-semibold text-ink">
             Disponibilita
           </h3>

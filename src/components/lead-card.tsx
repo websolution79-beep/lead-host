@@ -9,6 +9,7 @@ import {
   MapPin,
   Ruler,
   Star,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { MarketplaceLead } from "@/lib/domain/sample-data";
@@ -138,6 +139,18 @@ export function LeadCard({
         </div>
       ) : null}
 
+      {lead.financialEstimate ? (
+        <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-3">
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-800">
+            <TrendingUp size={14} aria-hidden="true" />
+            Incasso lordo annuo stimato
+          </p>
+          <p className="mt-1 text-lg font-bold text-blue-950">
+            {formatEstimateCurrency(lead.financialEstimate.grossAnnualRevenue)}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-auto pt-5">
         {lead.promotionId ? (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
@@ -197,6 +210,16 @@ export function LeadCard({
       </div>
     </article>
   );
+}
+
+function formatEstimateCurrency(value: number) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    useGrouping: true,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function PriceWithDiscount({

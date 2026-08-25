@@ -47,6 +47,31 @@ type OwnerRequestVerificationRow = Pick<
   Database["public"]["Tables"]["owner_requests"]["Row"],
   "id" | "owner_verified" | "subletting_available"
 >;
+type MarketplaceFinancialEstimateRow = Pick<
+  Database["public"]["Tables"]["marketplace_financial_estimates"]["Row"],
+  | "lead_id"
+  | "adr_per_night"
+  | "occupancy_rate"
+  | "days_available"
+  | "pm_fee_rate"
+  | "airbnb_mix_rate"
+  | "booking_mix_rate"
+  | "direct_mix_rate"
+  | "airbnb_commission_rate"
+  | "booking_commission_rate"
+  | "direct_commission_rate"
+  | "ota_vat_rate"
+  | "pm_vat_rate"
+  | "tax_rate"
+  | "report_title"
+  | "brand_name"
+  | "header_text"
+  | "contact_details"
+  | "logo_path"
+  | "disclaimer"
+  | "gross_annual_revenue"
+  | "ota_commission_gross"
+>;
 const LEAD_SELECT_WITH_VIEWS =
   "id,owner_request_id,property_id,title,internal_status,public_status,shared_slots_sold,shared_price_cents,exclusive_price_cents,exclusive_purchase_id,published_at,expires_at,visible_until,sold_at,sold_visible_until,visibility_mode,prime_target_property_manager_id,prime_access_started_at,prime_access_until,prime_access_expired_at,detail_view_count,created_at,updated_at";
 const LEGACY_LEAD_SELECT =
@@ -287,7 +312,7 @@ async function mapLeadRowsToMarketplace(
     return [];
   }
 
-  const [propertiesResult, contactsResult, requestsResult] = await Promise.all([
+  const [propertiesResult, contactsResult, requestsResult, estimatesResult] = await Promise.all([
     supabase
       .from("properties")
       .select(
@@ -299,11 +324,16 @@ async function mapLeadRowsToMarketplace(
       .select("owner_request_id,precise_address")
       .in("owner_request_id", ownerRequestIds),
     fetchMarketplaceOwnerRequestFlags(supabase, ownerRequestIds),
+    supabase
+      .from("marketplace_financial_estimates")
+      .select("lead_id,adr_per_night,occupancy_rate,days_available,pm_fee_rate,airbnb_mix_rate,booking_mix_rate,direct_mix_rate,airbnb_commission_rate,booking_commission_rate,direct_commission_rate,ota_vat_rate,pm_vat_rate,tax_rate,report_title,brand_name,header_text,contact_details,logo_path,disclaimer,gross_annual_revenue,ota_commission_gross")
+      .in("lead_id", leads.map((lead) => lead.id))
+      .eq("is_visible", true),
   ]);
 
-  if (propertiesResult.error || contactsResult.error || requestsResult.error) {
+  if (propertiesResult.error || contactsResult.error || requestsResult.error || estimatesResult.error) {
     console.error(
-      propertiesResult.error ?? contactsResult.error ?? requestsResult.error,
+      propertiesResult.error ?? contactsResult.error ?? requestsResult.error ?? estimatesResult.error,
     );
     return [];
   }
@@ -316,6 +346,24 @@ async function mapLeadRowsToMarketplace(
   );
   const requestsById = new Map(
     (requestsResult.data ?? []).map((item) => [item.id, item]),
+  );
+  const estimatesByLeadId = new Map(
+    (estimatesResult.data ?? [])
+      .filter((estimate): estimate is MarketplaceFinancialEstimateRow => Boolean(estimate.lead_id))
+      .map((estimate) => [estimate.lead_id!, estimate]),
+  );
+  const logoUrlsByPath = new Map<string, string>();
+  await Promise.all(
+    Array.from(new Set(
+      (estimatesResult.data ?? [])
+        .map((estimate) => estimate.logo_path)
+        .filter((path): path is string => Boolean(path)),
+    )).map(async (path) => {
+      const { data } = await supabase.storage
+        .from("marketplace-financial-branding")
+        .createSignedUrl(path, 60 * 60);
+      if (data?.signedUrl) logoUrlsByPath.set(path, data.signedUrl);
+    }),
   );
   return leads
     .map((lead) => {
@@ -330,6 +378,8 @@ async function mapLeadRowsToMarketplace(
         property,
         contactsByRequestId.get(lead.owner_request_id) ?? null,
         requestsById.get(lead.owner_request_id) ?? null,
+        estimatesByLeadId.get(lead.id) ?? null,
+        logoUrlsByPath,
         promotion,
       );
     })
@@ -355,6 +405,8 @@ function mapDbLeadToMarketplaceLead(
   >,
   contact: OwnerPublicContactRow | null,
   ownerRequest: OwnerRequestVerificationRow | null,
+  financialEstimate: MarketplaceFinancialEstimateRow | null,
+  logoUrlsByPath: Map<string, string>,
   promotion: MarketplacePromotion | null,
 ): MarketplaceLead {
   const now = new Date();
@@ -417,6 +469,33 @@ function mapDbLeadToMarketplaceLead(
     publishedAt: lead.published_at ?? lead.created_at,
     expiresAt,
     detailViewCount: Number(lead.detail_view_count ?? 0),
+    financialEstimate: financialEstimate
+      ? {
+          adrPerNight: financialEstimate.adr_per_night,
+          occupancyRate: financialEstimate.occupancy_rate,
+          daysAvailable: financialEstimate.days_available,
+          pmFeeRate: financialEstimate.pm_fee_rate,
+          airbnbMixRate: financialEstimate.airbnb_mix_rate,
+          bookingMixRate: financialEstimate.booking_mix_rate,
+          directMixRate: financialEstimate.direct_mix_rate,
+          airbnbCommissionRate: financialEstimate.airbnb_commission_rate,
+          bookingCommissionRate: financialEstimate.booking_commission_rate,
+          directCommissionRate: financialEstimate.direct_commission_rate,
+          otaVatRate: financialEstimate.ota_vat_rate,
+          pmVatRate: financialEstimate.pm_vat_rate,
+          taxRate: financialEstimate.tax_rate,
+          reportTitle: financialEstimate.report_title,
+          brandName: financialEstimate.brand_name,
+          headerText: financialEstimate.header_text,
+          contactDetails: financialEstimate.contact_details,
+          logoUrl: financialEstimate.logo_path
+            ? logoUrlsByPath.get(financialEstimate.logo_path) ?? null
+            : null,
+          disclaimer: financialEstimate.disclaimer,
+          grossAnnualRevenue: financialEstimate.gross_annual_revenue,
+          otaCommissionGross: financialEstimate.ota_commission_gross,
+        }
+      : undefined,
     ownerDescription:
       property.description ??
       "Il proprietario non ha aggiunto una descrizione facoltativa.",

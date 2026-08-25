@@ -36,11 +36,13 @@ export function MarketplaceFinancialEstimatePreviewModal({
   leadTitle,
   location,
   onClose,
+  viewer = "admin",
 }: {
   data: MarketplaceFinancialEstimatePreviewData;
   leadTitle: string;
   location: string | null;
   onClose: () => void;
+  viewer?: "admin" | "pm";
 }) {
   const result = calculateRevenueEstimate({
     calculationMode: "adr_occupancy",
@@ -78,8 +80,8 @@ export function MarketplaceFinancialEstimatePreviewModal({
           <div className="flex min-w-0 items-center gap-3">
             <span className="rounded-lg bg-mint p-2 text-green"><Eye size={19} /></span>
             <div className="min-w-0">
-              <p className="section-kicker">Solo anteprima</p>
-              <h2 className="truncate text-lg font-semibold text-ink" id="marketplace-estimate-preview-title">Stima finanziaria Marketplace</h2>
+              <p className="section-kicker">{viewer === "admin" ? "Solo anteprima" : "Stima del lead"}</p>
+              <h2 className="truncate text-lg font-semibold text-ink" id="marketplace-estimate-preview-title">Stima finanziaria immobile</h2>
             </div>
           </div>
           <button className="icon-button shrink-0" type="button" title="Chiudi anteprima" onClick={onClose}><X size={19} /></button>

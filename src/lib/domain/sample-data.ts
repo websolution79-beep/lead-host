@@ -30,6 +30,29 @@ export type MarketplaceLead = {
   publishedAt: string;
   expiresAt: string;
   detailViewCount?: number;
+  financialEstimate?: {
+    adrPerNight: number;
+    occupancyRate: number;
+    daysAvailable: number;
+    pmFeeRate: number;
+    airbnbMixRate: number;
+    bookingMixRate: number;
+    directMixRate: number;
+    airbnbCommissionRate: number;
+    bookingCommissionRate: number;
+    directCommissionRate: number;
+    otaVatRate: number;
+    pmVatRate: number;
+    taxRate: number;
+    reportTitle: string;
+    brandName: string;
+    headerText: string | null;
+    contactDetails: string | null;
+    logoUrl: string | null;
+    disclaimer: string;
+    grossAnnualRevenue: number;
+    otaCommissionGross: number;
+  };
   ownerDescription: string;
 };
 

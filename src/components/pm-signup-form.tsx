@@ -312,11 +312,10 @@ export function PmSignupForm() {
           onChange={(event) => setEmailMarketingConsent(event.target.checked)}
         />
         <span className="text-sm leading-6 text-slate-700">
-          Acconsento a ricevere via email aggiornamenti, novità, offerte,
-          promozioni e contenuti gratuiti da Lead Host.
+          Acconsento a ricevere via email aggiornamenti sulle nuove opportunità
+          pubblicate, novità e contenuti gratuiti da Lead Host.
           <span className="mt-1 block text-xs text-muted">
-            Facoltativo. Puoi modificare questa preferenza in qualsiasi momento
-            dal tuo profilo.
+            Puoi modificare questa preferenza in qualsiasi momento dal tuo profilo.
           </span>
         </span>
       </label>

@@ -82,8 +82,9 @@ export async function syncPrimeInvoiceFromStripe(
     );
   }
 
-  const periodStartedAt = toIsoDate(invoice.period_start);
-  const periodEndsAt = toIsoDate(invoice.period_end);
+  const billingPeriod = getInvoiceBillingPeriod(invoice);
+  const periodStartedAt = toIsoDate(billingPeriod.start);
+  const periodEndsAt = toIsoDate(billingPeriod.end);
   const commonMetadata = {
     stripe_invoice_number: invoice.number,
     hosted_invoice_url: invoice.hosted_invoice_url ?? null,
@@ -209,4 +210,19 @@ function getInvoicePaymentIntentId(invoice: Stripe.Invoice) {
     (payment) => payment.payment.type === "payment_intent",
   )?.payment.payment_intent;
   return typeof paymentIntent === "string" ? paymentIntent : paymentIntent?.id ?? null;
+}
+
+function getInvoiceBillingPeriod(invoice: Stripe.Invoice) {
+  const linePeriod = invoice.lines.data
+    .map((line) => line.period)
+    .filter((period) => period.end > period.start)
+    .sort((left, right) => right.end - left.end)[0];
+
+  if (linePeriod) return linePeriod;
+
+  if (invoice.period_end > invoice.period_start) {
+    return { start: invoice.period_start, end: invoice.period_end };
+  }
+
+  throw new Error("Periodo di fatturazione PRIME non valido.");
 }

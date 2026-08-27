@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (
       settings.primeFirstMonthServiceFeeCents < settings.primeRecurringServiceFeeCents ||
       settings.primeRecurringServiceFeeCents <= 0 ||
-      settings.primeMonthlyWalletRechargeCents <= 0
+      settings.primeMonthlyWalletRechargeCents < 0
     ) {
       throw new PropertyManagerApiError(
         409,
@@ -203,6 +203,10 @@ export async function POST(request: NextRequest) {
       const renewalTotalCents =
         settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
 
+      const renewalMessage = settings.primeMonthlyWalletRechargeCents > 0
+        ? `Dal secondo mese ${formatMoney(renewalTotalCents)} al mese (${formatMoney(settings.primeMonthlyWalletRechargeCents)} di credito Wallet + ${formatMoney(settings.primeRecurringServiceFeeCents)} di servizio PRIME).`
+        : `Dal secondo mese ${formatMoney(renewalTotalCents)} al mese per il servizio Lead Host PRIME.`;
+
       const session = await stripe.checkout.sessions.create(
         {
           mode: "subscription",
@@ -216,7 +220,7 @@ export async function POST(request: NextRequest) {
           line_items: lineItems,
           custom_text: {
             submit: {
-              message: `Dal secondo mese ${formatMoney(renewalTotalCents)} al mese (${formatMoney(settings.primeMonthlyWalletRechargeCents)} di credito Wallet + ${formatMoney(settings.primeRecurringServiceFeeCents)} di servizio PRIME).`,
+              message: renewalMessage,
             },
           },
         },

@@ -9,12 +9,14 @@ export function PrimeCheckoutButton({
   startupLabel,
   renewalLabel,
   walletRechargeLabel,
+  hasWalletRecharge,
   termsUrl,
   preview = false,
 }: {
   startupLabel: string;
   renewalLabel: string;
   walletRechargeLabel: string;
+  hasWalletRecharge: boolean;
   termsUrl: string;
   preview?: boolean;
 }) {
@@ -87,16 +89,22 @@ export function PrimeCheckoutButton({
             <div className="mt-5 grid gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-slate-700">
               <div className="flex justify-between gap-4"><span>Lead Host PRIME Startup</span><strong>{startupLabel}</strong></div>
               <div className="flex justify-between gap-4"><span>Servizio PRIME mensile</span><strong>{renewalLabel}</strong></div>
-              <div className="flex justify-between gap-4"><span>Ricarica Wallet inclusa</span><strong>{walletRechargeLabel}</strong></div>
+              {hasWalletRecharge ? (
+                <div className="flex justify-between gap-4"><span>Ricarica Wallet inclusa</span><strong>{walletRechargeLabel}</strong></div>
+              ) : null}
               <div className="border-t border-amber-200 pt-3 text-slate-950">
-                Dal secondo mese: <strong>{renewalLabel}</strong> Membership + <strong>{walletRechargeLabel}</strong> Wallet.
+                {hasWalletRecharge ? (
+                  <>Dal secondo mese: <strong>{renewalLabel}</strong> Membership + <strong>{walletRechargeLabel}</strong> Wallet.</>
+                ) : (
+                  <>Dal secondo mese: <strong>{renewalLabel}</strong> per il servizio PRIME.</>
+                )}
               </div>
             </div>
 
             <label className="mt-5 flex cursor-pointer items-start gap-3 text-sm leading-6 text-ink">
               <input className="mt-1 size-4 shrink-0 accent-amber-600" type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} />
               <span>
-                Accetto i <Link className="font-semibold text-emerald-700 underline" href={termsUrl} target="_blank">Termini e Condizioni</Link> e il rinnovo mensile. La quota Wallet sarà accreditata dopo ogni pagamento riuscito.
+                Accetto i <Link className="font-semibold text-emerald-700 underline" href={termsUrl} target="_blank">Termini e Condizioni</Link> e il rinnovo mensile.{hasWalletRecharge ? " La quota Wallet sarà accreditata dopo ogni pagamento riuscito." : ""}
               </span>
             </label>
 

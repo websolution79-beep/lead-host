@@ -12,7 +12,7 @@ const primeSettingsSchema = z.object({
   defaultAccessDurationHours: z.number().int().min(1).max(720),
   firstMonthServiceFeeCents: z.number().int().min(100).max(1000000),
   recurringServiceFeeCents: z.number().int().min(100).max(1000000),
-  monthlyWalletRechargeCents: z.number().int().min(100).max(1000000),
+  monthlyWalletRechargeCents: z.number().int().min(0).max(1000000),
 });
 
 export async function GET(request: NextRequest) {

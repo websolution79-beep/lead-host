@@ -41,9 +41,12 @@ export async function ensurePrimeStripeCatalog({
   const startupProductId = await getOrCreateStartupProduct(stripe, supabase, product.id);
   const currency = product.currency.toLowerCase();
   const recurringTotalCents = recurringServiceFeeCents + monthlyWalletRechargeCents;
+  const hasWalletRecharge = monthlyWalletRechargeCents > 0;
   await stripe.products.update(membershipProductId, {
     name: "Lead Host PRIME",
-    description: `Dal secondo mese: ${formatEuro(monthlyWalletRechargeCents)} di credito Wallet + ${formatEuro(recurringServiceFeeCents)} di servizio PRIME`,
+    description: hasWalletRecharge
+      ? `Dal secondo mese: ${formatEuro(monthlyWalletRechargeCents)} di credito Wallet + ${formatEuro(recurringServiceFeeCents)} di servizio PRIME`
+      : `Abbonamento mensile al servizio Lead Host PRIME: ${formatEuro(recurringServiceFeeCents)}`,
   });
   const membershipPrice = await getOrCreatePrice({
     stripe,
@@ -52,7 +55,7 @@ export async function ensurePrimeStripeCatalog({
     currency,
     lookupKey: priceLookupKey("prime_bundle_monthly", recurringTotalCents, currency),
     recurring: true,
-    nickname: "PRIME mensile con ricarica Wallet",
+    nickname: hasWalletRecharge ? "PRIME mensile con ricarica Wallet" : "PRIME mensile",
     component: "prime_bundle",
   });
   const adjustmentCents = firstMonthServiceFeeCents - recurringServiceFeeCents;
@@ -108,7 +111,7 @@ async function getOrCreateBundleProduct(
   const created = await stripe.products.create(
     {
       name: "Lead Host PRIME",
-      description: "Servizio PRIME mensile con credito Wallet incluso",
+      description: "Servizio Lead Host PRIME mensile",
       metadata: {
         leadhost_addon_product_id: addonProductId,
         leadhost_product: "prime_bundle",

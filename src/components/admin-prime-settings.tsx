@@ -193,7 +193,7 @@ export function AdminPrimeSettings() {
               />
               <EuroField
                 label="Ricarica Wallet mensile"
-                description="Importo minimo accreditato ogni mese nel Wallet del PM."
+                description="Importo accreditato ogni mese nel Wallet del PM. Imposta 0 per disattivare la ricarica obbligatoria."
                 value={settings.monthlyWalletRechargeCents}
                 onChange={(value) =>
                   setSettings((current) => ({
@@ -221,11 +221,10 @@ export function AdminPrimeSettings() {
               <div className="flex gap-3">
                 <WalletCards className="mt-0.5 shrink-0 text-amber-700" size={20} />
                 <p className="text-sm leading-6 text-amber-900">
-                  Un solo pagamento con due componenti separate: la quota servizio
-                  PRIME non modifica il saldo; soltanto la ricarica Wallet viene
-                  accreditata e potrà essere utilizzata per acquistare lead. I nuovi
-                  importi saranno applicati ai nuovi abbonamenti, non a quelli già
-                  attivi.
+                  {settings.monthlyWalletRechargeCents > 0
+                    ? "Un solo pagamento con due componenti separate: la quota servizio PRIME non modifica il saldo; soltanto la ricarica Wallet viene accreditata e potrà essere utilizzata per acquistare lead."
+                    : "La ricarica Wallet è disattivata: il pagamento comprenderà soltanto la quota del servizio PRIME e non verrà accreditato credito Wallet."}{" "}
+                  I nuovi importi saranno applicati ai nuovi abbonamenti, non a quelli già attivi.
                 </p>
               </div>
             </div>
@@ -340,10 +339,17 @@ function PrimeTotalCard({
           <span className="text-muted">Membership PRIME</span>
           <strong className="text-ink">{formatCurrencyCents(serviceFee)}</strong>
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-muted">Ricarica Wallet</span>
-          <strong className="text-green">{formatCurrencyCents(walletRecharge)}</strong>
-        </div>
+        {walletRecharge > 0 ? (
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted">Ricarica Wallet</span>
+            <strong className="text-green">{formatCurrencyCents(walletRecharge)}</strong>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted">Ricarica Wallet</span>
+            <strong className="text-muted">Disattivata</strong>
+          </div>
+        )}
         <div className="mt-1 flex items-center justify-between gap-4 border-t border-ink/10 pt-3">
           <span className="font-semibold text-ink">Totale addebito</span>
           <strong className="text-lg text-ink">

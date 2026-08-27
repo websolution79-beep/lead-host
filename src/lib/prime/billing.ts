@@ -64,7 +64,7 @@ export async function syncPrimeInvoiceFromStripe(
     metadata.prime_recurring_service_fee_cents,
     "recurring_service_fee",
   );
-  const walletRechargeCents = parsePositiveCents(
+  const walletRechargeCents = parseNonNegativeCents(
     metadata.prime_wallet_recharge_cents,
     "wallet_recharge",
   );
@@ -191,6 +191,14 @@ export async function syncPrimeAccountFromStripeSubscription(
 function parsePositiveCents(value: string | undefined, label: string) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Importo PRIME non valido: ${label}.`);
+  }
+  return parsed;
+}
+
+function parseNonNegativeCents(value: string | undefined, label: string) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
     throw new Error(`Importo PRIME non valido: ${label}.`);
   }
   return parsed;

@@ -101,6 +101,7 @@ async function PrimeOffer({ preview = false }: { preview?: boolean }) {
   const firstTotal = settings.primeFirstMonthServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
   const renewalTotal = settings.primeRecurringServiceFeeCents + settings.primeMonthlyWalletRechargeCents;
   const startupFee = settings.primeFirstMonthServiceFeeCents - settings.primeRecurringServiceFeeCents;
+  const hasWalletRecharge = settings.primeMonthlyWalletRechargeCents > 0;
 
   return (
     <AppShell section="pm" eyebrow="Lead Host PRIME" title={preview ? "Anteprima pagina di vendita" : "La tua opportunità riservata"}>
@@ -124,6 +125,7 @@ async function PrimeOffer({ preview = false }: { preview?: boolean }) {
                   startupLabel={formatMoney(startupFee)}
                   renewalLabel={formatMoney(settings.primeRecurringServiceFeeCents)}
                   walletRechargeLabel={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                  hasWalletRecharge={hasWalletRecharge}
                   termsUrl={productResult.data?.terms_url ?? "/termini"}
                   preview={preview}
                 />
@@ -142,14 +144,18 @@ async function PrimeOffer({ preview = false }: { preview?: boolean }) {
                   label="Servizio PRIME del primo mese"
                   value={formatMoney(settings.primeRecurringServiceFeeCents)}
                 />
-                <PriceRow
-                  label="Credito caricato nel Wallet"
-                  value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
-                />
+                {hasWalletRecharge ? (
+                  <PriceRow
+                    label="Credito caricato nel Wallet"
+                    value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                  />
+                ) : null}
               </div>
               <div className="mt-5 grid gap-3 text-sm text-slate-700">
                 <Feature icon={<Zap size={18} />} text="Accesso immediato alla tua Prime Zone" />
-                <Feature icon={<WalletCards size={18} />} text={`${formatMoney(settings.primeMonthlyWalletRechargeCents)} accreditati nel Wallet`} />
+                {hasWalletRecharge ? (
+                  <Feature icon={<WalletCards size={18} />} text={`${formatMoney(settings.primeMonthlyWalletRechargeCents)} accreditati nel Wallet`} />
+                ) : null}
                 <Feature icon={<ShieldCheck size={18} />} text="Acquisto esclusivo delle opportunità assegnate" />
                 <Feature icon={<UserRoundCheck size={18} />} text="Account Manager dedicato e contattabile direttamente" />
               </div>
@@ -161,10 +167,12 @@ async function PrimeOffer({ preview = false }: { preview?: boolean }) {
                     label="Abbonamento PRIME"
                     value={formatMoney(settings.primeRecurringServiceFeeCents)}
                   />
-                  <PriceRow
-                    label="Credito caricato nel Wallet"
-                    value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
-                  />
+                  {hasWalletRecharge ? (
+                    <PriceRow
+                      label="Credito caricato nel Wallet"
+                      value={formatMoney(settings.primeMonthlyWalletRechargeCents)}
+                    />
+                  ) : null}
                 </div>
               </div>
             </div>

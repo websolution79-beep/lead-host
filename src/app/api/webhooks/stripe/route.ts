@@ -230,8 +230,7 @@ export async function POST(request: NextRequest) {
 
       if (
         !primeResult.ignored &&
-        primeResult.status === "paid" &&
-        !primeResult.already_completed
+        primeResult.status === "paid"
       ) {
         after(async () => {
           await Promise.allSettled([

@@ -1,5 +1,9 @@
 import Stripe from "stripe";
-import { getInvoiceSubscriptionId, toIsoDate } from "@/lib/addons/stripe-subscriptions";
+import {
+  getInvoiceBillingPeriod,
+  getInvoiceSubscriptionId,
+  toIsoDate,
+} from "@/lib/addons/stripe-subscriptions";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 
@@ -210,19 +214,4 @@ function getInvoicePaymentIntentId(invoice: Stripe.Invoice) {
     (payment) => payment.payment.type === "payment_intent",
   )?.payment.payment_intent;
   return typeof paymentIntent === "string" ? paymentIntent : paymentIntent?.id ?? null;
-}
-
-function getInvoiceBillingPeriod(invoice: Stripe.Invoice) {
-  const linePeriod = invoice.lines.data
-    .map((line) => line.period)
-    .filter((period) => period.end > period.start)
-    .sort((left, right) => right.end - left.end)[0];
-
-  if (linePeriod) return linePeriod;
-
-  if (invoice.period_end > invoice.period_start) {
-    return { start: invoice.period_start, end: invoice.period_end };
-  }
-
-  throw new Error("Periodo di fatturazione PRIME non valido.");
 }

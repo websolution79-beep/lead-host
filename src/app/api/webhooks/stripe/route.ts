@@ -13,6 +13,7 @@ import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { generateWalletTopUpInvoiceSafely } from "@/lib/billing/invoices";
 import { cancelWalletTopUpCouponReservation } from "@/lib/wallet/coupons";
 import {
+  getInvoiceBillingPeriod,
   getInvoiceSubscriptionId,
   syncAddonInvoiceFromStripe,
   syncAddonSubscriptionFromStripe,
@@ -243,7 +244,7 @@ export async function POST(request: NextRequest) {
               totalAmountCents: primeResult.total_amount_cents,
               walletBalanceCents: primeResult.balance_cents,
               stripeInvoiceId: invoice.id!,
-              billingPeriodEndsAt: toIsoDate(invoice.period_end),
+              billingPeriodEndsAt: toIsoDate(getInvoiceBillingPeriod(invoice).end),
             }),
             capturePrimeBillingCompensation({
               primeBillingPeriodId: primeResult.prime_billing_period_id,

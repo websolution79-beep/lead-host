@@ -147,32 +147,63 @@ export async function syncAddonInvoiceFromStripe(
     ? toIsoDate(invoice.status_transitions.paid_at) ?? new Date().toISOString()
     : null;
   const amountCents = status === "paid" ? invoice.amount_paid : invoice.amount_due;
-  const paymentKind = invoice.billing_reason === "subscription_create" ? "initial" : "renewal";
-  const { error: paymentError } = await supabase.from("addon_payments").upsert(
-    {
-      addon_product_id: subscription.addon_product_id,
-      subscription_id: subscription.id,
-      profile_id: subscription.profile_id,
-      payment_kind: paymentKind,
-      provider: "stripe",
-      provider_invoice_id: invoice.id,
-      provider_payment_intent_id: paymentIntentId,
-      amount_cents: Math.max(0, amountCents),
-      currency: invoice.currency,
-      status,
-      billing_period_started_at: toIsoDate(invoice.period_start),
-      billing_period_ends_at: toIsoDate(invoice.period_end),
-      paid_at: paidAt,
-      metadata: {
-        stripe_invoice_number: invoice.number,
-        hosted_invoice_url: invoice.hosted_invoice_url ?? null,
-        invoice_pdf: invoice.invoice_pdf ?? null,
-        billing_reason: invoice.billing_reason,
-      },
+  const paymentKind: "initial" | "renewal" =
+    invoice.billing_reason === "subscription_create" ? "initial" : "renewal";
+  const billingPeriod = getInvoiceBillingPeriod(invoice);
+  const paymentRecord = {
+    addon_product_id: subscription.addon_product_id,
+    subscription_id: subscription.id,
+    profile_id: subscription.profile_id,
+    payment_kind: paymentKind,
+    provider: "stripe",
+    provider_invoice_id: invoice.id,
+    provider_payment_intent_id: paymentIntentId,
+    amount_cents: Math.max(0, amountCents),
+    currency: invoice.currency,
+    status,
+    billing_period_started_at: toIsoDate(billingPeriod.start),
+    billing_period_ends_at: toIsoDate(billingPeriod.end),
+    paid_at: paidAt,
+    metadata: {
+      stripe_invoice_number: invoice.number,
+      hosted_invoice_url: invoice.hosted_invoice_url ?? null,
+      invoice_pdf: invoice.invoice_pdf ?? null,
+      billing_reason: invoice.billing_reason,
     },
-    { onConflict: "provider,provider_invoice_id" },
-  );
-  if (paymentError) throw paymentError;
+  };
+  const { data: existingPayment, error: existingPaymentError } = await supabase
+    .from("addon_payments")
+    .select("id")
+    .eq("provider", "stripe")
+    .eq("provider_invoice_id", invoice.id)
+    .maybeSingle();
+  if (existingPaymentError) throw existingPaymentError;
+
+  if (existingPayment) {
+    const { error: paymentError } = await supabase
+      .from("addon_payments")
+      .update(paymentRecord)
+      .eq("id", existingPayment.id);
+    if (paymentError) throw paymentError;
+  } else {
+    const { error: insertError } = await supabase.from("addon_payments").insert(paymentRecord);
+    if (insertError?.code === "23505") {
+      const { data: concurrentPayment, error: concurrentPaymentError } = await supabase
+        .from("addon_payments")
+        .select("id")
+        .eq("provider", "stripe")
+        .eq("provider_invoice_id", invoice.id)
+        .maybeSingle();
+      if (concurrentPaymentError || !concurrentPayment) throw insertError;
+      const { error: paymentError } = await supabase
+        .from("addon_payments")
+        .update(paymentRecord)
+        .eq("id", concurrentPayment.id);
+      if (paymentError) throw paymentError;
+    } else if (insertError) {
+      throw insertError;
+    }
+  }
 
   return {
     ignored: false as const,
@@ -184,6 +215,21 @@ export async function syncAddonInvoiceFromStripe(
 export function getInvoiceSubscriptionId(invoice: Stripe.Invoice) {
   const subscription = invoice.parent?.subscription_details?.subscription;
   return typeof subscription === "string" ? subscription : subscription?.id ?? null;
+}
+
+export function getInvoiceBillingPeriod(invoice: Stripe.Invoice) {
+  const linePeriod = invoice.lines.data
+    .map((line) => line.period)
+    .filter((period) => period.end > period.start)
+    .sort((left, right) => right.end - left.end)[0];
+
+  if (linePeriod) return linePeriod;
+
+  if (invoice.period_end > invoice.period_start) {
+    return { start: invoice.period_start, end: invoice.period_end };
+  }
+
+  throw new Error("Periodo di fatturazione abbonamento non valido.");
 }
 
 function getInvoicePaymentIntentId(invoice: Stripe.Invoice) {

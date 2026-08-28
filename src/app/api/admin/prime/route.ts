@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
       subscriptionsById.set(subscription.id, subscription);
     }
 
-    const visibleRows = ((profilesResult.data ?? []) as ProfileRow[])
+    const allRows = ((profilesResult.data ?? []) as ProfileRow[])
       .map((profile) => {
         const pmProfile = pmProfilesById.get(profile.id);
         const wallet = walletsById.get(profile.id);
@@ -229,7 +229,9 @@ export async function GET(request: NextRequest) {
           account,
           subscription,
         };
-      })
+      });
+
+    const visibleRows = allRows
       .filter((row) => matchesSearch(row, search))
       .filter((row) => matchesManagedProperties(row.pmProfile, managedPropertiesFilter))
       .filter((row) => {
@@ -322,12 +324,12 @@ export async function GET(request: NextRequest) {
           teamMemberId,
         },
         stats: {
-          total: visibleRows.length,
-          eligible: visibleRows.filter((row) => row.eligibility?.is_enabled).length,
-          active: visibleRows.filter((row) => row.account?.status === "active").length,
-          pastDue: visibleRows.filter((row) => row.account?.status === "past_due").length,
-          suspended: visibleRows.filter((row) => row.account?.status === "suspended").length,
-          subscribers: visibleRows.filter((row) =>
+          total: allRows.length,
+          eligible: allRows.filter((row) => row.eligibility?.is_enabled).length,
+          active: allRows.filter((row) => row.account?.status === "active").length,
+          pastDue: allRows.filter((row) => row.account?.status === "past_due").length,
+          suspended: allRows.filter((row) => row.account?.status === "suspended").length,
+          subscribers: allRows.filter((row) =>
             Boolean(row.account?.access_source !== "none" && row.account?.prime_started_at),
           ).length,
         },

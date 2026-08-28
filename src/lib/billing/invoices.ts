@@ -609,10 +609,9 @@ async function buildPrimeInvoiceLines(
   if (error) throw new Error(error.message ?? "Abbonamento PRIME non trovato.");
 
   const metadata = asRecord(data?.metadata);
-  const recurringMembershipCents = readInteger(
-    metadata,
-    "prime_recurring_service_fee_cents",
-  );
+  const recurringMembershipCents =
+    readInteger(metadata, "prime_recurring_service_fee_cents") ??
+    readInteger(metadata, "recurring_service_fee_cents");
   const lines: BillingInvoiceLine[] = [];
 
   if (period.period_kind === "initial" && recurringMembershipCents !== null) {

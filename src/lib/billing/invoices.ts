@@ -4,6 +4,7 @@ import { generateFatturaPaXml } from "@/lib/billing/invoice-generator";
 import { fetchBillingIssuerSettings } from "@/lib/billing/invoice-settings";
 import type {
   BillingCustomerSnapshot,
+  BillingInvoiceLine,
   BillingInvoiceStatus,
   BillingIssuerSettings,
 } from "@/lib/billing/invoice-types";
@@ -35,7 +36,10 @@ type PaymentRow = {
 
 type BillingInvoiceRow = {
   id: string;
-  wallet_transaction_id: string;
+  source_type: "wallet_top_up" | "prime_billing";
+  wallet_transaction_id: string | null;
+  prime_billing_period_id: string | null;
+  line_items: Json;
   payment_id: string | null;
   profile_id: string;
   status: BillingInvoiceStatus;
@@ -62,6 +66,27 @@ type BillingInvoiceRow = {
   final_invoice_date: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type PrimeBillingPeriodRow = {
+  id: string;
+  addon_subscription_id: string;
+  profile_id: string;
+  period_kind: "initial" | "renewal" | "adjustment";
+  status: string;
+  provider_invoice_id: string;
+  provider_payment_intent_id: string | null;
+  provider_checkout_session_id: string | null;
+  membership_amount_cents: number;
+  wallet_recharge_amount_cents: number;
+  total_amount_cents: number;
+  currency: string;
+  paid_at: string | null;
+  metadata: Json;
+};
+
+type AddonSubscriptionMetadataRow = {
+  metadata: Json;
 };
 
 type BillingProfileRow = {
@@ -159,6 +184,7 @@ export async function generateWalletTopUpInvoice({
       documentDate: invoice.document_date,
       source: {
         walletTransactionId: transaction.id,
+        primeBillingPeriodId: null,
         paymentId: payment?.id ?? invoice.payment_id,
         profileId: transaction.profile_id,
         amountCents: transaction.amount_cents,
@@ -254,6 +280,160 @@ export async function generateWalletTopUpInvoiceSafely(
       error instanceof Error ? error.message : "Errore sconosciuto.",
     );
 
+    return { status: "failed" as const };
+  }
+}
+
+export async function generatePrimeBillingInvoice({
+  supabase,
+  primeBillingPeriodId,
+  actorProfileId = null,
+}: {
+  supabase: ServiceClient;
+  primeBillingPeriodId: string;
+  actorProfileId?: string | null;
+}) {
+  const period = await fetchPrimeBillingPeriod(supabase, primeBillingPeriodId);
+  if (period.status !== "paid" || !period.paid_at) {
+    throw new Error("La fattura puo essere generata solo per un periodo PRIME pagato.");
+  }
+
+  const { settings, storageReady } = await fetchBillingIssuerSettings(supabase);
+  if (!storageReady) throw new Error("Database fatturazione non aggiornato.");
+
+  const existingInvoice = await fetchInvoiceByPrimePeriod(
+    supabase,
+    primeBillingPeriodId,
+  );
+  if (
+    existingInvoice &&
+    ["imported", "sent", "cancelled"].includes(existingInvoice.status)
+  ) {
+    throw new Error(
+      "La fattura non puo essere rigenerata dopo l'importazione in Aruba.",
+    );
+  }
+
+  const customerSnapshot = existingInvoice
+    ? parseCustomerSnapshot(existingInvoice.customer_snapshot)
+    : await loadCurrentCustomerSnapshot(
+        supabase,
+        period.profile_id,
+        period.paid_at,
+      );
+  const issuerSnapshot = existingInvoice
+    ? parseIssuerSnapshot(existingInvoice.issuer_snapshot)
+    : settings;
+  const lineItems = existingInvoice
+    ? parseInvoiceLineItems(existingInvoice.line_items)
+    : await buildPrimeInvoiceLines(supabase, period);
+  const invoice =
+    existingInvoice ??
+    (await createPrimeInvoiceRecord({
+      supabase,
+      period,
+      issuer: issuerSnapshot,
+      customer: customerSnapshot,
+      lineItems,
+    }));
+
+  await updateInvoice(supabase, invoice.id, {
+    status: "generating",
+    generation_attempts: invoice.generation_attempts + 1,
+    last_error: null,
+  });
+
+  try {
+    const result = generateFatturaPaXml({
+      issuer: issuerSnapshot,
+      customer: customerSnapshot,
+      transmissionProgressive: invoice.transmission_progressive,
+      provisionalNumber: invoice.provisional_number,
+      documentDate: invoice.document_date,
+      source: {
+        walletTransactionId: null,
+        primeBillingPeriodId: period.id,
+        paymentId: null,
+        profileId: period.profile_id,
+        amountCents: period.total_amount_cents,
+        currency: period.currency,
+        completedAt: period.paid_at,
+        stripePaymentIntentId: period.provider_payment_intent_id,
+        stripeCheckoutSessionId: period.provider_checkout_session_id,
+        lineItems,
+        description: "Servizi Lead Host PRIME",
+      },
+    });
+    const xmlSha256 = createHash("sha256")
+      .update(result.xml, "utf8")
+      .digest("hex");
+    const updated = await updateInvoice(supabase, invoice.id, {
+      status: "ready",
+      provisional_number: result.provisionalNumber,
+      document_date: result.documentDate,
+      issuer_snapshot: issuerSnapshot as unknown as Json,
+      customer_snapshot: customerSnapshot as unknown as Json,
+      line_items: lineItems as unknown as Json,
+      xml_content: result.xml,
+      xml_sha256: xmlSha256,
+      stamp_duty_applied: result.stampDutyApplied,
+      stamp_duty_amount_cents: result.stampDutyAmountCents,
+      generated_at: new Date().toISOString(),
+      last_error: null,
+    });
+
+    await recordInvoiceEvent(supabase, {
+      invoiceId: invoice.id,
+      eventType: "xml_generated",
+      actorProfileId,
+      details: {
+        prime_billing_period_id: period.id,
+        xml_sha256: xmlSha256,
+        stamp_duty_applied: result.stampDutyApplied,
+        automatic: actorProfileId === null,
+      },
+    });
+
+    return updated;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Generazione XML non completata.";
+    await updateInvoice(supabase, invoice.id, {
+      status: "error",
+      last_error: message,
+    });
+    await recordInvoiceEvent(supabase, {
+      invoiceId: invoice.id,
+      eventType: "generation_failed",
+      actorProfileId,
+      details: { prime_billing_period_id: period.id, error: message },
+    });
+    throw error;
+  }
+}
+
+export async function generatePrimeBillingInvoiceSafely(
+  primeBillingPeriodId: string,
+) {
+  try {
+    const supabase = createServiceSupabaseClient();
+    const { settings, storageReady } = await fetchBillingIssuerSettings(supabase);
+    if (!storageReady || !settings.autoGenerateInvoices) {
+      return {
+        status: "skipped" as const,
+        reason: storageReady ? "automatic_generation_disabled" : "storage_not_ready",
+      };
+    }
+    const invoice = await generatePrimeBillingInvoice({
+      supabase,
+      primeBillingPeriodId,
+    });
+    return { status: "generated" as const, invoiceId: invoice.id };
+  } catch (error) {
+    console.error(
+      "PRIME invoice generation failed:",
+      error instanceof Error ? error.message : "Errore sconosciuto.",
+    );
     return { status: "failed" as const };
   }
 }
@@ -360,6 +540,127 @@ async function fetchInvoiceByTransaction(
   return data;
 }
 
+async function fetchPrimeBillingPeriod(
+  supabase: ServiceClient,
+  primeBillingPeriodId: string,
+) {
+  const table = supabase.from("prime_billing_periods" as never) as unknown as {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        single: () => Promise<{
+          data: PrimeBillingPeriodRow | null;
+          error: { message?: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await table
+    .select(
+      "id,addon_subscription_id,profile_id,period_kind,status,provider_invoice_id,provider_payment_intent_id,provider_checkout_session_id,membership_amount_cents,wallet_recharge_amount_cents,total_amount_cents,currency,paid_at,metadata",
+    )
+    .eq("id", primeBillingPeriodId)
+    .single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Periodo PRIME non trovato.");
+  }
+  return data;
+}
+
+async function fetchInvoiceByPrimePeriod(
+  supabase: ServiceClient,
+  primeBillingPeriodId: string,
+) {
+  const table = supabase.from("billing_invoices" as never) as unknown as {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{
+          data: BillingInvoiceRow | null;
+          error: { message?: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await table
+    .select("*")
+    .eq("prime_billing_period_id", primeBillingPeriodId)
+    .maybeSingle();
+  if (error) throw new Error(error.message ?? "Archivio fatture non disponibile.");
+  return data;
+}
+
+async function buildPrimeInvoiceLines(
+  supabase: ServiceClient,
+  period: PrimeBillingPeriodRow,
+): Promise<BillingInvoiceLine[]> {
+  const table = supabase.from("addon_subscriptions" as never) as unknown as {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{
+          data: AddonSubscriptionMetadataRow | null;
+          error: { message?: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await table
+    .select("metadata")
+    .eq("id", period.addon_subscription_id)
+    .maybeSingle();
+  if (error) throw new Error(error.message ?? "Abbonamento PRIME non trovato.");
+
+  const metadata = asRecord(data?.metadata);
+  const recurringMembershipCents = readInteger(
+    metadata,
+    "prime_recurring_service_fee_cents",
+  );
+  const lines: BillingInvoiceLine[] = [];
+
+  if (period.period_kind === "initial" && recurringMembershipCents !== null) {
+    const membershipCents = Math.min(
+      recurringMembershipCents,
+      period.membership_amount_cents,
+    );
+    const startupCents = period.membership_amount_cents - membershipCents;
+    if (startupCents > 0) {
+      lines.push({
+        code: "prime_startup",
+        description: "Lead Host PRIME Startup",
+        amountCents: startupCents,
+      });
+    }
+    if (membershipCents > 0) {
+      lines.push({
+        code: "prime_membership",
+        description: "Membership Lead Host PRIME",
+        amountCents: membershipCents,
+      });
+    }
+  } else if (period.membership_amount_cents > 0) {
+    lines.push({
+      code: "prime_membership",
+      description: "Membership Lead Host PRIME",
+      amountCents: period.membership_amount_cents,
+    });
+  }
+
+  if (period.wallet_recharge_amount_cents > 0) {
+    lines.push({
+      code: "prime_wallet_recharge",
+      description: "Ricarica Wallet Lead Host PRIME",
+      amountCents: period.wallet_recharge_amount_cents,
+    });
+  }
+
+  if (!lines.length) {
+    throw new Error("Il periodo PRIME non contiene importi fatturabili.");
+  }
+  const total = lines.reduce((sum, line) => sum + line.amountCents, 0);
+  if (total !== period.total_amount_cents) {
+    throw new Error("Le componenti PRIME non coincidono con il totale pagato.");
+  }
+  return lines;
+}
+
 async function createInvoiceRecord({
   supabase,
   transaction,
@@ -385,7 +686,9 @@ async function createInvoiceRecord({
   };
   const { data, error } = await table
     .insert({
+      source_type: "wallet_top_up",
       wallet_transaction_id: transaction.id,
+      prime_billing_period_id: null,
       payment_id: payment?.id ?? null,
       profile_id: transaction.profile_id,
       status: "pending",
@@ -399,6 +702,13 @@ async function createInvoiceRecord({
         transaction.provider_reference,
       issuer_snapshot: issuer as unknown as Json,
       customer_snapshot: customer as unknown as Json,
+      line_items: [
+        {
+          code: "wallet_top_up",
+          description: issuer.lineDescription,
+          amountCents: transaction.amount_cents,
+        },
+      ] as unknown as Json,
     })
     .select("*")
     .single();
@@ -423,6 +733,69 @@ async function createInvoiceRecord({
     details: { wallet_transaction_id: transaction.id },
   });
 
+  return data;
+}
+
+async function createPrimeInvoiceRecord({
+  supabase,
+  period,
+  issuer,
+  customer,
+  lineItems,
+}: {
+  supabase: ServiceClient;
+  period: PrimeBillingPeriodRow;
+  issuer: BillingIssuerSettings;
+  customer: BillingCustomerSnapshot;
+  lineItems: BillingInvoiceLine[];
+}) {
+  const table = supabase.from("billing_invoices" as never) as unknown as {
+    insert: (row: Record<string, unknown>) => {
+      select: (columns: string) => {
+        single: () => Promise<{
+          data: BillingInvoiceRow | null;
+          error: { code?: string; message?: string } | null;
+        }>;
+      };
+    };
+  };
+  const { data, error } = await table
+    .insert({
+      source_type: "prime_billing",
+      wallet_transaction_id: null,
+      prime_billing_period_id: period.id,
+      payment_id: null,
+      profile_id: period.profile_id,
+      status: "pending",
+      amount_cents: period.total_amount_cents,
+      currency: period.currency.toUpperCase(),
+      stripe_payment_intent_id: period.provider_payment_intent_id,
+      stripe_checkout_session_id: period.provider_checkout_session_id,
+      issuer_snapshot: issuer as unknown as Json,
+      customer_snapshot: customer as unknown as Json,
+      line_items: lineItems as unknown as Json,
+    })
+    .select("*")
+    .single();
+
+  if (error || !data) {
+    if (error?.code === "23505") {
+      const existing = await fetchInvoiceByPrimePeriod(supabase, period.id);
+      if (existing) return existing;
+    }
+    throw new Error(error?.message ?? "Fattura PRIME non creata.");
+  }
+
+  await recordInvoiceEvent(supabase, {
+    invoiceId: data.id,
+    eventType: "invoice_created",
+    actorProfileId: null,
+    details: {
+      source_type: "prime_billing",
+      prime_billing_period_id: period.id,
+      provider_invoice_id: period.provider_invoice_id,
+    },
+  });
   return data;
 }
 
@@ -479,17 +852,29 @@ async function loadCustomerSnapshot(
     );
   }
 
+  return loadCurrentCustomerSnapshot(
+    supabase,
+    transaction.profile_id,
+    capturedAt,
+  );
+}
+
+async function loadCurrentCustomerSnapshot(
+  supabase: ServiceClient,
+  profileId: string,
+  capturedAt: string,
+) {
   const [{ data: billing, error: billingError }, { data: profile, error: profileError }] =
     await Promise.all([
       supabase
         .from("billing_profiles")
         .select("*")
-        .eq("profile_id", transaction.profile_id)
+        .eq("profile_id", profileId)
         .maybeSingle(),
       supabase
         .from("profiles")
         .select("email")
-        .eq("id", transaction.profile_id)
+        .eq("id", profileId)
         .single(),
     ]);
 
@@ -555,6 +940,13 @@ function parseIssuerSnapshot(value: Json) {
   return record as unknown as BillingIssuerSettings;
 }
 
+function parseInvoiceLineItems(value: Json) {
+  if (!Array.isArray(value) || !value.length) {
+    throw new Error("Righe fattura PRIME non disponibili.");
+  }
+  return value as unknown as BillingInvoiceLine[];
+}
+
 function asRecord(value: Json | undefined): Record<string, Json> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
 
@@ -566,4 +958,10 @@ function readString(value: Json, key: string) {
   const result = record[key];
 
   return typeof result === "string" ? result : null;
+}
+
+function readInteger(value: Record<string, Json>, key: string) {
+  const raw = value[key];
+  const parsed = typeof raw === "number" ? raw : Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }

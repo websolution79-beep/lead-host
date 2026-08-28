@@ -36,6 +36,7 @@ function buildInput(
     transmissionProgressive: "0000000042",
     source: {
       walletTransactionId: "3d41d9ce-8fea-4af9-a9bd-424446021783",
+      primeBillingPeriodId: null,
       paymentId: "9c537f96-dda5-45a7-9820-bd9c7cc8cebb",
       profileId: "4130d91a-3d92-40d8-ab65-96d43449030e",
       amountCents,
@@ -94,4 +95,53 @@ test("uses the company SDI code and escapes XML content", () => {
   assert.match(result.xml, /<CodiceDestinatario>ABC1234<\/CodiceDestinatario>/);
   assert.doesNotMatch(result.xml, /<PECDestinatario>/);
   assert.match(result.xml, /<Denominazione>ADP &amp; Partners SRL<\/Denominazione>/);
+});
+
+test("generates a PRIME invoice with separate startup and membership lines", () => {
+  const input = buildInput(9900);
+  input.source = {
+    ...input.source,
+    walletTransactionId: null,
+    primeBillingPeriodId: "8c232251-36ac-407f-bdb0-60789df3b3dc",
+    description: "Servizio Lead Host PRIME",
+    lineItems: [
+      {
+        code: "prime_startup",
+        description: "Lead Host PRIME Startup",
+        amountCents: 5000,
+      },
+      {
+        code: "prime_membership",
+        description: "Membership Lead Host PRIME",
+        amountCents: 4900,
+      },
+    ],
+  };
+
+  const result = generateFatturaPaXml(input);
+
+  assert.match(result.xml, /<Causale>Servizio Lead Host PRIME<\/Causale>/);
+  assert.match(result.xml, /<NumeroLinea>1<\/NumeroLinea>/);
+  assert.match(result.xml, /<Descrizione>Lead Host PRIME Startup<\/Descrizione>/);
+  assert.match(result.xml, /<PrezzoTotale>50\.00<\/PrezzoTotale>/);
+  assert.match(result.xml, /<NumeroLinea>2<\/NumeroLinea>/);
+  assert.match(result.xml, /<Descrizione>Membership Lead Host PRIME<\/Descrizione>/);
+  assert.match(result.xml, /<PrezzoTotale>49\.00<\/PrezzoTotale>/);
+  assert.match(result.xml, /<ImponibileImporto>99\.00<\/ImponibileImporto>/);
+});
+
+test("rejects invoice lines whose total differs from the payment", () => {
+  const input = buildInput(9900);
+  input.source.lineItems = [
+    {
+      code: "prime_membership",
+      description: "Membership Lead Host PRIME",
+      amountCents: 4900,
+    },
+  ];
+
+  assert.throws(
+    () => generateFatturaPaXml(input),
+    /totale delle righe non coincide/i,
+  );
 });

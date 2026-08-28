@@ -181,7 +181,10 @@ export type Database = {
       billing_invoices: {
         Row: {
           id: string;
-          wallet_transaction_id: string;
+          source_type: "wallet_top_up" | "prime_billing";
+          wallet_transaction_id: string | null;
+          prime_billing_period_id: string | null;
+          line_items: Json;
           payment_id: string | null;
           profile_id: string;
           status: Database["public"]["Enums"]["billing_invoice_status"];
@@ -211,7 +214,10 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          wallet_transaction_id: string;
+          source_type?: "wallet_top_up" | "prime_billing";
+          wallet_transaction_id?: string | null;
+          prime_billing_period_id?: string | null;
+          line_items?: Json;
           payment_id?: string | null;
           profile_id: string;
           status?: Database["public"]["Enums"]["billing_invoice_status"];

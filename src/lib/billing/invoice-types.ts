@@ -69,10 +69,30 @@ export type WalletTopUpInvoiceSource = {
   stripeCheckoutSessionId: string | null;
 };
 
+export type BillingInvoiceLine = {
+  code: string;
+  description: string;
+  amountCents: number;
+};
+
+export type BillingInvoiceSource = {
+  walletTransactionId: string | null;
+  primeBillingPeriodId: string | null;
+  paymentId: string | null;
+  profileId: string;
+  amountCents: number;
+  currency: string;
+  completedAt: string;
+  stripePaymentIntentId: string | null;
+  stripeCheckoutSessionId: string | null;
+  lineItems?: BillingInvoiceLine[];
+  description?: string;
+};
+
 export type FatturaPaGenerationInput = {
   issuer: BillingIssuerSettings;
   customer: BillingCustomerSnapshot;
-  source: WalletTopUpInvoiceSource;
+  source: BillingInvoiceSource;
   transmissionProgressive: string;
   provisionalNumber?: string | null;
   documentDate?: string | null;

@@ -44,6 +44,7 @@ export function generateFatturaPaXml(
       : null;
   const paymentReference =
     source.stripePaymentIntentId ?? source.stripeCheckoutSessionId;
+  const lineItems = normalizeLineItems(source, issuer.lineDescription);
 
   const invoice = {
     "p:FatturaElettronica": {
@@ -114,19 +115,19 @@ export function generateFatturaPaXml(
                 }
               : {}),
             ImportoTotaleDocumento: amount,
-            Causale: issuer.lineDescription,
+            Causale: source.description?.trim() || issuer.lineDescription,
           },
         },
         DatiBeniServizi: {
-          DettaglioLinee: {
-            NumeroLinea: "1",
-            Descrizione: issuer.lineDescription,
+          DettaglioLinee: lineItems.map((line, index) => ({
+            NumeroLinea: String(index + 1),
+            Descrizione: line.description,
             Quantita: "1.00",
-            PrezzoUnitario: amount,
-            PrezzoTotale: amount,
+            PrezzoUnitario: formatCents(line.amountCents),
+            PrezzoTotale: formatCents(line.amountCents),
             AliquotaIVA: vatRate,
             Natura: issuer.vatNature,
-            ...(paymentReference
+            ...(index === 0 && paymentReference
               ? {
                   AltriDatiGestionali: {
                     TipoDato: "STRIPE",
@@ -134,7 +135,7 @@ export function generateFatturaPaXml(
                   },
                 }
               : {}),
-          },
+          })),
           DatiRiepilogo: {
             AliquotaIVA: vatRate,
             Natura: issuer.vatNature,
@@ -205,7 +206,7 @@ function validateGenerationInput(input: FatturaPaGenerationInput) {
   const { issuer, customer, source, transmissionProgressive } = input;
 
   if (!Number.isInteger(source.amountCents) || source.amountCents <= 0) {
-    throw new Error("Importo ricarica non valido.");
+    throw new Error("Importo fattura non valido.");
   }
   if (!/^[A-Za-z0-9]{1,10}$/.test(transmissionProgressive)) {
     throw new Error("Progressivo trasmissione non valido.");
@@ -242,6 +243,50 @@ function validateGenerationInput(input: FatturaPaGenerationInput) {
   }
 
   validateCustomer(customer);
+  normalizeLineItems(source, issuer.lineDescription);
+}
+
+function normalizeLineItems(
+  source: FatturaPaGenerationInput["source"],
+  fallbackDescription: string,
+) {
+  const lines = source.lineItems?.length
+    ? source.lineItems
+    : [
+        {
+          code: "wallet_top_up",
+          description: fallbackDescription,
+          amountCents: source.amountCents,
+        },
+      ];
+
+  if (lines.length > 20) {
+    throw new Error("La fattura contiene troppe righe.");
+  }
+
+  let totalCents = 0;
+  for (const line of lines) {
+    if (
+      !line.code.trim() ||
+      !line.description.trim() ||
+      line.description.trim().length > 1000 ||
+      !Number.isInteger(line.amountCents) ||
+      line.amountCents <= 0
+    ) {
+      throw new Error("Riga fattura non valida.");
+    }
+    totalCents += line.amountCents;
+  }
+
+  if (totalCents !== source.amountCents) {
+    throw new Error("Il totale delle righe non coincide con il totale fattura.");
+  }
+
+  return lines.map((line) => ({
+    ...line,
+    code: line.code.trim(),
+    description: line.description.trim(),
+  }));
 }
 
 function validateCustomer(customer: BillingCustomerSnapshot) {

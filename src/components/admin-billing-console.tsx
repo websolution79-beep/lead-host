@@ -15,6 +15,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCents } from "@/lib/config/commercial";
 import type {
+  BillingInvoiceLine,
   BillingInvoiceStatus,
   BillingIssuerSettings,
 } from "@/lib/billing/invoice-types";
@@ -24,6 +25,7 @@ import {
 } from "@/components/pagination-controls";
 
 type ActiveTab = "settings" | "invoices";
+type SourceFilter = "all" | "wallet_top_up" | "prime_billing";
 type FilterStatus =
   | "all"
   | "not_generated"
@@ -48,7 +50,11 @@ type InvoiceSummary = {
 };
 
 type InvoiceListRow = {
-  walletTransactionId: string;
+  sourceType: Exclude<SourceFilter, "all">;
+  sourceId: string;
+  sourceLabel: string;
+  walletTransactionId: string | null;
+  primeBillingPeriodId: string | null;
   profileId: string;
   propertyManagerName: string;
   propertyManagerEmail: string | null;
@@ -56,6 +62,7 @@ type InvoiceListRow = {
   completedAt: string;
   stripePaymentIntentId: string | null;
   stripeCheckoutSessionId: string | null;
+  lineItems: BillingInvoiceLine[];
   invoice: InvoiceSummary | null;
 };
 
@@ -64,6 +71,7 @@ type InvoicesResponse = {
   rows: InvoiceListRow[];
   stats: {
     completedTopUps: number;
+    completedPrimePayments: number;
     ready: number;
     imported: number;
     errors: number;
@@ -86,6 +94,7 @@ export function AdminBillingConsole() {
   const [rows, setRows] = useState<InvoiceListRow[]>([]);
   const [stats, setStats] = useState<InvoicesResponse["stats"]>({
     completedTopUps: 0,
+    completedPrimePayments: 0,
     ready: 0,
     imported: 0,
     errors: 0,
@@ -93,6 +102,7 @@ export function AdminBillingConsole() {
   const [pagination, setPagination] = useState(emptyPagination);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<FilterStatus>("all");
+  const [source, setSource] = useState<SourceFilter>("all");
   const [storageReady, setStorageReady] = useState(true);
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState("");
@@ -132,7 +142,7 @@ export function AdminBillingConsole() {
     if (!token) throw new Error("Sessione admin non trovata.");
 
     const response = await fetch(
-      `/api/admin/billing/invoices?page=${page}&pageSize=25&status=${status}`,
+      `/api/admin/billing/invoices?page=${page}&pageSize=25&status=${status}&source=${source}`,
       {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
@@ -148,7 +158,7 @@ export function AdminBillingConsole() {
     setStats(payload.stats);
     setPagination(payload.pagination ?? emptyPagination);
     setStorageReady(payload.storageReady !== false);
-  }, [getToken, page, status]);
+  }, [getToken, page, source, status]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -208,10 +218,14 @@ export function AdminBillingConsole() {
     }
   }
 
-  async function generateInvoice(walletTransactionId: string) {
+  async function generateInvoice(row: InvoiceListRow) {
+    const url =
+      row.sourceType === "prime_billing"
+        ? `/api/admin/billing/prime/${row.primeBillingPeriodId}/generate`
+        : `/api/admin/billing/top-ups/${row.walletTransactionId}/generate`;
     await runInvoiceAction(
-      walletTransactionId,
-      `/api/admin/billing/top-ups/${walletTransactionId}/generate`,
+      row.sourceId,
+      url,
       { method: "POST" },
       "XML FatturaPA generato.",
     );
@@ -381,10 +395,15 @@ export function AdminBillingConsole() {
           stats={stats}
           pagination={pagination}
           status={status}
+          source={source}
           workingId={workingId}
           onStatusChange={(nextStatus) => {
             setPage(1);
             setStatus(nextStatus);
+          }}
+          onSourceChange={(nextSource) => {
+            setPage(1);
+            setSource(nextSource);
           }}
           onPageChange={setPage}
           onRefresh={refresh}
@@ -466,10 +485,11 @@ function SettingsPanel({
         />
         <span>
           <span className="block font-semibold text-ink">
-            Genera automaticamente l’XML dopo una ricarica Stripe completata
+            Genera automaticamente l’XML dopo un pagamento Stripe completato
           </span>
           <span className="mt-1 block text-sm leading-6 text-muted">
-            Un eventuale errore XML non blocca mai il pagamento o l’accredito Wallet.
+            Vale per ricariche Wallet e pagamenti PRIME. Un eventuale errore XML
+            non blocca mai il pagamento, l’accredito Wallet o l’attivazione del servizio.
           </span>
         </span>
       </label>
@@ -482,8 +502,10 @@ function InvoicesPanel({
   stats,
   pagination,
   status,
+  source,
   workingId,
   onStatusChange,
+  onSourceChange,
   onPageChange,
   onRefresh,
   onGenerate,
@@ -495,11 +517,13 @@ function InvoicesPanel({
   stats: InvoicesResponse["stats"];
   pagination: PaginationState;
   status: FilterStatus;
+  source: SourceFilter;
   workingId: string;
   onStatusChange: (status: FilterStatus) => void;
+  onSourceChange: (source: SourceFilter) => void;
   onPageChange: (page: number) => void;
   onRefresh: () => void;
-  onGenerate: (id: string) => void;
+  onGenerate: (row: InvoiceListRow) => void;
   onDownload: (invoice: InvoiceSummary) => void;
   onImported: (invoiceId: string) => void;
   onSent: (invoiceId: string) => void;
@@ -507,7 +531,8 @@ function InvoicesPanel({
   return (
     <>
       <div className="admin-kpi-grid">
-        <Stat label="Ricariche completate" value={stats.completedTopUps} />
+        <Stat label="Ricariche Wallet" value={stats.completedTopUps} />
+        <Stat label="Pagamenti PRIME" value={stats.completedPrimePayments} />
         <Stat label="XML pronti" value={stats.ready} />
         <Stat label="Importate / inviate" value={stats.imported} />
         <Stat label="Da controllare" value={stats.errors} alert={stats.errors > 0} />
@@ -515,7 +540,26 @@ function InvoicesPanel({
 
       <section className="card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 p-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-3">
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["all", "Tutte le origini"],
+                  ["wallet_top_up", "Wallet"],
+                  ["prime_billing", "PRIME"],
+                ] as [SourceFilter, string][]
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  className={source === value ? "btn btn-primary" : "btn btn-secondary"}
+                  type="button"
+                  onClick={() => onSourceChange(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
             {(
               [
                 ["all", "Tutte"],
@@ -535,6 +579,7 @@ function InvoicesPanel({
                 {label}
               </button>
             ))}
+            </div>
           </div>
           <button className="btn btn-secondary" type="button" onClick={onRefresh}>
             <RefreshCcw size={16} />
@@ -546,7 +591,7 @@ function InvoicesPanel({
           {rows.length ? (
             rows.map((row) => (
               <article
-                key={row.walletTransactionId}
+                key={`${row.sourceType}:${row.sourceId}`}
                 className="grid gap-4 rounded-lg border border-slate-200 p-4 xl:grid-cols-[1.3fr_0.8fr_0.8fr_auto] xl:items-center"
               >
                 <div className="min-w-0">
@@ -555,6 +600,15 @@ function InvoicesPanel({
                       {row.propertyManagerName}
                     </h3>
                     <InvoiceStatusBadge invoice={row.invoice} />
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        row.sourceType === "prime_billing"
+                          ? "bg-amber-50 text-amber-800"
+                          : "bg-emerald-50 text-emerald-800"
+                      }`}
+                    >
+                      {row.sourceLabel}
+                    </span>
                   </div>
                   <p className="mt-1 truncate text-sm text-muted">
                     {row.propertyManagerEmail ?? "Email non disponibile"}
@@ -564,7 +618,7 @@ function InvoicesPanel({
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase text-slate-500">Ricarica</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">Importo</p>
                   <p className="mt-1 text-lg font-semibold text-ink">
                     {formatCents(row.amountCents)}
                   </p>
@@ -572,6 +626,15 @@ function InvoicesPanel({
                     <p className="mt-1 text-xs font-medium text-amber-700">
                       Bollo 2,00 € assorbito da SOGI
                     </p>
+                  ) : null}
+                  {row.lineItems.length > 1 ? (
+                    <div className="mt-2 grid gap-1">
+                      {row.lineItems.map((line) => (
+                        <p key={line.code} className="text-xs text-slate-600">
+                          {line.description}: <strong>{formatCents(line.amountCents)}</strong>
+                        </p>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
                 <div className="min-w-0">
@@ -590,10 +653,10 @@ function InvoicesPanel({
                 <div className="flex flex-wrap gap-2 xl:max-w-72 xl:justify-end">
                   {!row.invoice || row.invoice.status === "error" ? (
                     <ActionButton
-                      loading={workingId === row.walletTransactionId}
+                      loading={workingId === row.sourceId}
                       label={row.invoice ? "Rigenera XML" : "Genera XML"}
                       icon={<FileText size={16} />}
-                      onClick={() => onGenerate(row.walletTransactionId)}
+                      onClick={() => onGenerate(row)}
                     />
                   ) : null}
                   {row.invoice &&
@@ -637,7 +700,7 @@ function InvoicesPanel({
             <div className="py-12 text-center">
               <FileText className="mx-auto text-slate-300" size={32} />
               <p className="mt-3 font-semibold text-ink">
-                Nessuna ricarica in questo stato
+                Nessun pagamento in questo stato
               </p>
             </div>
           )}

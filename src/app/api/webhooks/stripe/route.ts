@@ -10,7 +10,10 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
-import { generateWalletTopUpInvoiceSafely } from "@/lib/billing/invoices";
+import {
+  generatePrimeBillingInvoiceSafely,
+  generateWalletTopUpInvoiceSafely,
+} from "@/lib/billing/invoices";
 import { cancelWalletTopUpCouponReservation } from "@/lib/wallet/coupons";
 import {
   getInvoiceBillingPeriod,
@@ -250,6 +253,9 @@ export async function POST(request: NextRequest) {
               profileId: primeResult.profile_id,
               periodKind: primeResult.periodKind,
             }),
+            generatePrimeBillingInvoiceSafely(
+              primeResult.prime_billing_period_id,
+            ),
           ]);
         });
       }

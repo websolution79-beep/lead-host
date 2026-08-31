@@ -37,12 +37,14 @@ export function MarketplaceFinancialEstimatePreviewModal({
   location,
   onClose,
   viewer = "admin",
+  overlayClassName = "z-[110]",
 }: {
   data: MarketplaceFinancialEstimatePreviewData;
   leadTitle: string;
   location: string | null;
   onClose: () => void;
   viewer?: "admin" | "pm";
+  overlayClassName?: string;
 }) {
   const result = calculateRevenueEstimate({
     calculationMode: "adr_occupancy",
@@ -70,7 +72,7 @@ export function MarketplaceFinancialEstimatePreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-[110] overflow-y-auto bg-slate-950/60 p-0 sm:p-6"
+      className={`fixed inset-0 ${overlayClassName} overflow-y-auto bg-slate-950/60 p-0 sm:p-6`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="marketplace-estimate-preview-title"

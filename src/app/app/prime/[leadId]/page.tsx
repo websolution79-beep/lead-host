@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { LeadPurchaseActions } from "@/components/lead-purchase-actions";
+import { MarketplaceLeadFinancialEstimate } from "@/components/marketplace-lead-financial-estimate";
 import { PrimeCountdown } from "@/components/prime-countdown";
 import { SublettingAvailableBadge } from "@/components/subletting-available-badge";
 import {
@@ -117,6 +118,13 @@ export default async function PrimeLeadDetailPage({
         </article>
 
         <aside className="card h-fit border-amber-300 p-5">
+          {lead.financialEstimate ? (
+            <MarketplaceLeadFinancialEstimate
+              estimate={lead.financialEstimate}
+              leadTitle={lead.title}
+              location={lead.address}
+            />
+          ) : null}
           <PrimeCountdown expiresAt={lead.primeAccessUntil} />
           <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm leading-6 text-amber-950">
             Questa opportunità è stata riservata in anteprima alla tua Prime Zone.

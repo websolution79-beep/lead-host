@@ -13,10 +13,12 @@ export function MarketplaceLeadFinancialEstimate({
   estimate,
   leadTitle,
   location,
+  modalZIndexClass,
 }: {
   estimate: NonNullable<MarketplaceLead["financialEstimate"]>;
   leadTitle: string;
   location: string | null;
+  modalZIndexClass?: string;
 }) {
   const [open, setOpen] = useState(false);
   const summary = getMarketplaceFinancialSummary({
@@ -60,6 +62,7 @@ export function MarketplaceLeadFinancialEstimate({
           location={location}
           onClose={() => setOpen(false)}
           viewer="pm"
+          overlayClassName={modalZIndexClass}
         />
       ) : null}
     </section>

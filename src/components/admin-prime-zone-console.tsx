@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { PrimeLeadCard } from "@/components/prime-lead-card";
+import { MarketplaceLeadFinancialEstimate } from "@/components/marketplace-lead-financial-estimate";
 import { PrimeCountdown } from "@/components/prime-countdown";
 import { SublettingAvailableBadge } from "@/components/subletting-available-badge";
 import { StandardLeadBadge, VerifiedOwnerBadge } from "@/components/verified-owner-badge";
@@ -286,6 +287,16 @@ function LeadPreviewModal({
                 ))}
               </div>
             </section>
+            {lead.financialEstimate ? (
+              <section className="mt-7 border-t border-slate-200 pt-6">
+                <MarketplaceLeadFinancialEstimate
+                  estimate={lead.financialEstimate}
+                  leadTitle={lead.title}
+                  location={lead.address}
+                  modalZIndexClass="z-[160]"
+                />
+              </section>
+            ) : null}
           </article>
           <aside className="h-fit rounded-lg border border-amber-300 bg-amber-50/60 p-5">
             <PrimeCountdown expiresAt={lead.primeAccessUntil} />

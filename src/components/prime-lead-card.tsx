@@ -7,6 +7,7 @@ import {
   MapPin,
   Ruler,
   ShieldCheck,
+  TrendingUp,
 } from "lucide-react";
 import { PrimeCountdown } from "@/components/prime-countdown";
 import { SublettingAvailableBadge } from "@/components/subletting-available-badge";
@@ -85,6 +86,18 @@ export function PrimeLeadCard({
         </div>
       </dl>
 
+      {lead.financialEstimate ? (
+        <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-3">
+          <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-blue-800">
+            <TrendingUp size={14} aria-hidden="true" />
+            Incasso lordo annuo stimato
+          </p>
+          <p className="mt-1 text-lg font-bold text-blue-950">
+            {formatEstimateCurrency(lead.financialEstimate.grossAnnualRevenue)}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-auto pt-5">
         <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4">
           <p className="text-xs font-bold uppercase tracking-[0.12em] text-amber-800">
@@ -108,4 +121,14 @@ export function PrimeLeadCard({
       </div>
     </article>
   );
+}
+
+function formatEstimateCurrency(value: number) {
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    useGrouping: true,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }

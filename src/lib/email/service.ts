@@ -77,6 +77,7 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
       },
       body: JSON.stringify({
         from,
+        reply_to: "info@leadhost.it",
         to: [emailPayload.to],
         subject: emailPayload.subject,
         html: emailPayload.html,

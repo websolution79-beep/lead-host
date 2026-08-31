@@ -274,6 +274,7 @@ async function deliverMixedBatch({
     body: JSON.stringify(
       messages.map(({ campaign, recipient, rendered }) => ({
         from,
+        reply_to: "info@leadhost.it",
         to: [recipient.recipient_email],
         subject: rendered.subject,
         html: rendered.html,

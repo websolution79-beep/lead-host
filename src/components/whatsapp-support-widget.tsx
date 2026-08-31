@@ -46,7 +46,7 @@ export function WhatsAppSupportWidget() {
   )}`;
 
   return (
-    <div className="fixed bottom-24 right-4 z-[80] sm:bottom-6 sm:right-6">
+    <div className="fixed bottom-24 right-4 z-[80] sm:right-6">
       {open ? (
         <section
           className="absolute bottom-16 right-0 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"

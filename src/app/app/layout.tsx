@@ -14,6 +14,7 @@ import { getMarketingAddonState } from "@/lib/addons/access";
 import { getPrimeAccessState } from "@/lib/prime/access";
 import { PrimeLifecycleHeartbeat } from "@/components/prime-lifecycle-heartbeat";
 import { TelegramOpportunityPrompt } from "@/components/telegram-opportunity-prompt";
+import { WhatsAppSupportWidget } from "@/components/whatsapp-support-widget";
 
 type AppAreaLayoutProps = {
   children: ReactNode;
@@ -91,6 +92,7 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
     >
       <PrimeLifecycleHeartbeat />
       <TelegramOpportunityPrompt />
+      <WhatsAppSupportWidget />
       <AppAreaChrome
         section="pm"
         marketingAddon={marketingAddon ?? undefined}

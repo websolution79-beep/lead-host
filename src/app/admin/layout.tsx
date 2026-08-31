@@ -8,6 +8,7 @@ import { hasRole } from "@/lib/auth/roles";
 import { getServerSessionProfile } from "@/lib/auth/server-session";
 import { privatePageRobots } from "@/lib/seo/robots";
 import { PrimeLifecycleHeartbeat } from "@/components/prime-lifecycle-heartbeat";
+import { WhatsAppSupportWidget } from "@/components/whatsapp-support-widget";
 
 type AdminAreaLayoutProps = {
   children: ReactNode;
@@ -64,6 +65,7 @@ export default async function AdminAreaLayout({ children }: AdminAreaLayoutProps
       }}
     >
       <PrimeLifecycleHeartbeat />
+      <WhatsAppSupportWidget />
       <AppAreaChrome
         section="admin"
         adminHomeHref={adminHomeHref}

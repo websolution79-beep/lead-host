@@ -73,6 +73,22 @@ export async function capturePrimeLeadPurchaseCompensation(input: {
   const supabase = createServiceSupabaseClient();
   if (!(await isTeamCompensationEnabled(supabase))) return;
 
+  // The buyer being PRIME is not enough: the commission belongs only to a
+  // purchase made while the lead was in that PM's private Prime Zone.
+  const { data: transaction, error: transactionError } = await supabase
+    .from("wallet_transactions")
+    .select("metadata")
+    .eq("lead_purchase_id", input.purchaseId)
+    .eq("type", "lead_purchase")
+    .eq("status", "completed")
+    .maybeSingle();
+
+  if (transactionError) {
+    throw new Error(transactionError.message);
+  }
+
+  if (!isPrimeZonePurchase(transaction?.metadata)) return;
+
   const { data: propertyManager, error: pmError } = await supabase
     .from("property_manager_profiles")
     .select("profile_id")
@@ -109,6 +125,18 @@ export async function capturePrimeLeadPurchaseCompensation(input: {
   });
 
   await runTeamCompensationWorkerSafely(10);
+}
+
+function isPrimeZonePurchase(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return false;
+  }
+
+  const purchase = metadata as Record<string, unknown>;
+  return (
+    purchase.prime_purchase === true &&
+    purchase.visibility_mode === "prime_private"
+  );
 }
 
 export async function processTeamCompensationOutbox(

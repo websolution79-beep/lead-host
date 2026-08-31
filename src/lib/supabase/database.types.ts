@@ -781,6 +781,7 @@ export type Database = {
           prime_account_id: string;
           profile_id: string;
           notes: string;
+          interest_locations: string[];
           updated_by: string | null;
           created_at: string;
           updated_at: string;
@@ -790,6 +791,7 @@ export type Database = {
           prime_account_id: string;
           profile_id: string;
           notes?: string;
+          interest_locations?: string[];
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;

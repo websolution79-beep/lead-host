@@ -95,6 +95,7 @@ type PrimeRow = {
     lastPaymentAt: string | null;
   };
   events: PrimeEvent[];
+  interestLocations: string[];
 };
 
 type PrimeResponse = {
@@ -168,6 +169,7 @@ type PrimePmDetail = {
   };
   internalNotes: string;
   internalNotesUpdatedAt: string | null;
+  interestLocations: string[];
   walletTransactions: Array<{
     id: string;
     type: string;
@@ -418,6 +420,47 @@ export function AdminPrimeConsole() {
     }
   }
 
+  async function saveInterestLocations(row: PrimeRow, interestLocations: string[]) {
+    try {
+      const token = await getToken();
+      if (!token) return "Sessione amministrativa non disponibile.";
+      const response = await fetch("/api/admin/prime", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "update_interest_locations",
+          profileId: row.profile.id,
+          interestLocations,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        interestLocations?: string[];
+        updatedAt?: string;
+      };
+      if (!response.ok) return payload.error ?? "Non riesco a salvare le località d'interesse.";
+      const savedLocations = payload.interestLocations ?? interestLocations;
+      setSelectedDetail((current) => current ? {
+        ...current,
+        interestLocations: savedLocations,
+      } : current);
+      setData((current) => ({
+        ...current,
+        propertyManagers: current.propertyManagers.map((item) =>
+          item.profile.id === row.profile.id
+            ? { ...item, interestLocations: savedLocations }
+            : item,
+        ),
+      }));
+      return null;
+    } catch {
+      return "Connessione non disponibile. Riprova tra poco.";
+    }
+  }
+
   async function assignManager(row: PrimeRow, memberId: string) {
     const manager = data.managers.find((item) => item.memberId === memberId);
     const message = manager
@@ -655,7 +698,10 @@ export function AdminPrimeConsole() {
                   <StatusBadge status={row.account?.status ?? "inactive"} />
                 </div>
                 <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
-                  <InfoPill label="Città" value={row.pmProfile?.primary_city ?? "Non indicata"} />
+                  <InfoPill
+                    label="Località d'interesse"
+                    value={<InterestLocationTags locations={row.interestLocations} />}
+                  />
                   <InfoPill label="Immobili" value={managedPropertiesLabel(row.pmProfile?.managed_properties_range, row.pmProfile?.managed_properties_count)} />
                   <InfoPill label="Wallet" value={formatMoney(row.wallet?.balance_cents ?? 0)} />
                   <InfoPill label="Account Manager" value={row.accountManager?.name ?? "Non assegnato"} />
@@ -689,7 +735,7 @@ export function AdminPrimeConsole() {
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-5 py-4 font-semibold">Property Manager</th>
-                  <th className="px-5 py-4 font-semibold">Città principale</th>
+                  <th className="px-5 py-4 font-semibold">Località d&apos;interesse</th>
                   <th className="px-5 py-4 font-semibold">Immobili</th>
                   <th className="px-5 py-4 font-semibold">Wallet</th>
                   <th className="px-5 py-4 font-semibold">Stato PRIME</th>
@@ -707,7 +753,7 @@ export function AdminPrimeConsole() {
                       <p className="mt-1 text-slate-500">{row.profile.email}</p>
                       <p className="mt-1 text-slate-500">{row.profile.phone ?? "Telefono assente"}</p>
                     </td>
-                    <td className="px-5 py-4 font-medium text-ink">{row.pmProfile?.primary_city ?? "Non indicata"}</td>
+                    <td className="min-w-60 px-5 py-4"><InterestLocationTags locations={row.interestLocations} /></td>
                     <td className="px-5 py-4 text-slate-600">{managedPropertiesLabel(row.pmProfile?.managed_properties_range, row.pmProfile?.managed_properties_count)}</td>
                     <td className="px-5 py-4 font-semibold text-ink">{formatMoney(row.wallet?.balance_cents ?? 0)}</td>
                     <td className="px-5 py-4">
@@ -777,6 +823,7 @@ export function AdminPrimeConsole() {
               selectedRow.account?.account_manager_member_id === data.access.teamMemberId),
           )}
           onSaveNotes={(notes) => saveInternalNotes(selectedRow, notes)}
+          onSaveInterestLocations={(locations) => saveInterestLocations(selectedRow, locations)}
           onClose={() => {
             setSelectedProfileId(null);
             setSelectedDetail(null);
@@ -887,11 +934,11 @@ function PrimeRowActions({
   );
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
+function InfoPill({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="w-full min-w-0 max-w-full rounded-lg bg-slate-50 p-3">
       <p className="text-[10px] font-bold uppercase text-slate-400">{label}</p>
-      <p className="mt-1 break-words text-sm font-semibold text-slate-700">{value}</p>
+      <div className="mt-1 break-words text-sm font-semibold text-slate-700">{value}</div>
     </div>
   );
 }
@@ -915,7 +962,7 @@ function Stat({ label, value, icon: Icon, tone }: { label: string; value: number
   );
 }
 
-function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, onSaveNotes }: { row: PrimeRow; detail: PrimePmDetail | null; loading: boolean; canWrite: boolean; onClose: () => void; onAction: (action: AccessAction) => void; onSaveNotes: (notes: string) => Promise<string | null> }) {
+function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, onSaveNotes, onSaveInterestLocations }: { row: PrimeRow; detail: PrimePmDetail | null; loading: boolean; canWrite: boolean; onClose: () => void; onAction: (action: AccessAction) => void; onSaveNotes: (notes: string) => Promise<string | null>; onSaveInterestLocations: (locations: string[]) => Promise<string | null> }) {
   return (
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={`Dettaglio PRIME di ${displayName(row)}`}>
       <div className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white shadow-2xl">
@@ -975,6 +1022,13 @@ function PrimeDetailModal({ row, detail, loading, canWrite, onClose, onAction, o
                   initialNotes={detail.internalNotes}
                   updatedAt={detail.internalNotesUpdatedAt}
                   onSave={onSaveNotes}
+                />
+              ) : null}
+              {canWrite && row.account ? (
+                <PrimeInterestLocationsSection
+                  key={`${row.profile.id}-${detail.interestLocations.join("|")}`}
+                  initialLocations={detail.interestLocations}
+                  onSave={onSaveInterestLocations}
                 />
               ) : null}
               <section className="rounded-lg border border-slate-200 p-5">
@@ -1153,6 +1207,137 @@ function PrimeNotesSection({
         </div>
       </form>
     </section>
+  );
+}
+
+function PrimeInterestLocationsSection({
+  initialLocations,
+  onSave,
+}: {
+  initialLocations: string[];
+  onSave: (locations: string[]) => Promise<string | null>;
+}) {
+  const [locations, setLocations] = useState(initialLocations);
+  const [draft, setDraft] = useState("");
+  const [savingLocations, setSavingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState("");
+  const [locationsSaved, setLocationsSaved] = useState(false);
+  const hasChanges = locations.join("\u0000") !== initialLocations.join("\u0000");
+
+  function addLocations() {
+    const additions = draft
+      .split(",")
+      .map((value) => value.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
+    if (!additions.length) return;
+
+    const existing = new Set(locations.map((value) => value.toLocaleLowerCase("it-IT")));
+    const next = [...locations];
+    for (const location of additions) {
+      const key = location.toLocaleLowerCase("it-IT");
+      if (existing.has(key) || next.length >= 20) continue;
+      existing.add(key);
+      next.push(location.slice(0, 80));
+    }
+    setLocations(next);
+    setDraft("");
+    setLocationsSaved(false);
+  }
+
+  async function submitLocations(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingLocations(true);
+    setLocationsError("");
+    setLocationsSaved(false);
+    const error = await onSave(locations);
+    if (error) setLocationsError(error);
+    else setLocationsSaved(true);
+    setSavingLocations(false);
+  }
+
+  return (
+    <section className="rounded-lg border border-blue-200 bg-blue-50/50 p-5 lg:col-span-2">
+      <div>
+        <h3 className="font-semibold text-ink">Località d&apos;interesse</h3>
+        <p className="mt-1 text-sm text-slate-600">
+          Inserisci città, regioni o aree commerciali. Le voci saranno visibili nel portafoglio PRIME.
+        </p>
+      </div>
+      <form className="mt-4" onSubmit={submitLocations}>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-blue-200 bg-white px-3 text-sm text-ink outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            value={draft}
+            maxLength={80}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setLocationsSaved(false);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && draft.trim()) {
+                event.preventDefault();
+                addLocations();
+              }
+            }}
+            placeholder="Es. Roma, Lazio, Centro Italia"
+            aria-label="Aggiungi località d'interesse"
+          />
+          <button
+            className="min-h-11 rounded-lg border border-blue-200 bg-white px-4 text-sm font-semibold text-blue-700 disabled:opacity-40"
+            type="button"
+            onClick={addLocations}
+            disabled={!draft.trim() || locations.length >= 20}
+          >
+            Aggiungi
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {locations.length ? locations.map((location) => (
+            <span key={location.toLocaleLowerCase("it-IT")} className="inline-flex max-w-full items-center gap-1 rounded-full border border-blue-200 bg-white py-1 pl-3 pr-1 text-sm font-semibold text-blue-800">
+              <span className="break-words">{location}</span>
+              <button
+                className="flex size-7 shrink-0 items-center justify-center rounded-full text-blue-700 hover:bg-blue-100"
+                type="button"
+                aria-label={`Rimuovi ${location}`}
+                onClick={() => {
+                  setLocations((current) => current.filter((value) => value !== location));
+                  setLocationsSaved(false);
+                }}
+              >
+                <X size={14} />
+              </button>
+            </span>
+          )) : <p className="text-sm text-slate-500">Nessuna località indicata.</p>}
+        </div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs text-slate-500">{locations.length}/20 località</p>
+            {locationsError ? <p className="mt-1 text-sm font-semibold text-red-700">{locationsError}</p> : null}
+            {locationsSaved ? <p className="mt-1 text-sm font-semibold text-emerald-700">Località d&apos;interesse salvate.</p> : null}
+          </div>
+          <button
+            className="min-h-11 rounded-lg bg-ink px-5 text-sm font-semibold text-white disabled:opacity-40"
+            type="submit"
+            disabled={savingLocations || !hasChanges}
+          >
+            {savingLocations ? "Salvataggio..." : "Salva località"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function InterestLocationTags({ locations }: { locations: string[] }) {
+  if (!locations.length) return <span className="font-medium text-slate-500">Non indicate</span>;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {locations.map((location) => (
+        <span key={location.toLocaleLowerCase("it-IT")} className="max-w-full rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800">
+          <span className="break-words">{location}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 

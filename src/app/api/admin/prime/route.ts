@@ -35,6 +35,11 @@ const patchSchema = z.discriminatedUnion("action", [
     profileId: z.string().uuid(),
     notes: z.string().max(5000),
   }),
+  z.object({
+    action: z.literal("update_interest_locations"),
+    profileId: z.string().uuid(),
+    interestLocations: z.array(z.string().trim().min(1).max(80)).max(20),
+  }),
 ]);
 
 const managedPropertiesFilterSchema = z.enum([
@@ -67,6 +72,11 @@ type TeamMemberRow = {
   profile_id: string;
   role_id: string;
   badge_color: string;
+};
+
+type PrimeInterestLocationsRow = {
+  profile_id: string;
+  interest_locations: string[];
 };
 
 export async function GET(request: NextRequest) {
@@ -145,7 +155,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [profilesResult, pmProfilesResult, walletsResult, eligibilitiesResult, accountsResult, subscriptionsResult] =
+    const [profilesResult, pmProfilesResult, walletsResult, eligibilitiesResult, accountsResult, subscriptionsResult, interestLocationsResult] =
       availableProfileIds.length
         ? await Promise.all([
             supabase
@@ -173,8 +183,13 @@ export async function GET(request: NextRequest) {
               .select("id,profile_id,status,source,current_period_ends_at,cancel_at_period_end,canceled_at,updated_at")
               .in("profile_id", availableProfileIds)
               .order("updated_at", { ascending: false }),
+            supabase
+              .from("prime_internal_notes")
+              .select("profile_id,interest_locations")
+              .in("profile_id", availableProfileIds),
           ])
         : [
+            { data: [], error: null },
             { data: [], error: null },
             { data: [], error: null },
             { data: [], error: null },
@@ -189,7 +204,8 @@ export async function GET(request: NextRequest) {
       walletsResult.error ??
       eligibilitiesResult.error ??
       accountsResult.error ??
-      subscriptionsResult.error;
+      subscriptionsResult.error ??
+      interestLocationsResult.error;
     if (storageError) throw storageError;
 
     const pmProfilesById = new Map(
@@ -203,6 +219,12 @@ export async function GET(request: NextRequest) {
     );
     const accountsById = new Map(
       (accountsResult.data ?? []).map((row) => [row.profile_id, row]),
+    );
+    const interestLocationsByProfileId = new Map(
+      ((interestLocationsResult.data ?? []) as PrimeInterestLocationsRow[]).map((row) => [
+        row.profile_id,
+        row.interest_locations ?? [],
+      ]),
     );
     const subscriptionsById = new Map<
       string,
@@ -221,6 +243,8 @@ export async function GET(request: NextRequest) {
         const subscription = account?.addon_subscription_id
           ? subscriptionsById.get(account.addon_subscription_id) ?? null
           : null;
+        const canReadInterestLocations =
+          isSuperAdmin || account?.account_manager_member_id === teamMemberId;
         return {
           profile,
           pmProfile: pmProfile ?? null,
@@ -228,6 +252,9 @@ export async function GET(request: NextRequest) {
           eligibility,
           account,
           subscription,
+          interestLocations: canReadInterestLocations
+            ? interestLocationsByProfileId.get(profile.id) ?? []
+            : [],
         };
       });
 
@@ -339,6 +366,7 @@ export async function GET(request: NextRequest) {
           accountManager: row.account?.account_manager_member_id
             ? managersById.get(row.account.account_manager_member_id) ?? null
             : null,
+          interestLocations: row.interestLocations,
           subscriptionSummary: {
             currentPeriodEndsAt: row.subscription?.current_period_ends_at ?? row.account?.prime_expires_at ?? null,
             cancelAtPeriodEnd: row.subscription?.cancel_at_period_end ?? false,
@@ -462,6 +490,52 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
+    if (payload.action === "update_interest_locations") {
+      if (!beforeResult.data) {
+        throw new AdminApiError(404, "Account PRIME non trovato.");
+      }
+      const previousLocationsResult = await supabase
+        .from("prime_internal_notes")
+        .select("id,interest_locations")
+        .eq("profile_id", payload.profileId)
+        .maybeSingle();
+      if (previousLocationsResult.error) throw previousLocationsResult.error;
+
+      const interestLocations = normalizeInterestLocations(payload.interestLocations);
+      const savedLocationsResult = await supabase
+        .from("prime_internal_notes")
+        .upsert(
+          {
+            prime_account_id: beforeResult.data.id,
+            profile_id: payload.profileId,
+            interest_locations: interestLocations,
+            updated_by: profile.id,
+          },
+          { onConflict: "profile_id" },
+        )
+        .select("id,interest_locations,updated_at")
+        .single();
+      if (savedLocationsResult.error) throw savedLocationsResult.error;
+
+      await writeAdminAuditLog({
+        supabase,
+        request,
+        actorProfileId: profile.id,
+        isSuperAdmin,
+        entityType: "prime_interest_locations",
+        entityId: savedLocationsResult.data.id,
+        action: "prime.update_interest_locations",
+        before: { interest_locations: previousLocationsResult.data?.interest_locations ?? [] },
+        after: { interest_locations: interestLocations },
+      });
+
+      return NextResponse.json({
+        ok: true,
+        interestLocations: savedLocationsResult.data.interest_locations,
+        updatedAt: savedLocationsResult.data.updated_at,
+      });
+    }
+
     if (payload.action === "claim_manager") {
       if (isSuperAdmin || !teamMemberId) {
         throw new AdminApiError(422, "Usa l'assegnazione amministrativa per questo profilo.");
@@ -546,6 +620,7 @@ function matchesSearch(
   row: {
     profile: ProfileRow;
     pmProfile: PmProfileRow | null;
+    interestLocations: string[];
   },
   search: string,
 ) {
@@ -556,7 +631,23 @@ function matchesSearch(
     row.profile.email,
     row.profile.phone,
     row.pmProfile?.primary_city,
+    ...row.interestLocations,
   ].some((value) => value?.toLocaleLowerCase("it-IT").includes(search));
+}
+
+function normalizeInterestLocations(values: string[]) {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const value of values) {
+    const location = value.trim().replace(/\s+/g, " ");
+    const key = location.toLocaleLowerCase("it-IT");
+    if (!location || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(location);
+  }
+
+  return normalized.slice(0, 20);
 }
 
 function primeRank(status: string | null | undefined) {
@@ -714,7 +805,7 @@ async function loadPrimePropertyManagerDetail(
       includeInternalNotes
         ? supabase
             .from("prime_internal_notes")
-            .select("notes,updated_at")
+            .select("notes,interest_locations,updated_at")
             .eq("profile_id", profileId)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
@@ -786,6 +877,7 @@ async function loadPrimePropertyManagerDetail(
     wallet: walletResult.data,
     billingProfile: billingResult.data,
     internalNotes: internalNotesResult.data?.notes ?? "",
+    interestLocations: internalNotesResult.data?.interest_locations ?? [],
     internalNotesUpdatedAt: internalNotesResult.data?.updated_at ?? null,
     auth: {
       emailConfirmedAt: authUserResult.data.user?.email_confirmed_at ?? null,

@@ -61,7 +61,9 @@ export function AdminWhatsAppWidgetSettings() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    void loadSettings();
+    const timeoutId = window.setTimeout(() => void loadSettings(), 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadSettings]);
 
   if (!session.isSuperAdmin) return null;

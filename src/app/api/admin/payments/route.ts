@@ -133,6 +133,16 @@ export async function GET(request: NextRequest) {
         ? requestedTab
         : "payments";
     const paymentsTable = supabase.from("payments" as never) as unknown as PaymentsTable;
+    const { data: marketingProduct, error: marketingProductError } = await supabase
+      .from("addon_products")
+      .select("id")
+      .eq("slug", "marketing")
+      .maybeSingle();
+
+    if (marketingProductError) throw marketingProductError;
+    if (!marketingProduct) {
+      throw new Error("Prodotto Modulo Marketing non configurato.");
+    }
 
     const [
       paymentStatsResult,
@@ -154,6 +164,7 @@ export async function GET(request: NextRequest) {
       supabase
         .from("addon_payments")
         .select("status,amount_cents")
+        .eq("addon_product_id", marketingProduct.id)
         .limit(1000),
       supabase
         .from("prime_billing_periods")
@@ -165,6 +176,7 @@ export async function GET(request: NextRequest) {
         activeTab,
         pagination.from,
         pagination.to,
+        marketingProduct.id,
       ),
     ]);
 
@@ -517,6 +529,7 @@ async function fetchActiveRows(
   activeTab: ActiveTab,
   from: number,
   to: number,
+  marketingProductId: string,
 ) {
   if (activeTab === "payments") {
     return paymentsTable
@@ -546,6 +559,7 @@ async function fetchActiveRows(
         "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,created_at,updated_at",
         { count: "exact" },
       )
+      .eq("addon_product_id", marketingProductId)
       .order("updated_at", { ascending: false })
       .range(from, to);
   }

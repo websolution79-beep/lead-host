@@ -57,9 +57,8 @@ export default function WebinarPage() {
                 Lead Host - Gli immobili che cerchi, prima degli altri
               </p>
 
-              <h1 className="mt-4 max-w-3xl text-[2.35rem] font-semibold leading-[1.08] sm:text-5xl sm:leading-[1.08] xl:text-[3.75rem]">
-                Sai gestire gli immobili.
-                <span className="mt-2 block text-emerald-700">Ma sai dove trovarli?</span>
+              <h1 className="mt-4 max-w-5xl text-[2.35rem] font-semibold leading-[1.08] sm:text-5xl sm:leading-[1.08] xl:text-[3.75rem]">
+                Sai gestire gli immobili. <span className="text-emerald-700">Ma sai dove trovarli?</span>
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl sm:leading-8">
@@ -236,10 +235,6 @@ function RegistrationPanel({ formId }: { formId: string }) {
       <p className="text-xs font-bold uppercase text-emerald-700">Iscrizione gratuita</p>
       <h2 className="mt-2 text-3xl font-semibold leading-tight">Riserva il tuo posto</h2>
       <p className="mt-3 leading-7 text-slate-600">Inserisci i tuoi dati per registrarti gratuitamente al webinar.</p>
-      <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-y border-slate-200 py-4 text-sm font-bold text-slate-800">
-        <span className="inline-flex items-center gap-2"><CalendarDays className="text-emerald-700" size={17} /> 15 settembre</span>
-        <span className="inline-flex items-center gap-2"><Clock3 className="text-emerald-700" size={17} /> Ore 21:00</span>
-      </div>
       <WebinarJamRegistrationForm />
       <p className="mt-4 text-center text-sm font-bold text-amber-700">I posti live sono limitati.</p>
     </div>

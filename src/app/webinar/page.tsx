@@ -56,10 +56,9 @@ export default function WebinarPage() {
                 Lead Host - Gli immobili che cerchi, prima degli altri
               </p>
 
-              <h1 className="mt-4 text-[2.35rem] font-semibold leading-[1.08] sm:text-5xl sm:leading-[1.08] xl:text-[3.75rem]">
-                Hai fatto il corso da Property Manager.
-                <span className="mt-2 block">Hai imparato a gestire gli immobili.</span>
-                <span className="mt-2 block text-emerald-700">Ma adesso… dove li trovi?</span>
+              <h1 className="mt-4 max-w-3xl text-[2.35rem] font-semibold leading-[1.08] sm:text-5xl sm:leading-[1.08] xl:text-[3.75rem]">
+                Sai gestire gli immobili.
+                <span className="mt-2 block text-emerald-700">Ma sai dove trovarli?</span>
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl sm:leading-8">

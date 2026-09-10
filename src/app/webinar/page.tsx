@@ -3,13 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDown,
-  ArrowRight,
   CalendarDays,
-  CheckCircle2,
+  Check,
   Clock3,
   Eye,
   Gift,
-  Lightbulb,
   Search,
   Target,
   UsersRound,
@@ -25,7 +23,7 @@ export const metadata: Metadata = {
     title: "Lead Host - Gli immobili che cerchi, prima degli altri",
     description:
       "Un webinar gratuito per scoprire un modo diverso di trovare e valutare nuove opportunità immobiliari.",
-    images: ["/images/lead-host-pm-hero.png"],
+    images: ["/images/lead-host-hero.png"],
     type: "website",
   },
 };
@@ -43,222 +41,211 @@ const webinarPoints = [
 export default function WebinarPage() {
   return (
     <main className="overflow-hidden bg-white text-slate-950">
-      <section className="relative min-h-[92svh] overflow-hidden bg-slate-950 text-white">
-        <Image
-          alt="Property Manager durante un incontro professionale"
-          className="object-cover object-center opacity-35"
-          fill
-          priority
-          sizes="100vw"
-          src="/images/lead-host-pm-hero.png"
-        />
-        <div className="absolute inset-0 bg-slate-950/60" />
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-[1440px] px-5 pb-12 pt-5 sm:px-8 sm:pb-16 sm:pt-7 lg:px-12 lg:pb-20">
+          <PublicNav />
 
-        <div className="relative mx-auto flex min-h-[92svh] max-w-[1500px] flex-col px-5 pb-10 pt-5 sm:px-8 sm:pb-14 sm:pt-7 lg:px-12">
-          <PublicNav variant="dark" />
-
-          <div className="flex flex-1 items-center py-10 sm:py-14 lg:py-16">
-            <div className="max-w-5xl">
-              <p className="inline-flex items-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-400/15 px-3 py-2 text-xs font-bold uppercase text-emerald-100 backdrop-blur-sm sm:text-sm">
-                <UsersRound size={16} />
+          <div className="grid items-center gap-10 pt-10 sm:pt-14 lg:grid-cols-[minmax(0,1.08fr)_minmax(390px,.72fr)] lg:gap-14 lg:pt-16">
+            <div className="max-w-4xl">
+              <p className="inline-flex items-center gap-2 text-xs font-bold uppercase text-emerald-700 sm:text-sm">
+                <UsersRound size={17} />
                 Webinar gratuito riservato ai Property Manager
               </p>
 
-              <p className="mt-5 text-sm font-bold text-white sm:text-base">Lead Host - Gli immobili che cerchi, prima degli altri</p>
+              <p className="mt-5 text-sm font-bold text-slate-500">
+                Lead Host - Gli immobili che cerchi, prima degli altri
+              </p>
 
-              <div className="mt-3 flex w-fit flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-white/25 bg-white/10 px-4 py-3 backdrop-blur-sm sm:px-5">
-                <span className="inline-flex items-center gap-2 text-base font-bold sm:text-lg">
-                  <CalendarDays className="text-emerald-300" size={20} />
-                  Martedì 15 settembre
-                </span>
-                <span className="inline-flex items-center gap-2 text-base font-bold sm:text-lg">
-                  <Clock3 className="text-emerald-300" size={20} />
-                  Ore 21:00
-                </span>
-              </div>
-
-              <h1 className="mt-6 max-w-5xl text-[2.25rem] font-semibold leading-[1.08] sm:text-5xl sm:leading-[1.08] lg:text-6xl">
+              <h1 className="mt-4 text-[2.35rem] font-semibold leading-[1.08] sm:text-5xl sm:leading-[1.08] xl:text-[3.75rem]">
                 Hai fatto il corso da Property Manager.
                 <span className="mt-2 block">Hai imparato a gestire gli immobili.</span>
-                <span className="mt-2 block text-emerald-300">Ma adesso… dove li trovi?</span>
+                <span className="mt-2 block text-emerald-700">Ma adesso… dove li trovi?</span>
               </h1>
 
-              <div className="mt-6 max-w-3xl text-base leading-7 text-slate-200 sm:text-xl sm:leading-8">
-                <p>Acquisire nuovi immobili è probabilmente la parte più difficile del tuo lavoro.</p>
-                <p className="mt-4">
-                  Durante questo webinar parleremo di quello che succede DOPO i corsi, DOPO la formazione e DOPO aver aperto la tua attività: come creare realmente nuove opportunità per acquisire immobili da gestire.
-                </p>
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl sm:leading-8">
+                Acquisire nuovi immobili è probabilmente la parte più difficile del tuo lavoro. In questa diretta parleremo di come creare realmente nuove opportunità per acquisire immobili da gestire.
+              </p>
+
+              <div className="mt-7 flex flex-wrap gap-3">
+                <EventDetail icon={CalendarDays} text="Martedì 15 settembre" />
+                <EventDetail icon={Clock3} text="Ore 21:00" />
+                <EventDetail icon={UsersRound} text="Partecipazione gratuita" />
               </div>
 
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link className="btn btn-primary min-h-13 justify-center px-6 text-base" href="#iscrizione">
                   Riserva il tuo posto gratuito
                   <ArrowDown size={18} />
                 </Link>
-                <p className="text-sm font-semibold text-slate-200">I posti live sono limitati.</p>
+                <p className="text-sm font-bold text-amber-700">I posti live sono limitati.</p>
               </div>
             </div>
+
+            <RegistrationPanel />
           </div>
         </div>
       </section>
 
-      <section className="border-b border-slate-200 bg-white px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.78fr)_minmax(0,1.22fr)] lg:gap-16">
+      <section className="bg-emerald-50 px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[minmax(0,.78fr)_minmax(0,1.22fr)] lg:items-center lg:gap-14">
           <div>
-            <p className="section-kicker">La domanda giusta</p>
-            <h2 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">La domanda non è:</h2>
-            <blockquote className="mt-5 border-l-4 border-slate-300 pl-5 text-xl font-semibold leading-8 text-slate-500 sm:text-2xl">
-              “Sei abbastanza bravo a gestire un appartamento?”
-            </blockquote>
-          </div>
-
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6 sm:p-9">
-            <p className="text-sm font-bold uppercase text-emerald-800">La vera domanda è:</p>
-            <p className="mt-4 text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
-              “Come trovi il prossimo proprietario disposto ad affidartelo?”
+            <p className="section-kicker">La domanda che conta</p>
+            <p className="mt-4 text-xl font-semibold leading-8 text-slate-500">
+              La domanda non è: “Sei abbastanza bravo a gestire un appartamento?”
             </p>
           </div>
-        </div>
-      </section>
-
-      <section className="bg-slate-50 px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto max-w-6xl">
-          <div className="max-w-3xl">
-            <p className="section-kicker">Durante il webinar scoprirai</p>
-            <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">Quello che viene dopo la formazione.</h2>
-          </div>
-
-          <div className="mt-9 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 md:grid-cols-2">
-            {webinarPoints.map((point, index) => (
-              <article className="flex gap-4 bg-white p-5 sm:p-6" key={point}>
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-sm font-bold text-emerald-800">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <p className="font-semibold leading-7 text-slate-800">{point}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-slate-950 px-5 py-14 text-white sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,.72fr)] lg:items-center">
-          <div>
-            <Lightbulb className="text-emerald-300" size={30} />
-            <p className="mt-6 text-2xl font-semibold leading-9 sm:text-3xl sm:leading-10">
-              Puoi conoscere perfettamente Airbnb. Puoi sapere tutto di pricing, revenue management, check-in e automazioni.
-            </p>
-            <p className="mt-6 text-lg leading-8 text-slate-300">Ma senza immobili da gestire non hai un&apos;attività.</p>
-          </div>
-          <div className="border-t border-white/20 pt-8 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
-            <p className="text-4xl font-semibold leading-tight text-emerald-300 sm:text-5xl">Hai soltanto competenze.</p>
-          </div>
+          <p className="border-l-4 border-emerald-600 pl-5 text-3xl font-semibold leading-tight sm:text-4xl">
+            La vera domanda è: “Come trovi il prossimo proprietario disposto ad affidartelo?”
+          </p>
         </div>
       </section>
 
       <section className="px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
         <div className="mx-auto max-w-6xl">
-          <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
-            <div>
-              <p className="section-kicker">Il principio Lead Host</p>
-              <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">Gli immobili che cerchi, prima degli altri.</h2>
-              <p className="mt-6 text-lg leading-8 text-slate-600">
-                Lead Host nasce da un principio molto semplice: per acquisire nuovi immobili non dovresti essere costretto a investire migliaia di euro alla cieca.
-              </p>
-            </div>
-
-            <div className="grid gap-3">
-              <PositioningStep icon={Eye} number="01" text="Prima vedi l'opportunità." />
-              <PositioningStep icon={Search} number="02" text="Poi valuti se è interessante." />
-              <PositioningStep icon={Target} number="03" text="Solo allora decidi se acquistarla." />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-amber-200 bg-amber-50 px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[auto_1fr] lg:gap-10">
-          <span className="grid size-14 place-items-center rounded-lg bg-amber-200 text-amber-950"><Gift size={28} /></span>
-          <div>
-            <p className="text-sm font-bold uppercase text-amber-800">Solo per chi parteciperà live</p>
-            <h2 className="mt-3 max-w-4xl text-3xl font-semibold leading-tight sm:text-4xl">
-              Alla fine del webinar presenteremo anche una sorpresa riservata esclusivamente ai partecipanti collegati in diretta.
-            </h2>
-            <p className="mt-5 text-lg font-semibold text-slate-700">Non verrà comunicata prima del webinar.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-emerald-950 px-5 py-14 text-white sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <p className="text-sm font-bold uppercase text-emerald-300">Una nuova evoluzione</p>
+          <div className="max-w-3xl">
+            <p className="section-kicker">Durante il webinar scoprirai</p>
             <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
+              Cosa succede dopo i corsi, dopo la formazione e dopo aver aperto la tua attività.
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-x-12 gap-y-6 md:grid-cols-2">
+            {webinarPoints.map((point) => (
+              <div className="flex gap-4 border-t border-slate-200 pt-5" key={point}>
+                <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Check size={16} strokeWidth={3} />
+                </span>
+                <p className="font-semibold leading-7 text-slate-700">{point}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-slate-200 bg-slate-50 px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
+          <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <Image
+              alt="Strumenti Lead Host per acquisire e valutare nuovi immobili"
+              className="object-cover"
+              fill
+              sizes="(max-width: 1024px) 100vw, 560px"
+              src="/images/lead-host-hero.png"
+            />
+          </div>
+
+          <div>
+            <p className="section-kicker">Competenze e opportunità</p>
+            <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
+              Puoi conoscere perfettamente Airbnb. Ma senza immobili da gestire non hai un&apos;attività.
+            </h2>
+            <p className="mt-5 text-lg leading-8 text-slate-600">
+              Puoi sapere tutto di pricing, revenue management, check-in e automazioni.
+            </p>
+            <p className="mt-5 text-2xl font-semibold text-emerald-700">Hai soltanto competenze.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-16">
+          <div>
+            <p className="section-kicker">Il principio Lead Host</p>
+            <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
+              Gli immobili che cerchi, prima degli altri.
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-slate-600">
+              Lead Host nasce da un principio molto semplice: per acquisire nuovi immobili non dovresti essere costretto a investire migliaia di euro alla cieca.
+            </p>
+          </div>
+
+          <div className="grid gap-6 border-l border-slate-200 pl-6 sm:pl-9">
+            <PositioningStep icon={Eye} number="01" text="Prima vedi l'opportunità." />
+            <PositioningStep icon={Search} number="02" text="Poi valuti se è interessante." />
+            <PositioningStep icon={Target} number="03" text="Solo allora decidi se acquistarla." />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-amber-200 bg-amber-50 px-5 py-12 sm:px-8 sm:py-16 lg:px-12">
+        <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2 lg:gap-16">
+          <div>
+            <p className="text-xs font-bold uppercase text-emerald-700">Una nuova evoluzione</p>
+            <h2 className="mt-3 text-2xl font-semibold leading-tight sm:text-3xl">
               Durante il webinar presenteremo una delle evoluzioni più importanti di Lead Host dal suo lancio.
             </h2>
-            <p className="mt-6 text-lg leading-8 text-emerald-100">
-              E cambierà il modo in cui alcuni Property Manager potranno accedere alle nuove opportunità immobiliari.
+            <p className="mt-4 leading-7 text-slate-700">
+              Cambierà il modo in cui alcuni Property Manager potranno accedere alle nuove opportunità immobiliari. Non anticiperemo tutto nella pagina.
             </p>
-            <p className="mt-5 font-bold text-white">Non anticiperemo tutto nella pagina.</p>
           </div>
-          <div className="rounded-lg border border-emerald-700 bg-white/5 p-6 sm:p-8">
-            <p className="text-sm font-bold uppercase text-emerald-300">Lead Host</p>
-            <p className="mt-4 text-3xl font-semibold leading-tight">Gli immobili che cerchi, prima degli altri.</p>
-            <Link className="btn btn-primary mt-7 w-full justify-center sm:w-auto" href="#iscrizione">
-              Riserva il tuo posto gratuito <ArrowRight size={18} />
-            </Link>
+
+          <div className="border-t border-amber-300 pt-8 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase text-amber-800">
+              <Gift size={18} /> Solo per chi parteciperà live
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold leading-tight sm:text-3xl">
+              Alla fine presenteremo una sorpresa riservata esclusivamente ai partecipanti collegati in diretta.
+            </h2>
+            <p className="mt-4 font-semibold text-slate-700">Non verrà comunicata prima del webinar.</p>
           </div>
         </div>
       </section>
 
-      <section className="bg-slate-50 px-5 py-14 sm:px-8 sm:py-20 lg:px-12" id="iscrizione">
-        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.85fr)_minmax(420px,1.15fr)] lg:items-start">
-          <div className="lg:sticky lg:top-8">
-            <p className="section-kicker">Iscrizione gratuita</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 font-bold text-emerald-900"><CalendarDays size={18} /> Martedì 15 settembre</span>
-              <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-3 py-2 font-bold text-emerald-900"><Clock3 size={18} /> Ore 21:00</span>
-            </div>
-            <h2 className="mt-5 text-3xl font-semibold leading-tight sm:text-4xl">Riserva il tuo posto gratuito.</h2>
-            <p className="mt-5 text-lg leading-8 text-slate-600">Inserisci i tuoi dati per registrarti gratuitamente al webinar.</p>
-            <p className="mt-4 flex items-center gap-2 font-bold text-amber-700"><CheckCircle2 size={19} /> I posti live sono limitati.</p>
+      <section className="bg-white px-5 py-14 sm:px-8 sm:py-20 lg:px-12" id="iscrizione">
+        <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.85fr)_minmax(390px,.75fr)] lg:items-center lg:gap-16">
+          <div>
+            <p className="section-kicker">Martedì 15 settembre, ore 21:00</p>
+            <h2 className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
+              Se vuoi acquisire nuovi immobili da gestire, questo webinar riguarda la parte più importante del tuo business.
+            </h2>
+            <p className="mt-5 text-xl leading-8 text-slate-600">
+              Non come gestire il prossimo immobile. <strong className="text-slate-950">Ma come trovarlo.</strong>
+            </p>
           </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70 sm:p-8">
-            <p className="text-sm font-bold uppercase text-emerald-700">Modulo di iscrizione</p>
-            <h3 className="mt-2 text-2xl font-semibold">Registrazioni in apertura</h3>
-            <p className="mt-4 leading-7 text-slate-600">Il modulo per riservare il posto sarà disponibile qui a breve.</p>
-            <div className="mt-7 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 px-5 py-10 text-center">
-              <CalendarDays className="mx-auto text-emerald-700" size={30} />
-              <p className="mt-4 font-semibold text-emerald-950">Spazio predisposto per il modulo di iscrizione</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="px-5 py-14 text-center sm:px-8 sm:py-20 lg:px-12">
-        <div className="mx-auto max-w-4xl">
-          <p className="text-xl leading-8 text-slate-600 sm:text-2xl sm:leading-9">
-            Se il tuo obiettivo è acquisire nuovi immobili da gestire, questo webinar riguarda probabilmente la parte più importante del tuo business.
-          </p>
-          <p className="mt-6 text-3xl font-semibold leading-tight sm:text-4xl">
-            Non come gestire il prossimo immobile.
-            <span className="mt-2 block text-emerald-700">Ma come trovarlo.</span>
-          </p>
+          <RegistrationPanel compact />
         </div>
       </section>
     </main>
   );
 }
 
+function EventDetail({ icon: Icon, text }: { icon: typeof CalendarDays; text: string }) {
+  return (
+    <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 text-sm font-bold text-slate-800">
+      <Icon className="text-emerald-700" size={18} />
+      {text}
+    </span>
+  );
+}
+
+function RegistrationPanel({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,118,86,0.12)] sm:p-7">
+      <p className="text-xs font-bold uppercase text-emerald-700">Iscrizione gratuita</p>
+      <h2 className={`${compact ? "text-2xl" : "text-3xl"} mt-2 font-semibold leading-tight`}>
+        Riserva il tuo posto
+      </h2>
+      <p className="mt-3 leading-7 text-slate-600">Inserisci i tuoi dati per registrarti gratuitamente al webinar.</p>
+      <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-y border-slate-200 py-4 text-sm font-bold text-slate-800">
+        <span className="inline-flex items-center gap-2"><CalendarDays className="text-emerald-700" size={17} /> 15 settembre</span>
+        <span className="inline-flex items-center gap-2"><Clock3 className="text-emerald-700" size={17} /> Ore 21:00</span>
+      </div>
+      <div className="mt-5 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 px-5 py-7 text-center">
+        <p className="font-semibold text-emerald-950">Il modulo di iscrizione sarà disponibile qui a breve.</p>
+      </div>
+      <p className="mt-4 text-center text-sm font-bold text-amber-700">I posti live sono limitati.</p>
+    </div>
+  );
+}
+
 function PositioningStep({ icon: Icon, number, text }: { icon: typeof Eye; number: string; text: string }) {
   return (
-    <article className="flex items-center gap-4 rounded-lg border border-slate-200 bg-slate-50 p-5">
-      <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-white text-emerald-700 shadow-sm"><Icon size={21} /></span>
+    <div className="flex items-center gap-4">
+      <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700"><Icon size={21} /></span>
       <div>
         <p className="text-xs font-bold text-emerald-700">{number}</p>
-        <p className="mt-1 text-lg font-semibold text-slate-950">{text}</p>
+        <p className="mt-1 text-lg font-semibold">{text}</p>
       </div>
-    </article>
+    </div>
   );
 }

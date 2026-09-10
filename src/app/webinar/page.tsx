@@ -13,6 +13,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { PublicNav } from "@/components/public-nav";
+import { WebinarJamRegistrationForm } from "@/components/webinarjam-registration-form";
 
 export const metadata: Metadata = {
   title: "Gli immobili che cerchi, prima degli altri | Webinar Lead Host",
@@ -80,7 +81,7 @@ export default function WebinarPage() {
               </div>
             </div>
 
-            <RegistrationPanel />
+            <RegistrationPanel formId="iscrizione" />
           </div>
         </div>
       </section>
@@ -123,15 +124,19 @@ export default function WebinarPage() {
 
       <section className="border-y border-slate-200 bg-slate-50 px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
-          <div className="relative aspect-[16/11] overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <Link
+            aria-label="Vai al modulo gratuito di iscrizione al webinar"
+            className="relative block aspect-[3/2] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg shadow-slate-200/70 transition hover:border-emerald-400 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            href="#iscrizione"
+          >
             <Image
-              alt="Strumenti Lead Host per acquisire e valutare nuovi immobili"
+              alt="Gli immobili che cerchi, prima degli altri"
               className="object-cover"
               fill
               sizes="(max-width: 1024px) 100vw, 560px"
-              src="/images/lead-host-hero.png"
+              src="/images/webinar-gli-immobili-prima-degli-altri.webp"
             />
-          </div>
+          </Link>
 
           <div>
             <p className="section-kicker">Competenze e opportunità</p>
@@ -190,7 +195,7 @@ export default function WebinarPage() {
         </div>
       </section>
 
-      <section className="bg-white px-5 py-14 sm:px-8 sm:py-20 lg:px-12" id="iscrizione">
+      <section className="bg-white px-5 py-14 sm:px-8 sm:py-20 lg:px-12">
         <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,.85fr)_minmax(390px,.75fr)] lg:items-center lg:gap-16">
           <div>
             <p className="section-kicker">Martedì 15 settembre, ore 21:00</p>
@@ -201,7 +206,15 @@ export default function WebinarPage() {
               Non come gestire il prossimo immobile. <strong className="text-slate-950">Ma come trovarlo.</strong>
             </p>
           </div>
-          <RegistrationPanel compact />
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase text-emerald-700">Partecipazione gratuita</p>
+            <p className="mt-3 text-2xl font-semibold leading-tight">Il tuo posto è a un clic.</p>
+            <p className="mt-3 leading-7 text-slate-600">Compila il modulo e assicurati l&apos;accesso alla diretta.</p>
+            <Link className="btn btn-primary mt-6 w-full justify-center sm:w-auto" href="#iscrizione">
+              Riserva il tuo posto gratuito
+              <ArrowDown size={18} />
+            </Link>
+          </div>
         </div>
       </section>
     </main>
@@ -217,21 +230,17 @@ function EventDetail({ icon: Icon, text }: { icon: typeof CalendarDays; text: st
   );
 }
 
-function RegistrationPanel({ compact = false }: { compact?: boolean }) {
+function RegistrationPanel({ formId }: { formId: string }) {
   return (
-    <div className="rounded-lg border border-emerald-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,118,86,0.12)] sm:p-7">
+    <div className="scroll-mt-5 rounded-lg border border-emerald-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,118,86,0.12)] sm:p-7" id={formId}>
       <p className="text-xs font-bold uppercase text-emerald-700">Iscrizione gratuita</p>
-      <h2 className={`${compact ? "text-2xl" : "text-3xl"} mt-2 font-semibold leading-tight`}>
-        Riserva il tuo posto
-      </h2>
+      <h2 className="mt-2 text-3xl font-semibold leading-tight">Riserva il tuo posto</h2>
       <p className="mt-3 leading-7 text-slate-600">Inserisci i tuoi dati per registrarti gratuitamente al webinar.</p>
       <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-y border-slate-200 py-4 text-sm font-bold text-slate-800">
         <span className="inline-flex items-center gap-2"><CalendarDays className="text-emerald-700" size={17} /> 15 settembre</span>
         <span className="inline-flex items-center gap-2"><Clock3 className="text-emerald-700" size={17} /> Ore 21:00</span>
       </div>
-      <div className="mt-5 rounded-lg border border-dashed border-emerald-300 bg-emerald-50 px-5 py-7 text-center">
-        <p className="font-semibold text-emerald-950">Il modulo di iscrizione sarà disponibile qui a breve.</p>
-      </div>
+      <WebinarJamRegistrationForm />
       <p className="mt-4 text-center text-sm font-bold text-amber-700">I posti live sono limitati.</p>
     </div>
   );

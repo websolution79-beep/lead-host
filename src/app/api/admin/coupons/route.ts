@@ -10,6 +10,7 @@ import {
   fetchWalletCouponsEnabled,
   normalizeCouponCode,
   validateCouponTiers,
+  type WalletCouponBonusMode,
   type WalletCouponTier,
 } from "@/lib/wallet/coupons";
 
@@ -32,7 +33,11 @@ const couponSchema = z.object({
   maxTotalRedemptions: z.number().int().min(1).max(1000000).nullable(),
   maxRedemptionsPerProfile: z.number().int().min(1).max(100),
   bonusBudgetCents: z.number().int().min(100).max(100000000).nullable(),
-  tiers: z.array(tierSchema).min(1).max(20),
+  bonusMode: z.enum(["fixed_tiers", "percentage"]),
+  bonusPercentageBasisPoints: z.number().int().min(1).max(10000).nullable(),
+  percentageMinPaidCents: z.number().int().min(100).max(200000).nullable(),
+  maxBonusPerRedemptionCents: z.number().int().min(100).max(100000000).nullable(),
+  tiers: z.array(tierSchema).max(20),
 });
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("toggle_feature"), enabled: z.boolean() }),
@@ -151,11 +156,25 @@ export async function PATCH(request: NextRequest) {
     }
 
     const coupon = payload.coupon;
-    const tiersError = validateCouponTiers(coupon.tiers);
+    const tiersError = coupon.bonusMode === "fixed_tiers"
+      ? validateCouponTiers(coupon.tiers)
+      : null;
 
     if (tiersError) {
       return NextResponse.json(
         { error: tiersError, code: "INVALID_COUPON_TIERS" },
+        { status: 422 },
+      );
+    }
+    if (
+      coupon.bonusMode === "percentage"
+      && coupon.bonusPercentageBasisPoints === null
+    ) {
+      return NextResponse.json(
+        {
+          error: "Inserisci la percentuale del bonus.",
+          code: "INVALID_COUPON_PERCENTAGE",
+        },
         { status: 422 },
       );
     }
@@ -185,6 +204,19 @@ export async function PATCH(request: NextRequest) {
       max_total_redemptions: coupon.maxTotalRedemptions,
       max_redemptions_per_profile: coupon.maxRedemptionsPerProfile,
       bonus_budget_cents: coupon.bonusBudgetCents,
+      bonus_mode: coupon.bonusMode as WalletCouponBonusMode,
+      bonus_percentage_basis_points:
+        coupon.bonusMode === "percentage"
+          ? coupon.bonusPercentageBasisPoints
+          : null,
+      percentage_min_paid_cents:
+        coupon.bonusMode === "percentage"
+          ? coupon.percentageMinPaidCents
+          : null,
+      max_bonus_per_redemption_cents:
+        coupon.bonusMode === "percentage"
+          ? coupon.maxBonusPerRedemptionCents
+          : null,
       ...(coupon.id
         ? { updated_by: profile.id }
         : { created_by: profile.id, updated_by: profile.id }),
@@ -217,18 +249,20 @@ export async function PATCH(request: NextRequest) {
 
     if (deleteTiersError) throw deleteTiersError;
 
-    const { error: insertTiersError } = await supabase
-      .from("wallet_coupon_bonus_tiers")
-      .insert(
-        coupon.tiers.map((tier: WalletCouponTier) => ({
-          coupon_id: couponId!,
-          min_paid_cents: tier.minPaidCents,
-          max_paid_cents: tier.maxPaidCents,
-          bonus_cents: tier.bonusCents,
-        })),
-      );
+    if (coupon.bonusMode === "fixed_tiers") {
+      const { error: insertTiersError } = await supabase
+        .from("wallet_coupon_bonus_tiers")
+        .insert(
+          coupon.tiers.map((tier: WalletCouponTier) => ({
+            coupon_id: couponId!,
+            min_paid_cents: tier.minPaidCents,
+            max_paid_cents: tier.maxPaidCents,
+            bonus_cents: tier.bonusCents,
+          })),
+        );
 
-    if (insertTiersError) throw insertTiersError;
+      if (insertTiersError) throw insertTiersError;
+    }
 
     const { error: activateError } = await supabase
       .from("wallet_coupons")

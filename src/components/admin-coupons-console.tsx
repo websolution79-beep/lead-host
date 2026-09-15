@@ -45,6 +45,10 @@ type CouponRow = {
   max_total_redemptions: number | null;
   max_redemptions_per_profile: number;
   bonus_budget_cents: number | null;
+  bonus_mode: "fixed_tiers" | "percentage";
+  bonus_percentage_basis_points: number | null;
+  percentage_min_paid_cents: number | null;
+  max_bonus_per_redemption_cents: number | null;
   tiers: CouponTier[];
   stats: CouponStats;
 };
@@ -62,6 +66,10 @@ type CouponDraft = {
   maxTotalRedemptions: string;
   maxRedemptionsPerProfile: string;
   bonusBudget: string;
+  bonusMode: "fixed_tiers" | "percentage";
+  bonusPercentage: string;
+  percentageMinPaid: string;
+  maxBonusPerRedemption: string;
   tiers: Array<{
     id?: string;
     minPaid: string;
@@ -96,6 +104,10 @@ function emptyDraft(): CouponDraft {
     maxTotalRedemptions: "",
     maxRedemptionsPerProfile: "1",
     bonusBudget: "",
+    bonusMode: "fixed_tiers",
+    bonusPercentage: "50",
+    percentageMinPaid: "",
+    maxBonusPerRedemption: "",
     tiers: launchTiers.map((tier) => ({ ...tier })),
   };
 }
@@ -209,11 +221,26 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
           maxRedemptionsPerProfile:
             nullableInteger(draft.maxRedemptionsPerProfile) ?? 1,
           bonusBudgetCents: nullableCurrencyCents(draft.bonusBudget),
-          tiers: draft.tiers.map((tier) => ({
-            minPaidCents: currencyToCents(tier.minPaid),
-            maxPaidCents: nullableCurrencyCents(tier.maxPaid),
-            bonusCents: currencyToCents(tier.bonus),
-          })),
+          bonusMode: draft.bonusMode,
+          bonusPercentageBasisPoints:
+            draft.bonusMode === "percentage"
+              ? percentageToBasisPoints(draft.bonusPercentage)
+              : null,
+          percentageMinPaidCents:
+            draft.bonusMode === "percentage"
+              ? nullableCurrencyCents(draft.percentageMinPaid)
+              : null,
+          maxBonusPerRedemptionCents:
+            draft.bonusMode === "percentage"
+              ? nullableCurrencyCents(draft.maxBonusPerRedemption)
+              : null,
+          tiers: draft.bonusMode === "fixed_tiers"
+            ? draft.tiers.map((tier) => ({
+                minPaidCents: currencyToCents(tier.minPaid),
+                maxPaidCents: nullableCurrencyCents(tier.maxPaid),
+                bonusCents: currencyToCents(tier.bonus),
+              }))
+            : [],
         },
       }),
     });
@@ -279,6 +306,14 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
       maxRedemptionsPerProfile:
         coupon.max_redemptions_per_profile.toString(),
       bonusBudget: centsToInput(coupon.bonus_budget_cents),
+      bonusMode: coupon.bonus_mode ?? "fixed_tiers",
+      bonusPercentage: basisPointsToPercentageInput(
+        coupon.bonus_percentage_basis_points,
+      ),
+      percentageMinPaid: centsToInput(coupon.percentage_min_paid_cents),
+      maxBonusPerRedemption: centsToInput(
+        coupon.max_bonus_per_redemption_cents,
+      ),
       tiers: coupon.tiers.map((tier) => ({
         id: tier.id,
         minPaid: centsToInput(tier.minPaidCents),
@@ -394,7 +429,7 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
               }
             />
           </Field>
-          <Field label="Budget massimo bonus">
+          <Field label="Budget complessivo della campagna">
             <CurrencyInput
               value={draft.bonusBudget}
               placeholder="Nessun limite"
@@ -458,6 +493,38 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
           </Field>
         </div>
 
+        <div className="mt-6">
+          <p className="text-sm font-semibold text-ink">Tipo di bonus *</p>
+          <div className="mt-2 grid gap-2 rounded-lg bg-slate-100 p-1 sm:grid-cols-2">
+            <button
+              className={`min-h-11 rounded-md px-4 text-sm font-semibold transition ${
+                draft.bonusMode === "fixed_tiers"
+                  ? "bg-white text-green shadow-sm"
+                  : "text-slate-600 hover:text-ink"
+              }`}
+              type="button"
+              onClick={() =>
+                setDraft((current) => ({ ...current, bonusMode: "fixed_tiers" }))
+              }
+            >
+              Importo fisso per fasce
+            </button>
+            <button
+              className={`min-h-11 rounded-md px-4 text-sm font-semibold transition ${
+                draft.bonusMode === "percentage"
+                  ? "bg-white text-green shadow-sm"
+                  : "text-slate-600 hover:text-ink"
+              }`}
+              type="button"
+              onClick={() =>
+                setDraft((current) => ({ ...current, bonusMode: "percentage" }))
+              }
+            >
+              Percentuale sulla ricarica
+            </button>
+          </div>
+        </div>
+
         <Field label="Descrizione interna">
           <textarea
             className="input min-h-24 resize-y"
@@ -493,6 +560,60 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
           />
         </div>
 
+        {draft.bonusMode === "percentage" ? (
+          <div className="mt-7 border-t border-slate-200 pt-6">
+            <div>
+              <h3 className="font-semibold text-ink">Bonus percentuale</h3>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                Il PM paga la ricarica scelta; il bonus viene aggiunto al Wallet
+                soltanto dopo la conferma del pagamento.
+              </p>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <Field label="Percentuale bonus *">
+                <div className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-3 focus-within:border-green">
+                  <input
+                    className="w-full bg-transparent text-sm text-ink outline-none"
+                    inputMode="decimal"
+                    placeholder="50"
+                    value={draft.bonusPercentage}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        bonusPercentage: event.target.value,
+                      }))
+                    }
+                  />
+                  <span className="ml-2 text-slate-400">%</span>
+                </div>
+              </Field>
+              <Field label="Ricarica minima">
+                <CurrencyInput
+                  value={draft.percentageMinPaid}
+                  placeholder="Nessun minimo aggiuntivo"
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      percentageMinPaid: value,
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Bonus massimo per utilizzo">
+                <CurrencyInput
+                  value={draft.maxBonusPerRedemption}
+                  placeholder="Nessun limite"
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      maxBonusPerRedemption: value,
+                    }))
+                  }
+                />
+              </Field>
+            </div>
+          </div>
+        ) : (
         <div className="mt-7 border-t border-slate-200 pt-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -561,6 +682,7 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
             ))}
           </div>
         </div>
+        )}
 
         {error ? (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
@@ -684,7 +806,23 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {coupon.tiers.map((tier) => (
+                  {coupon.bonus_mode === "percentage" ? (
+                    <>
+                      <span className="rounded-full bg-green/10 px-3 py-1.5 text-xs font-semibold text-green">
+                        +{formatPercentageBasisPoints(coupon.bonus_percentage_basis_points)}
+                      </span>
+                      {coupon.percentage_min_paid_cents ? (
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                          Da {formatCurrencyCents(coupon.percentage_min_paid_cents)}
+                        </span>
+                      ) : null}
+                      {coupon.max_bonus_per_redemption_cents ? (
+                        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                          Massimo +{formatCurrencyCents(coupon.max_bonus_per_redemption_cents)} per utilizzo
+                        </span>
+                      ) : null}
+                    </>
+                  ) : coupon.tiers.map((tier) => (
                     <span
                       className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700"
                       key={tier.id}
@@ -739,7 +877,7 @@ export function AdminCouponsConsole({ readOnly }: { readOnly: boolean }) {
               Stai per eliminare definitivamente{" "}
               <strong>{couponToDelete.name}</strong>, codice{" "}
               <strong className="font-mono">{couponToDelete.code}</strong>, e
-              tutte le relative fasce bonus.
+              la relativa configurazione bonus.
             </p>
             <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
               Gli eventuali checkout Stripe aperti e non pagati verranno
@@ -890,8 +1028,28 @@ function nullableInteger(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function centsToInput(value: number | null) {
-  if (value === null) return "";
+function percentageToBasisPoints(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
+}
+
+function basisPointsToPercentageInput(value: number | null | undefined) {
+  if (value == null) return "50";
+  return (value / 100).toLocaleString("it-IT", {
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatPercentageBasisPoints(value: number | null | undefined) {
+  if (value == null) return "0%";
+  return `${(value / 100).toLocaleString("it-IT", {
+    maximumFractionDigits: 2,
+  })}%`;
+}
+
+function centsToInput(value: number | null | undefined) {
+  if (value == null) return "";
   return (value / 100).toFixed(2).replace(".", ",");
 }
 

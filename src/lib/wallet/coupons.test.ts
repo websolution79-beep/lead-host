@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  calculatePercentageBonusCents,
   normalizeCouponCode,
   resolveCouponTier,
   validateCouponTiers,
@@ -15,6 +16,33 @@ const launchTiers: WalletCouponTier[] = [
 
 test("normalizes coupon codes", () => {
   assert.equal(normalizeCouponCode(" lancio 2026 "), "LANCIO2026");
+});
+
+test("calculates percentage bonuses and applies the per-use cap", () => {
+  assert.equal(
+    calculatePercentageBonusCents({
+      paidAmountCents: 10_000,
+      percentageBasisPoints: 5_000,
+      maxBonusCents: 20_000,
+    }),
+    5_000,
+  );
+  assert.equal(
+    calculatePercentageBonusCents({
+      paidAmountCents: 50_000,
+      percentageBasisPoints: 5_000,
+      maxBonusCents: 20_000,
+    }),
+    20_000,
+  );
+  assert.equal(
+    calculatePercentageBonusCents({
+      paidAmountCents: 10_001,
+      percentageBasisPoints: 3_333,
+      maxBonusCents: null,
+    }),
+    3_333,
+  );
 });
 
 test("resolves launch bonus brackets", () => {

@@ -2703,6 +2703,10 @@ export type Database = {
           max_total_redemptions: number | null;
           max_redemptions_per_profile: number;
           bonus_budget_cents: number | null;
+          bonus_mode: "fixed_tiers" | "percentage";
+          bonus_percentage_basis_points: number | null;
+          percentage_min_paid_cents: number | null;
+          max_bonus_per_redemption_cents: number | null;
           created_by: string | null;
           updated_by: string | null;
           created_at: string;
@@ -2721,6 +2725,10 @@ export type Database = {
           max_total_redemptions?: number | null;
           max_redemptions_per_profile?: number;
           bonus_budget_cents?: number | null;
+          bonus_mode?: "fixed_tiers" | "percentage";
+          bonus_percentage_basis_points?: number | null;
+          percentage_min_paid_cents?: number | null;
+          max_bonus_per_redemption_cents?: number | null;
           created_by?: string | null;
           updated_by?: string | null;
           created_at?: string;
@@ -2739,6 +2747,10 @@ export type Database = {
           max_total_redemptions?: number | null;
           max_redemptions_per_profile?: number;
           bonus_budget_cents?: number | null;
+          bonus_mode?: "fixed_tiers" | "percentage";
+          bonus_percentage_basis_points?: number | null;
+          percentage_min_paid_cents?: number | null;
+          max_bonus_per_redemption_cents?: number | null;
           created_by?: string | null;
           updated_by?: string | null;
           created_at?: string;

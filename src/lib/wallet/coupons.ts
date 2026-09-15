@@ -10,6 +10,26 @@ export type WalletCouponTier = {
   bonusCents: number;
 };
 
+export type WalletCouponBonusMode = "fixed_tiers" | "percentage";
+
+export function calculatePercentageBonusCents({
+  paidAmountCents,
+  percentageBasisPoints,
+  maxBonusCents,
+}: {
+  paidAmountCents: number;
+  percentageBasisPoints: number;
+  maxBonusCents: number | null;
+}) {
+  const calculated = Math.round(
+    (paidAmountCents * percentageBasisPoints) / 10_000,
+  );
+
+  return maxBonusCents === null
+    ? calculated
+    : Math.min(calculated, maxBonusCents);
+}
+
 export type WalletCouponPreview = {
   couponId: string;
   code: string;
@@ -132,14 +152,25 @@ export async function previewWalletTopUpCoupon({
   paidAmountCents: number;
 }) {
   const rpcClient = supabase as unknown as CouponRpcClient;
-  const { data, error } = await rpcClient.rpc(
-    "preview_wallet_top_up_coupon",
+  let { data, error } = await rpcClient.rpc(
+    "preview_wallet_top_up_coupon_v2",
     {
       p_profile_id: profileId,
       p_code: normalizeCouponCode(code),
       p_paid_amount_cents: paidAmountCents,
     },
   );
+
+  if (isMissingV2CouponFunction(error)) {
+    ({ data, error } = await rpcClient.rpc(
+      "preview_wallet_top_up_coupon",
+      {
+        p_profile_id: profileId,
+        p_code: normalizeCouponCode(code),
+        p_paid_amount_cents: paidAmountCents,
+      },
+    ));
+  }
 
   if (error || !data?.[0]) {
     throw mapCouponRpcError(error);
@@ -164,8 +195,8 @@ export async function reserveWalletTopUpCoupon({
   expiresAt: string;
 }) {
   const rpcClient = supabase as unknown as CouponRpcClient;
-  const { data, error } = await rpcClient.rpc(
-    "reserve_wallet_top_up_coupon",
+  let { data, error } = await rpcClient.rpc(
+    "reserve_wallet_top_up_coupon_v2",
     {
       p_profile_id: profileId,
       p_wallet_transaction_id: walletTransactionId,
@@ -174,6 +205,19 @@ export async function reserveWalletTopUpCoupon({
       p_expires_at: expiresAt,
     },
   );
+
+  if (isMissingV2CouponFunction(error)) {
+    ({ data, error } = await rpcClient.rpc(
+      "reserve_wallet_top_up_coupon",
+      {
+        p_profile_id: profileId,
+        p_wallet_transaction_id: walletTransactionId,
+        p_code: normalizeCouponCode(code),
+        p_paid_amount_cents: paidAmountCents,
+        p_expires_at: expiresAt,
+      },
+    ));
+  }
 
   if (error || !data?.[0]) {
     throw mapCouponRpcError(error);
@@ -235,6 +279,14 @@ function mapPreview(row: CouponPreviewRow): WalletCouponPreview {
     firstTopUpOnly: row.first_top_up_only,
     validUntil: row.valid_until,
   };
+}
+
+function isMissingV2CouponFunction(error: RpcError | null) {
+  const source = `${error?.message ?? ""} ${error?.code ?? ""}`.toLowerCase();
+
+  return source.includes("pgrst202")
+    || source.includes("could not find the function")
+    || source.includes("does not exist");
 }
 
 export function mapCouponRpcError(error: RpcError | null) {
@@ -314,7 +366,7 @@ export function mapCouponRpcError(error: RpcError | null) {
 type CouponRpcClient = {
   rpc: {
     (
-      fn: "preview_wallet_top_up_coupon",
+      fn: "preview_wallet_top_up_coupon" | "preview_wallet_top_up_coupon_v2",
       args: {
         p_profile_id: string;
         p_code: string;
@@ -325,7 +377,7 @@ type CouponRpcClient = {
       error: RpcError | null;
     }>;
     (
-      fn: "reserve_wallet_top_up_coupon",
+      fn: "reserve_wallet_top_up_coupon" | "reserve_wallet_top_up_coupon_v2",
       args: {
         p_profile_id: string;
         p_wallet_transaction_id: string;

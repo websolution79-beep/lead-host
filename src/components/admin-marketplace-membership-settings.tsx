@@ -8,7 +8,7 @@ import { useAppSession } from "@/components/app-session-provider";
 import type { MarketplaceMembershipSettings } from "@/lib/marketplace-membership/policy";
 
 type Result = { settings?: MarketplaceMembershipSettings; activationAvailable?: boolean;
-  storageReady?: boolean; error?: string; stripeProductId?: string | null };
+  storageReady?: boolean; error?: string; stripeProductId?: string | null; stripePriceId?: string | null };
 const money = (cents: number) => new Intl.NumberFormat("it-IT", {
   style: "currency", currency: "EUR",
 }).format(cents / 100);
@@ -80,7 +80,9 @@ export function AdminMarketplaceMembershipSettings() {
       });
       const result: Result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Salvataggio non riuscito.");
-      setSuccess("Configurazione Marketplace salvata.");
+      setSuccess(result.stripePriceId
+        ? "Configurazione salvata e prezzo mensile preparato su Stripe. Gli abbonamenti esistenti non cambiano."
+        : "Configurazione Marketplace salvata.");
     } catch (e) { setError(e instanceof Error ? e.message : "Salvataggio non riuscito."); }
     finally { setSaving(false); }
   }

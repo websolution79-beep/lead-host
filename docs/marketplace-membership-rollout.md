@@ -19,7 +19,8 @@
 - [x] Prepare pure, tested access and pricing policy; not wired into production routes.
 - [x] Apply and verify foundation migration (draft product, disabled checkout and paid access).
 - [x] Add Settings / Marketplace admin UI, audit and guarded activation. Settings JSON is the canonical configuration; catalog synchronization follows in the Stripe phase. Activation remains hard-disabled server-side.
-- [ ] Open Stripe dashboard for user login before creating Marketplace Lead Host product.
+- [x] Open Stripe dashboard for user login; create and verify linked Marketplace product through authenticated admin action.
+- [x] Prepare immutable EUR monthly prices on admin save, storing the price ID atomically with the settings snapshot. Existing prices and subscriptions remain unchanged; checkout is still disabled.
 - [ ] Implement price snapshots, checkout reuse, trial eligibility and terms acceptance.
 - [ ] Implement webhook reconciliation, payment history and recovery of out-of-order events.
 - [ ] Add offer page and server-side restrictions for lists, details, purchase APIs and database purchase functions/RLS.

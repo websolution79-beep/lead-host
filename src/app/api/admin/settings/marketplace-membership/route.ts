@@ -3,7 +3,8 @@ import Stripe from "stripe";
 import { getEnv } from "@/lib/env";
 import { AdminApiError, adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
-import { marketplaceMembershipSettingsSchema } from "@/lib/marketplace-membership/policy";
+import { marketplaceMembershipSettingsSchema, marketplaceMonthlyPrice } from "@/lib/marketplace-membership/policy";
+import { ensureMarketplacePrice } from "@/lib/marketplace-membership/stripe-price";
 import {
   fetchMarketplaceMembershipSettings, MARKETPLACE_MEMBERSHIP_SETTINGS_KEY,
   MARKETPLACE_MEMBERSHIP_ROLLOUT_READY,
@@ -81,14 +82,26 @@ export async function PATCH(request: NextRequest) {
     }
     const previous = await fetchMarketplaceMembershipSettings(supabase);
     if (!previous.storageReady) throw new AdminApiError(409, "Configurazione Marketplace non disponibile.");
+    const { data: product, error: productError } = await supabase.from("addon_products")
+      .select("stripe_product_id").eq("slug", "marketplace").single();
+    if (productError) throw productError;
+    const amount = marketplaceMonthlyPrice(settings);
+    let stripePriceId: string | null = null;
+    if (product.stripe_product_id && amount !== null) {
+      const key = getEnv("STRIPE_SECRET_KEY");
+      if (!key) throw new AdminApiError(503, "Stripe non configurato sul server.");
+      stripePriceId = await ensureMarketplacePrice(new Stripe(key), product.stripe_product_id, amount);
+    }
+    // Persist configuration and its immutable price together in the same row.
+    // Do not mutate addon billing or existing subscriptions during preparation.
     const { error } = await supabase.from("settings").update({
-      value: settings, updated_by: profile.id,
+      value: { ...settings, stripePriceId }, updated_by: profile.id,
     }).eq("key", MARKETPLACE_MEMBERSHIP_SETTINGS_KEY);
     if (error) throw error;
     await writeAdminAuditLog({ supabase, request, actorProfileId: profile.id, isSuperAdmin,
       entityType: "marketplace_membership_settings", action: "settings.marketplace_membership_updated",
       before: previous.settings, after: settings });
-    return NextResponse.json({ settings, storageReady: true,
+    return NextResponse.json({ settings, storageReady: true, stripePriceId,
       activationAvailable: MARKETPLACE_MEMBERSHIP_ROLLOUT_READY });
   } catch (error) { return adminApiErrorResponse(error); }
 }

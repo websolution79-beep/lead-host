@@ -36,7 +36,7 @@ type PaymentRow = {
 
 type BillingInvoiceRow = {
   id: string;
-  source_type: "wallet_top_up" | "prime_billing";
+  source_type: "wallet_top_up" | "prime_billing" | "marketplace_subscription";
   wallet_transaction_id: string | null;
   prime_billing_period_id: string | null;
   line_items: Json;
@@ -435,6 +435,105 @@ export async function generatePrimeBillingInvoiceSafely(
       error instanceof Error ? error.message : "Errore sconosciuto.",
     );
     return { status: "failed" as const };
+  }
+}
+
+export async function generateMarketplaceInvoice({
+  supabase, marketplacePaymentId, actorProfileId = null,
+}: {
+  supabase: ServiceClient;
+  marketplacePaymentId: string;
+  actorProfileId?: string | null;
+}) {
+  const { data: payment, error: paymentError } = await supabase.from("addon_payments")
+    .select("*").eq("id", marketplacePaymentId).single();
+  if (paymentError) throw paymentError;
+  const { data: product, error: productError } = await supabase.from("addon_products")
+    .select("slug").eq("id", payment.addon_product_id).single();
+  if (productError) throw productError;
+  if (product.slug !== "marketplace" || payment.status !== "paid" ||
+    !payment.paid_at || payment.amount_cents <= 0 || payment.currency.toLowerCase() !== "eur") {
+    throw new Error("La fattura richiede un pagamento Marketplace completato in EUR.");
+  }
+  const { settings, storageReady } = await fetchBillingIssuerSettings(supabase);
+  if (!storageReady) throw new Error("Database fatturazione non aggiornato.");
+  async function findInvoice() {
+    const { data, error } = await supabase.from("billing_invoices").select("*")
+      .eq("marketplace_payment_id", marketplacePaymentId).maybeSingle();
+    if (error) throw error;
+    return data as unknown as BillingInvoiceRow | null;
+  }
+  let invoice = await findInvoice();
+  if (!invoice) {
+    const customer = await loadCurrentCustomerSnapshot(supabase, payment.profile_id, payment.paid_at);
+    const dateFormat = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome" });
+    const period = payment.billing_period_started_at && payment.billing_period_ends_at
+      ? ` - periodo ${dateFormat.format(new Date(payment.billing_period_started_at))} / ${dateFormat.format(new Date(payment.billing_period_ends_at))}`
+      : "";
+    const lineItems: BillingInvoiceLine[] = [{ code: "marketplace_subscription",
+      description: `Abbonamento Marketplace Lead Host${period}`, amountCents: payment.amount_cents }];
+    const { error } = await supabase.from("billing_invoices").insert({
+      source_type: "marketplace_subscription", marketplace_payment_id: payment.id,
+      wallet_transaction_id: null, prime_billing_period_id: null, payment_id: null,
+      profile_id: payment.profile_id, status: "pending", amount_cents: payment.amount_cents,
+      currency: payment.currency.toUpperCase(),
+      stripe_payment_intent_id: payment.provider_payment_intent_id,
+      stripe_checkout_session_id: payment.provider_checkout_session_id,
+      issuer_snapshot: settings as unknown as Json,
+      customer_snapshot: customer as unknown as Json, line_items: lineItems as unknown as Json,
+    });
+    if (error && error.code !== "23505") throw error;
+    invoice = await findInvoice();
+    if (!invoice) throw new Error("Fattura Marketplace non creata.");
+  }
+  // Webhook retries must never regenerate a finalized or exported document.
+  if (["ready", "downloaded", "imported", "sent", "cancelled"].includes(invoice.status)) return invoice;
+  if (invoice.status === "generating") {
+    const cutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+    const { data: recovered, error: recoverError } = await supabase.from("billing_invoices")
+      .update({ status: "error", last_error: "Ripresa generazione interrotta." })
+      .eq("id", invoice.id).eq("status", "generating").lt("updated_at", cutoff)
+      .select("id").maybeSingle();
+    if (recoverError) throw recoverError;
+    if (!recovered) throw new Error("Generazione fattura Marketplace gia in corso.");
+  }
+  const { data: claimed, error: claimError } = await supabase.from("billing_invoices")
+    .update({ status: "generating", generation_attempts: invoice.generation_attempts + 1,
+      last_error: null }).eq("id", invoice.id).in("status", ["pending", "error"])
+    .select("id").maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimed) throw new Error("Fattura Marketplace gia in lavorazione. Riprovare.");
+  try {
+    const issuer = parseIssuerSnapshot(invoice.issuer_snapshot);
+    const customer = parseCustomerSnapshot(invoice.customer_snapshot);
+    const lineItems = parseInvoiceLineItems(invoice.line_items);
+    const result = generateFatturaPaXml({ issuer, customer,
+      transmissionProgressive: invoice.transmission_progressive,
+      provisionalNumber: invoice.provisional_number, documentDate: invoice.document_date,
+      source: { walletTransactionId: null, primeBillingPeriodId: null, paymentId: null,
+        profileId: payment.profile_id, amountCents: invoice.amount_cents, currency: invoice.currency,
+        completedAt: payment.paid_at, stripePaymentIntentId: payment.provider_payment_intent_id,
+        stripeCheckoutSessionId: payment.provider_checkout_session_id, lineItems,
+        description: "Abbonamento Marketplace Lead Host" },
+    });
+    const updated = await updateInvoice(supabase, invoice.id, {
+      status: "ready", provisional_number: result.provisionalNumber,
+      document_date: result.documentDate, xml_content: result.xml,
+      xml_sha256: createHash("sha256").update(result.xml, "utf8").digest("hex"),
+      stamp_duty_applied: result.stampDutyApplied, stamp_duty_amount_cents: result.stampDutyAmountCents,
+      generated_at: new Date().toISOString(), last_error: null,
+    });
+    try {
+      await recordInvoiceEvent(supabase, { invoiceId: invoice.id, eventType: "xml_generated",
+        actorProfileId, details: { marketplace_payment_id: payment.id } });
+    } catch (auditError) {
+      console.error("Marketplace invoice audit failed:", auditError);
+    }
+    return updated;
+  } catch (error) {
+    await updateInvoice(supabase, invoice.id, { status: "error",
+      last_error: error instanceof Error ? error.message : "Generazione XML non completata." });
+    throw error;
   }
 }
 

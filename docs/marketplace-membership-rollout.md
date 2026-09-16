@@ -27,10 +27,10 @@
 - [ ] Add profile management and cancellation; account deactivation blocker.
 - [ ] Add idempotent PRIME-triggered cancellation and retry/reconciliation (including simultaneous checkouts).
 - [ ] Add Marketplace payments/admin subscribers, analytics, billing and email templates.
-- [x] Inspect existing PRIME FatturaPA generation and prepare additive Marketplace invoice source migration 202609160002 (not applied).
-- [ ] Apply and verify 202609160002 before connecting Marketplace invoice generation.
-- [ ] Generate one Marketplace FatturaPA invoice per successful initial or recurring payment, using the existing issuer configuration and billing customer snapshots.
-- [ ] Extend invoice archive labels, filters, download, regeneration and recovery for Marketplace; retain unique payment linkage for webhook retries.
+- [x] Inspect existing PRIME FatturaPA generation and prepare additive Marketplace invoice source migration 202609160002.
+- [x] User applied 202609160002; read-only verification confirms the new column is queryable and the Marketplace payment/product join works. No test rows inserted.
+- [x] Connect Marketplace paid invoices to the existing FatturaPA XML generator and issuer configuration, with customer/issuer snapshots, settled amounts and billed period. Automatic generation respects issuer settings.
+- [x] Add Marketplace archive filter and manual generation/recovery endpoint. Existing XML downloads use the same invoice IDs. Unique payment linkage, conditional generation claim and finalized-document reuse protect retries; stale generation can recover after five minutes.
 - [ ] Test initial paid signup, paid conversion after trial, renewals, duplicate and delayed webhooks, billing-data failures and recovery. Zero-value trial invoices and failed payments must not generate fiscal invoices.
 - [ ] Verify desktop/mobile and integration scenarios before enabling checkout or paid access.
 
@@ -59,6 +59,12 @@ Use the actual settled payment amount, not today's configured catalog price.
 The invoice line is "Abbonamento Marketplace Lead Host", with the billed period.
 Marketplace membership has no wallet component and must not credit the wallet.
 Invoice generation failure must be visible and recoverable independently of paid access.
+The Marketplace webhook persists subscription access before XML generation and returns
+a retryable failure if automatic generation fails. Other products retain their existing paths.
+Marketing activation messages are excluded for Marketplace checkouts.
+Verification: TypeScript, targeted ESLint and 16 policy/catalog/XML/fiscal tests passed.
+Live checkout, concurrent webhook delivery and authenticated responsive UI verification
+remain pending before enabling Marketplace sales; no live payments used during development.
 The new nullable payment reference and unique index do not rewrite old invoices.
 Migration uses short lock/statement timeouts; if busy, retry later rather than
 removing timeouts during live traffic. Paid access and checkout remain disabled.

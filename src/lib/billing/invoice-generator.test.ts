@@ -130,6 +130,20 @@ test("generates a PRIME invoice with separate startup and membership lines", () 
   assert.match(result.xml, /<ImponibileImporto>99\.00<\/ImponibileImporto>/);
 });
 
+test("generates Marketplace invoices without PRIME or wallet lines", () => {
+  for (const amount of [2900, 3900]) {
+    const input = buildInput(amount);
+    input.source = { ...input.source, walletTransactionId: null, paymentId: null,
+      description: "Abbonamento Marketplace Lead Host",
+      lineItems: [{ code: "marketplace_subscription", description: "Abbonamento Marketplace Lead Host",
+        amountCents: amount }] };
+    const result = generateFatturaPaXml(input);
+    assert.match(result.xml, /<Descrizione>Abbonamento Marketplace Lead Host<\/Descrizione>/);
+    assert.ok(result.xml.includes(`<ImportoTotaleDocumento>${(amount / 100).toFixed(2)}</ImportoTotaleDocumento>`));
+    assert.doesNotMatch(result.xml, /<NumeroLinea>2<\/NumeroLinea>|Ricarica Wallet|Membership Lead Host PRIME/);
+  }
+});
+
 test("rejects invoice lines whose total differs from the payment", () => {
   const input = buildInput(9900);
   input.source.lineItems = [

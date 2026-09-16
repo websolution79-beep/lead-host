@@ -181,7 +181,8 @@ export type Database = {
       billing_invoices: {
         Row: {
           id: string;
-          source_type: "wallet_top_up" | "prime_billing";
+          source_type: "wallet_top_up" | "prime_billing" | "marketplace_subscription";
+          marketplace_payment_id: string | null;
           wallet_transaction_id: string | null;
           prime_billing_period_id: string | null;
           line_items: Json;
@@ -214,7 +215,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          source_type?: "wallet_top_up" | "prime_billing";
+          source_type?: "wallet_top_up" | "prime_billing" | "marketplace_subscription";
+          marketplace_payment_id?: string | null;
           wallet_transaction_id?: string | null;
           prime_billing_period_id?: string | null;
           line_items?: Json;

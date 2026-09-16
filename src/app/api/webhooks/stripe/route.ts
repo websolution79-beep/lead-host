@@ -12,8 +12,10 @@ import { queuePurchaseTrackingEvent } from "@/lib/tracking/server-events";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import {
   generatePrimeBillingInvoiceSafely,
+  generateMarketplaceInvoice,
   generateWalletTopUpInvoiceSafely,
 } from "@/lib/billing/invoices";
+import { fetchBillingIssuerSettings } from "@/lib/billing/invoice-settings";
 import { cancelWalletTopUpCouponReservation } from "@/lib/wallet/coupons";
 import {
   getInvoiceBillingPeriod,
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
       if (session.metadata?.kind === "addon_subscription") {
         const result = await completeAddonSubscription(stripe, session);
         after(async () => {
+          if (session.metadata?.addon_slug === "marketplace") return;
           await sendMarketingAddonActivationEmails({
             profileId: result.profileId,
             subscriptionId: result.subscriptionId,
@@ -212,7 +215,8 @@ export async function POST(request: NextRequest) {
       const invoice = await stripe.invoices.retrieve(eventInvoice.id, {
         expand: ["payments.data.payment.payment_intent"],
       });
-      const paymentStatus = event.type === "invoice.paid"
+      const isMarketplace = invoice.parent?.subscription_details?.metadata?.addon_slug === "marketplace";
+      const paymentStatus = (isMarketplace ? invoice.status === "paid" : event.type === "invoice.paid")
         ? "paid"
         : event.type === "invoice.payment_action_required"
           ? "pending"
@@ -271,6 +275,18 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      if (isMarketplace && !result.ignored && paymentStatus === "paid" && invoice.amount_paid > 0) {
+        const db = createServiceSupabaseClient();
+        const { settings, storageReady } = await fetchBillingIssuerSettings(db);
+        if (!storageReady) throw new Error("Archivio fatture Marketplace non disponibile.");
+        if (settings.autoGenerateInvoices) {
+          const { data: payment, error } = await db.from("addon_payments").select("id")
+            .eq("provider", "stripe").eq("provider_invoice_id", eventInvoice.id).single();
+          if (error) throw error;
+          // Billing failure is retryable after payment/access have been persisted.
+          await generateMarketplaceInvoice({ supabase: db, marketplacePaymentId: payment.id });
+        }
+      }
       return NextResponse.json({ received: true, result, primeResult });
     }
 

@@ -8,7 +8,7 @@ import type {
 } from "@/lib/billing/invoice-types";
 import type { Json } from "@/lib/supabase/database.types";
 
-type SourceType = "wallet_top_up" | "prime_billing";
+type SourceType = "wallet_top_up" | "prime_billing" | "marketplace_subscription";
 
 type PaymentLookupRow = {
   id: string;
@@ -21,6 +21,7 @@ type InvoiceRow = {
   source_type: SourceType;
   wallet_transaction_id: string | null;
   prime_billing_period_id: string | null;
+  marketplace_payment_id: string | null;
   payment_id: string | null;
   profile_id: string;
   status: BillingInvoiceStatus;
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
     const status = allowedStatuses.has(requestedStatus ?? "")
       ? requestedStatus!
       : "all";
-    const source = ["all", "wallet_top_up", "prime_billing"].includes(
+    const source = ["all", "wallet_top_up", "prime_billing", "marketplace_subscription"].includes(
       requestedSource ?? "",
     )
       ? requestedSource!
@@ -84,7 +85,7 @@ export async function GET(request: NextRequest) {
 
     const [transactionsResult, primePeriodsResult, allInvoiceResult] =
       await Promise.all([
-        source !== "prime_billing"
+        (source === "all" || source === "wallet_top_up")
           ? supabase
               .from("wallet_transactions")
               .select(
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
               .order("completed_at", { ascending: false })
               .limit(2000)
           : Promise.resolve({ data: [], error: null }),
-        source !== "wallet_top_up"
+        (source === "all" || source === "prime_billing")
           ? supabase
               .from("prime_billing_periods")
               .select(
@@ -112,6 +113,21 @@ export async function GET(request: NextRequest) {
     if (primePeriodsResult.error) throw primePeriodsResult.error;
     if (allInvoiceResult.error) throw allInvoiceResult.error;
 
+    const marketplaceResult = (source === "all" || source === "marketplace_subscription")
+      ? await supabase.from("addon_payments").select("*,addon_products!inner(slug)")
+        .eq("addon_products.slug", "marketplace").eq("status", "paid").gt("amount_cents", 0)
+        .order("paid_at", { ascending: false }).limit(2000)
+      : { data: [], error: null };
+    if (marketplaceResult.error) throw marketplaceResult.error;
+    const marketplacePayments = marketplaceResult.data ?? [];
+    const marketplaceIds = marketplacePayments.map(item => item.id);
+    const marketplaceInvoicesResult = marketplaceIds.length
+      ? await supabase.from("billing_invoices").select("*").in("marketplace_payment_id", marketplaceIds)
+      : { data: [], error: null };
+    if (marketplaceInvoicesResult.error) throw marketplaceInvoicesResult.error;
+    const marketplaceInvoices = new Map(((marketplaceInvoicesResult.data ?? []) as unknown as InvoiceRow[])
+      .map(item => [item.marketplace_payment_id, item]));
+
     const transactions = transactionsResult.data ?? [];
     const primePeriods = primePeriodsResult.data ?? [];
     const transactionIds = transactions.map((item) => item.id);
@@ -120,6 +136,7 @@ export async function GET(request: NextRequest) {
       new Set([
         ...transactions.map((item) => item.profile_id),
         ...primePeriods.map((item) => item.profile_id),
+        ...marketplacePayments.map((item) => item.profile_id),
       ]),
     );
     const checkoutSessionIds = transactions
@@ -236,7 +253,18 @@ export async function GET(request: NextRequest) {
       });
     });
 
-    const filteredRows = [...walletRows, ...primeRows]
+    const marketplaceRows = marketplacePayments.map(payment => {
+      const invoice = marketplaceInvoices.get(payment.id) ?? null;
+      return buildRow({ sourceType: "marketplace_subscription", sourceId: payment.id,
+        profile: profilesById.get(payment.profile_id), profileId: payment.profile_id,
+        amountCents: payment.amount_cents, completedAt: payment.paid_at ?? payment.created_at,
+        stripePaymentIntentId: payment.provider_payment_intent_id,
+        stripeCheckoutSessionId: payment.provider_checkout_session_id, invoice,
+        lineItems: invoice ? parseLines(invoice.line_items) : [{ code: "marketplace_subscription",
+          description: "Abbonamento Marketplace Lead Host", amountCents: payment.amount_cents }],
+        sourceLabel: payment.payment_kind === "initial" ? "Attivazione Marketplace" : "Rinnovo Marketplace" });
+    });
+    const filteredRows = [...walletRows, ...primeRows, ...marketplaceRows]
       .filter((row) => matchesStatus(row.invoice, status))
       .sort(
         (left, right) =>

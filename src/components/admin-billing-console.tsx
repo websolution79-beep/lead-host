@@ -25,7 +25,7 @@ import {
 } from "@/components/pagination-controls";
 
 type ActiveTab = "settings" | "invoices";
-type SourceFilter = "all" | "wallet_top_up" | "prime_billing";
+type SourceFilter = "all" | "wallet_top_up" | "prime_billing" | "marketplace_subscription";
 type FilterStatus =
   | "all"
   | "not_generated"
@@ -222,6 +222,8 @@ export function AdminBillingConsole() {
     const url =
       row.sourceType === "prime_billing"
         ? `/api/admin/billing/prime/${row.primeBillingPeriodId}/generate`
+        : row.sourceType === "marketplace_subscription"
+          ? `/api/admin/billing/marketplace/${row.sourceId}/generate`
         : `/api/admin/billing/top-ups/${row.walletTransactionId}/generate`;
     await runInvoiceAction(
       row.sourceId,
@@ -547,6 +549,7 @@ function InvoicesPanel({
                   ["all", "Tutte le origini"],
                   ["wallet_top_up", "Wallet"],
                   ["prime_billing", "PRIME"],
+                  ["marketplace_subscription", "Marketplace"],
                 ] as [SourceFilter, string][]
               ).map(([value, label]) => (
                 <button

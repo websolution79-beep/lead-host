@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Link2 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { useAppSession } from "@/components/app-session-provider";
 import type { MarketplaceMembershipSettings } from "@/lib/marketplace-membership/policy";
 
 type Result = { settings?: MarketplaceMembershipSettings; activationAvailable?: boolean;
-  storageReady?: boolean; error?: string };
+  storageReady?: boolean; error?: string; stripeProductId?: string | null };
 const money = (cents: number) => new Intl.NumberFormat("it-IT", {
   style: "currency", currency: "EUR",
 }).format(cents / 100);
@@ -26,6 +26,7 @@ export function AdminMarketplaceMembershipSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [stripeProductId, setStripeProductId] = useState<string | null>(null);
   useEffect(() => {
     if (!session.isSuperAdmin) return;
     let cancelled = false;
@@ -44,11 +45,27 @@ export function AdminMarketplaceMembershipSettings() {
         setPromoEnabled(result.settings.promoEnabled);
         setPaidEnabled(result.settings.paidAccessEnabled);
         setActivationAvailable(Boolean(result.activationAvailable));
+        setStripeProductId(result.stripeProductId ?? null);
         setReady(true);
       } catch (e) { if (!cancelled) setError(e instanceof Error ? e.message : "Caricamento non riuscito."); }
     })();
     return () => { cancelled = true; };
   }, [db, session.isSuperAdmin]);
+
+  async function connectStripe() {
+    setSaving(true); setError(""); setSuccess("");
+    try {
+      const { data } = await db.auth.getSession();
+      const response = await fetch("/api/admin/settings/marketplace-membership", {
+        method: "POST", headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
+      });
+      const result: Result = await response.json();
+      if (!response.ok || !result.stripeProductId) throw new Error(result.error ?? "Collegamento Stripe non riuscito.");
+      setStripeProductId(result.stripeProductId);
+      setSuccess("Prodotto Marketplace collegato a Stripe. Gli acquisti restano disabilitati.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Collegamento non riuscito."); }
+    finally { setSaving(false); }
+  }
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setSuccess("");
@@ -104,6 +121,13 @@ export function AdminMarketplaceMembershipSettings() {
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {success && <p role="status" className="text-sm text-green">{success}</p>}
+      <div className="border-b border-slate-200 pb-5">
+        <h2 className="text-lg font-semibold">Collegamento Stripe</h2>
+        {stripeProductId ? <p className="mt-2 text-sm text-green">Marketplace Lead Host collegato.</p> :
+          <button type="button" onClick={connectStripe} disabled={!ready || saving} className="btn btn-secondary mt-3 w-full sm:w-auto">
+            <Link2 size={17} /> Crea e collega prodotto Stripe
+          </button>}
+      </div>
       <button type="submit" className="btn btn-primary w-full sm:w-auto" disabled={!ready || saving}><Save size={17} />{saving ? "Salvataggio..." : "Salva configurazione"}</button>
     </form>
   </div>;

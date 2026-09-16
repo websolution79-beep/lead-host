@@ -17,8 +17,8 @@
 - [x] Verify manual backup run 35059292006: database, storage, external verification and admin report all succeeded.
 - [x] Prepare additive migration 202609160001, disabled settings and draft product.
 - [x] Prepare pure, tested access and pricing policy; not wired into production routes.
-- [ ] Apply and verify foundation migration.
-- [ ] Add Settings / Marketplace admin UI, audit and guarded activation.
+- [x] Apply and verify foundation migration (draft product, disabled checkout and paid access).
+- [x] Add Settings / Marketplace admin UI, audit and guarded activation. Settings JSON is the canonical configuration; catalog synchronization follows in the Stripe phase. Activation remains hard-disabled server-side.
 - [ ] Open Stripe dashboard for user login before creating Marketplace Lead Host product.
 - [ ] Implement price snapshots, checkout reuse, trial eligibility and terms acceptance.
 - [ ] Implement webhook reconciliation, payment history and recovery of out-of-order events.

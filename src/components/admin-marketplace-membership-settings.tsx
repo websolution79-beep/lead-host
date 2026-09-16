@@ -89,6 +89,17 @@ export function AdminMarketplaceMembershipSettings() {
   return <div className="min-w-0 space-y-6">
     <Link href="/admin/impostazioni" className="inline-flex items-center gap-2 text-sm font-semibold text-green"><ArrowLeft size={16} />Impostazioni</Link>
     <form onSubmit={save} className="min-w-0 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <h2 className="text-lg font-semibold">Collegamento Stripe</h2>
+          <p className={`mt-2 text-sm ${stripeProductId ? "text-green" : "text-muted"}`}>
+            {!ready ? "Caricamento..." : stripeProductId ? "Marketplace Lead Host collegato." : "Prodotto Marketplace non ancora collegato."}
+          </p>
+        </div>
+        {!stripeProductId && <button type="button" onClick={connectStripe} disabled={!ready || saving} className="btn btn-primary w-full sm:w-auto">
+          <Link2 size={17} /> Crea e collega prodotto Stripe
+        </button>}
+      </div>
       <div className="border-b border-slate-200 pb-6">
         <h2 className="text-xl font-semibold text-ink">Accesso al Marketplace</h2>
         <label className="mt-4 flex items-start gap-3 font-semibold">
@@ -121,13 +132,6 @@ export function AdminMarketplaceMembershipSettings() {
       </div>
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       {success && <p role="status" className="text-sm text-green">{success}</p>}
-      <div className="border-b border-slate-200 pb-5">
-        <h2 className="text-lg font-semibold">Collegamento Stripe</h2>
-        {stripeProductId ? <p className="mt-2 text-sm text-green">Marketplace Lead Host collegato.</p> :
-          <button type="button" onClick={connectStripe} disabled={!ready || saving} className="btn btn-secondary mt-3 w-full sm:w-auto">
-            <Link2 size={17} /> Crea e collega prodotto Stripe
-          </button>}
-      </div>
       <button type="submit" className="btn btn-primary w-full sm:w-auto" disabled={!ready || saving}><Save size={17} />{saving ? "Salvataggio..." : "Salva configurazione"}</button>
     </form>
   </div>;

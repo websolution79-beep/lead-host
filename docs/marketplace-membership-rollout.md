@@ -27,6 +27,11 @@
 - [ ] Add profile management and cancellation; account deactivation blocker.
 - [ ] Add idempotent PRIME-triggered cancellation and retry/reconciliation (including simultaneous checkouts).
 - [ ] Add Marketplace payments/admin subscribers, analytics, billing and email templates.
+- [x] Inspect existing PRIME FatturaPA generation and prepare additive Marketplace invoice source migration 202609160002 (not applied).
+- [ ] Apply and verify 202609160002 before connecting Marketplace invoice generation.
+- [ ] Generate one Marketplace FatturaPA invoice per successful initial or recurring payment, using the existing issuer configuration and billing customer snapshots.
+- [ ] Extend invoice archive labels, filters, download, regeneration and recovery for Marketplace; retain unique payment linkage for webhook retries.
+- [ ] Test initial paid signup, paid conversion after trial, renewals, duplicate and delayed webhooks, billing-data failures and recovery. Zero-value trial invoices and failed payments must not generate fiscal invoices.
 - [ ] Verify desktop/mobile and integration scenarios before enabling checkout or paid access.
 
 ## Integration findings
@@ -44,3 +49,16 @@ Foundation migration only inserts missing settings and a draft catalog entry. It
 The price examples in the discussion are not adopted as production settings: admin must configure actual prices and trial duration.
 Do not enable paidAccessEnabled until all protected paths and billing tests pass.
 Keep Stripe IDs and credentials out of this document. No customer emails or live payments during tests.
+
+## Marketplace invoicing
+
+The existing PRIME invoice generator produces FatturaPA XML in the billing archive;
+reuse that flow, not merely Stripe's hosted receipt. Do not imply automatic SDI
+transmission unless the existing platform workflow performs it.
+Use the actual settled payment amount, not today's configured catalog price.
+The invoice line is "Abbonamento Marketplace Lead Host", with the billed period.
+Marketplace membership has no wallet component and must not credit the wallet.
+Invoice generation failure must be visible and recoverable independently of paid access.
+The new nullable payment reference and unique index do not rewrite old invoices.
+Migration uses short lock/statement timeouts; if busy, retry later rather than
+removing timeouts during live traffic. Paid access and checkout remain disabled.

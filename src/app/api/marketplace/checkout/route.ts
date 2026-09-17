@@ -5,7 +5,7 @@ import { PropertyManagerApiError, propertyManagerApiErrorResponse, requireProper
 import { getBillingReadiness } from "@/lib/billing/server";
 import { getEnv, getRequestAppUrl } from "@/lib/env";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
-import { getPrimeAccessState } from "@/lib/prime/access";
+import { hasPrimeMarketplaceAccess } from "@/lib/marketplace-membership/access";
 import { fetchMarketplaceMembershipSettings, MARKETPLACE_MEMBERSHIP_ROLLOUT_READY } from "@/lib/marketplace-membership/settings";
 import { marketplaceMonthlyPrice } from "@/lib/marketplace-membership/policy";
 import { ensureMarketplacePrice } from "@/lib/marketplace-membership/stripe-price";
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     if (product.status !== "active" || !product.checkout_enabled || !product.stripe_product_id) {
       throw new PropertyManagerApiError(409, "Checkout Marketplace non disponibile.");
     }
-    if ((await getPrimeAccessState(profile.id, supabase)).hasAccess) {
+    if (await hasPrimeMarketplaceAccess(supabase, profile.id)) {
       throw new PropertyManagerApiError(409, "Il Marketplace e gia incluso nel tuo accesso PRIME.");
     }
     const billing = await getBillingReadiness(supabase, profile.id);

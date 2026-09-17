@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
+import { reconcilePrimeMarketplace } from "@/lib/marketplace-membership/prime-reconciliation";
 import { getEnv } from "@/lib/env";
 import {
   sendPrimeBillingEmails,
@@ -199,6 +200,9 @@ export async function POST(request: NextRequest) {
         reason: `Webhook Stripe: ${event.type}`,
       });
       const primeResult = await syncPrimeAccountFromStripeSubscription(subscription);
+      if (!result.ignored && (subscription.metadata.kind === "prime_subscription" || subscription.metadata.addon_slug === "marketplace")) {
+        await reconcilePrimeMarketplace(stripe, result.profileId);
+      }
       return NextResponse.json({ received: true, result, primeResult });
     }
 
@@ -286,6 +290,12 @@ export async function POST(request: NextRequest) {
           // Billing failure is retryable after payment/access have been persisted.
           await generateMarketplaceInvoice({ supabase: db, marketplacePaymentId: payment.id });
         }
+      }
+      if (!primeResult.ignored && primeResult.status === "paid") {
+        await reconcilePrimeMarketplace(stripe, primeResult.profile_id);
+      } else if (isMarketplace && !result.ignored) {
+        const profileId = invoice.parent?.subscription_details?.metadata?.profile_id;
+        if (profileId) await reconcilePrimeMarketplace(stripe, profileId);
       }
       return NextResponse.json({ received: true, result, primeResult });
     }
@@ -470,6 +480,9 @@ async function completeAddonSubscription(
   });
   if (result.ignored) {
     throw new Error(`Abbonamento Addon non sincronizzato: ${result.reason}`);
+  }
+  if (stripeSubscription.metadata.addon_slug === "marketplace") {
+    await reconcilePrimeMarketplace(stripe, result.profileId);
   }
 
   return {

@@ -26,6 +26,9 @@
 - [ ] Add offer page and server-side restrictions for lists, details, purchase APIs and database purchase functions/RLS.
 - [x] Add Marketplace subscription status and confirmed period-end cancellation in PM profile, and account deactivation blocker for renewable Marketplace subscriptions. No renewal reactivation endpoint is provided.
 - [ ] Add idempotent PRIME-triggered cancellation and retry/reconciliation (including simultaneous checkouts).
+- [x] Prepare webhook reconciliation on paid PRIME invoices and Marketplace subscription/checkout events. Validate Stripe product and ownership before scheduling period-end cancellation; skip already cancelled renewals. Guarded by the rollout flag.
+- [x] Add strict server access resolver preserving PRIME expiration/grace semantics; checkout aborts on PRIME lookup errors rather than assuming no PRIME access.
+- [ ] Wire access resolver into all routes and database protections, and add periodic reconciliation/manual PRIME grant handling and in-progress checkout race recovery before activating the rollout flag.
 - [ ] Add Marketplace payments/admin subscribers, analytics, billing and email templates.
 - [x] Inspect existing PRIME FatturaPA generation and prepare additive Marketplace invoice source migration 202609160002.
 - [x] User applied 202609160002; read-only verification confirms the new column is queryable and the Marketplace payment/product join works. No test rows inserted.

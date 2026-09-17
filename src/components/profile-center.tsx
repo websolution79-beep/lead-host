@@ -17,6 +17,7 @@ import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { useAppSession } from "@/components/app-session-provider";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { MarketingSubscriptionManager } from "@/components/marketing-subscription-manager";
+import { MarketplaceSubscriptionManager } from "@/components/marketplace-subscription-manager";
 import { PrimeSubscriptionActions } from "@/components/prime-subscription-actions";
 import { AccountDeactivationPanel } from "@/components/account-deactivation-panel";
 
@@ -955,6 +956,7 @@ export function ProfileCenter() {
         </section>
 
         <MarketingSubscriptionManager />
+        <MarketplaceSubscriptionManager />
 
         <PrimeSubscriptionActions variant="card" />
 

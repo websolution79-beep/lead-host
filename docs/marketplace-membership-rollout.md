@@ -21,10 +21,10 @@
 - [x] Add Settings / Marketplace admin UI, audit and guarded activation. Settings JSON is the canonical configuration; catalog synchronization follows in the Stripe phase. Activation remains hard-disabled server-side.
 - [x] Open Stripe dashboard for user login; create and verify linked Marketplace product through authenticated admin action.
 - [x] Prepare immutable EUR monthly prices on admin save, storing the price ID atomically with the settings snapshot. Existing prices and subscriptions remain unchanged; checkout is still disabled.
-- [ ] Implement price snapshots, checkout reuse, trial eligibility and terms acceptance.
+- [x] Implement guarded Marketplace checkout: immutable price/terms/trial snapshots, one-use trial lookup, required card, unique local reservation and Stripe idempotency. Uncertain requests keep their reservation; only confirmed expired sessions release it.
 - [ ] Implement webhook reconciliation, payment history and recovery of out-of-order events.
 - [ ] Add offer page and server-side restrictions for lists, details, purchase APIs and database purchase functions/RLS.
-- [ ] Add profile management and cancellation; account deactivation blocker.
+- [x] Add Marketplace subscription status and confirmed period-end cancellation in PM profile, and account deactivation blocker for renewable Marketplace subscriptions. No renewal reactivation endpoint is provided.
 - [ ] Add idempotent PRIME-triggered cancellation and retry/reconciliation (including simultaneous checkouts).
 - [ ] Add Marketplace payments/admin subscribers, analytics, billing and email templates.
 - [x] Inspect existing PRIME FatturaPA generation and prepare additive Marketplace invoice source migration 202609160002.
@@ -65,6 +65,12 @@ Marketing activation messages are excluded for Marketplace checkouts.
 Verification: TypeScript, targeted ESLint and 16 policy/catalog/XML/fiscal tests passed.
 Live checkout, concurrent webhook delivery and authenticated responsive UI verification
 remain pending before enabling Marketplace sales; no live payments used during development.
+Checkout/subscription phase: 17 focused policy, catalog, checkout parameter and XML tests pass.
+Checkout remains guarded by MARKETPLACE_MEMBERSHIP_ROLLOUT_READY=false and draft product.
+No purchase CTA is wired yet. Incomplete checkout/deactivation races, PRIME/Marketplace
+simultaneous signup reconciliation and trial/paid notification templates remain release blockers.
+Checkout older than the Stripe idempotency window is looked up by customer and local
+reference; an unresolved attempt fails closed instead of risking another subscription.
 The new nullable payment reference and unique index do not rewrite old invoices.
 Migration uses short lock/statement timeouts; if busy, retry later rather than
 removing timeouts during live traffic. Paid access and checkout remain disabled.

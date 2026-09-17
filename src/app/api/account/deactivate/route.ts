@@ -32,7 +32,7 @@ const renewableStatusValues = [
 const renewableStatuses = new Set<string>(renewableStatusValues);
 
 type RenewalBlocker = {
-  slug: "marketing" | "lead-host-prime";
+  slug: "marketing" | "lead-host-prime" | "marketplace";
   name: string;
   status: string;
   manageHref: string;
@@ -159,7 +159,7 @@ async function loadRenewalBlockers(
   const { data: products, error: productsError } = await supabase
     .from("addon_products")
     .select("id,slug,name")
-    .in("slug", ["marketing", "lead-host-prime"]);
+    .in("slug", ["marketing", "lead-host-prime", "marketplace"]);
   if (productsError) throw productsError;
   if (!products?.length) return [];
 
@@ -230,6 +230,8 @@ async function loadRenewalBlockers(
       manageHref:
         slug === "marketing"
           ? "/app/profilo#abbonamento-marketing"
+          : slug === "marketplace"
+            ? "/app/profilo#abbonamento-marketplace"
           : "/app/profilo#abbonamento-prime",
     });
   }

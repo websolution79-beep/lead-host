@@ -32,6 +32,9 @@
 - [x] Add server entitlement check to Wallet lead purchase API, including explicit handling for expiration between API check and database completion.
 - [x] Prepare migration 202609170001: additive guard on new public lead purchases, using the same PRIME/trial/paid-period rules. Leaves the purchase RPC, historical completed purchases and refund transitions unchanged; short DDL timeout.
 - [ ] Apply 202609170001 and verify database guard. Page/list/detail restrictions and periodic billing recovery still pending; do not enable paid access yet.
+- [x] User applied 202609170001. Read-only RPC checks confirm both functions exist and open Marketplace returns no membership requirement. Purchase-trigger rejection has not been exercised against production.
+- [x] Gate PM Marketplace listing/details before fetching lead payloads; preserve authorized staff view and purchased-lead routes. Add authenticated offer page with fixed-price checkout action still rollout-disabled, and PM view-counter gate.
+- [ ] Verify responsive offer and authenticated access scenarios in browser, database rejection/rollback in isolated tests and periodic billing recovery before activation.
 - [ ] Add Marketplace payments/admin subscribers, analytics, billing and email templates.
 - [x] Inspect existing PRIME FatturaPA generation and prepare additive Marketplace invoice source migration 202609160002.
 - [x] User applied 202609160002; read-only verification confirms the new column is queryable and the Marketplace payment/product join works. No test rows inserted.

@@ -21,7 +21,7 @@ import {
   parseLeadDate,
 } from "@/lib/domain/lead-state";
 import { getPublishedMarketplaceLeadById } from "@/lib/domain/marketplace-leads";
-import { getServerSessionProfile } from "@/lib/auth/server-session";
+import { requireMarketplacePageAccess } from "@/lib/marketplace-membership/page-access";
 import { hasAdminPermission } from "@/lib/admin/permissions";
 import {
   StandardLeadBadge,
@@ -48,9 +48,9 @@ export default async function LeadDetailPage({
   adminMarketplaceView = false,
 }: LeadDetailPageProps) {
   const { leadId } = await params;
+  const { session } = await requireMarketplacePageAccess();
   const supabase = createServiceSupabaseClient();
-  const [session, lead, { settings }] = await Promise.all([
-    getServerSessionProfile(),
+  const [lead, { settings }] = await Promise.all([
     getPublishedMarketplaceLeadById(leadId),
     fetchCommercialSettings(supabase),
   ]);

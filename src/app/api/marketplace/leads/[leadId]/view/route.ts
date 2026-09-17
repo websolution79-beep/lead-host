@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { getMarketplaceAccess } from "@/lib/marketplace-membership/access";
 
 type RouteContext = {
   params: Promise<{ leadId: string }>;
@@ -30,6 +31,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   const { leadId } = await params;
+
+  if (context.roles.includes("property_manager") && !context.roles.includes("super_admin") && !context.roles.includes("team_member")) {
+    try {
+      if (await getMarketplaceAccess(createServiceSupabaseClient(), context.profile.id) === "required") {
+        return NextResponse.json({ error: "Abbonamento Marketplace richiesto." }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Verifica accesso non disponibile. Riprova tra poco." }, { status: 503 });
+    }
+  }
 
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(leadId)) {
     return NextResponse.json({ error: "Lead non valido." }, { status: 422 });

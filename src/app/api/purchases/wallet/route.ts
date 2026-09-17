@@ -14,6 +14,7 @@ import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { capturePrimeLeadPurchaseCompensation } from "@/lib/team-compensation/worker";
+import { getMarketplaceAccess } from "@/lib/marketplace-membership/access";
 
 const purchaseSchema = z.object({
   leadId: z.string().uuid(),
@@ -79,6 +80,11 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parsedPayload.data;
+
+    if (await getMarketplaceAccess(supabase, profile.id) === "required") {
+      return NextResponse.json({ error: "Per acquistare nel Marketplace serve un abbonamento Marketplace o un accesso PRIME attivo.",
+        code: "MARKETPLACE_MEMBERSHIP_REQUIRED" }, { status: 403 });
+    }
 
     if (payload.mode === "shared") {
       const { settings } = await fetchCommercialSettings(supabase);
@@ -183,6 +189,11 @@ export async function POST(request: NextRequest) {
 
 function walletPurchaseErrorResponse(error: RpcError | null) {
   const message = error?.message ?? "";
+
+  if (message.includes("marketplace_membership_required")) {
+    return NextResponse.json({ error: "L'accesso Marketplace e scaduto. Verifica il tuo abbonamento prima di acquistare.",
+      code: "MARKETPLACE_MEMBERSHIP_REQUIRED" }, { status: 403 });
+  }
 
   if (error?.code === "PGRST202" || message.includes("purchase_lead_with_wallet")) {
     return NextResponse.json(

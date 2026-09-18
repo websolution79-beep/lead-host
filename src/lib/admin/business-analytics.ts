@@ -104,6 +104,7 @@ export type BusinessAnalyticsPayload = {
     previous: PrimeAnalyticsMetrics;
     snapshot: {
       active: number;
+      total: number;
       pastDue: number;
       cancelAtPeriodEnd: number;
       cancelled: number;
@@ -115,6 +116,7 @@ export type BusinessAnalyticsPayload = {
     snapshot: {
       active: number;
       trialing: number;
+      total: number;
       pastDue: number;
       cancelAtPeriodEnd: number;
     };

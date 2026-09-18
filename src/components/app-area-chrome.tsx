@@ -99,6 +99,7 @@ const adminLinks: Array<{
     permission: "prime",
   },
   { label: "Pagamenti", href: "/admin/pagamenti", group: "Finanza", permission: "payments" },
+  { label: "Abbonamenti", href: "/admin/abbonamenti", group: "Finanza", superAdminOnly: true },
   { label: "Coupon", href: "/admin/coupon", group: "Finanza", permission: "coupons" },
   {
     label: "Fatturazione",

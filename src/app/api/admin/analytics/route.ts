@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
         .select("status,access_source,prime_started_at,addon_subscription_id"),
       supabase
         .from("addon_subscriptions")
-        .select("id,cancel_at_period_end"),
+        .select("id,status,cancel_at_period_end"),
       supabase.from("addon_products").select("id").eq("slug", "marketplace").maybeSingle(),
     ]);
     const { data, error } = analyticsResult;
@@ -107,16 +107,21 @@ export async function GET(request: NextRequest) {
     const subscriberAccounts = (primeAccountsResult.data ?? []).filter((account) =>
       account.access_source !== "none" && account.prime_started_at,
     );
+    const primeSubscriptions: Array<NonNullable<typeof primeSubscriptionsResult.data>[number]> = [];
+    for (const account of subscriberAccounts) {
+      if (!account.addon_subscription_id) continue;
+      const subscription = subscriptionById.get(account.addon_subscription_id);
+      if (subscription) primeSubscriptions.push(subscription);
+    }
     const prime = {
       current: summarizePrime(currentPrimeResult.data ?? []),
       previous: summarizePrime(previousPrimeResult.data ?? []),
       snapshot: {
-        active: subscriberAccounts.filter((account) => account.status === "active").length,
-        pastDue: subscriberAccounts.filter((account) => account.status === "past_due").length,
-        cancelAtPeriodEnd: subscriberAccounts.filter((account) =>
-          Boolean(account.addon_subscription_id && subscriptionById.get(account.addon_subscription_id)?.cancel_at_period_end),
-        ).length,
-        cancelled: subscriberAccounts.filter((account) => account.status === "cancelled").length,
+        active: primeSubscriptions.filter((row) => row.status === "active").length,
+        total: primeSubscriptions.length,
+        pastDue: primeSubscriptions.filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
+        cancelAtPeriodEnd: primeSubscriptions.filter((row) => row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)).length,
+        cancelled: primeSubscriptions.filter((row) => ["canceled", "expired"].includes(row.status)).length,
       },
     };
 
@@ -127,21 +132,23 @@ export async function GET(request: NextRequest) {
             .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.fromDate).lt("paid_at", range.toDateExclusive).order("id").range(from, to)),
           readAllReportRows((from, to) => supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
             .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.previousFromDate).lt("paid_at", range.previousToDate).order("id").range(from, to)),
-          readAllReportRows((from, to) => supabase.from("addon_subscriptions").select("status,cancel_at_period_end,trial_ends_at,current_period_ends_at")
-            .eq("addon_product_id", marketplaceProductId).order("id").range(from, to)),
+          readAllReportRows((from, to) => supabase.from("addon_subscriptions").select("profile_id,status,cancel_at_period_end,trial_ends_at,current_period_ends_at,updated_at")
+            .eq("addon_product_id", marketplaceProductId).order("updated_at", { ascending: false }).range(from, to)),
         ])
       : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
     if (marketplaceCurrentResult.error) throw marketplaceCurrentResult.error;
     if (marketplacePreviousResult.error) throw marketplacePreviousResult.error;
     if (marketplaceSubscriptionsResult.error) throw marketplaceSubscriptionsResult.error;
+    const marketplaceSubscriptions = latestMarketplaceSubscriptions(marketplaceSubscriptionsResult.data ?? []);
     const marketplace = {
       current: summarizeMarketplace(marketplaceCurrentResult.data ?? []),
       previous: summarizeMarketplace(marketplacePreviousResult.data ?? []),
       snapshot: {
-        active: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "active" && !!row.current_period_ends_at && Date.parse(row.current_period_ends_at) > Date.now()).length,
-        trialing: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "trialing" && !!row.trial_ends_at && Date.parse(row.trial_ends_at) > Date.now()).length,
-        pastDue: (marketplaceSubscriptionsResult.data ?? []).filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
-        cancelAtPeriodEnd: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)).length,
+        active: marketplaceSubscriptions.filter((row) => row.status === "active" && !!row.current_period_ends_at && Date.parse(row.current_period_ends_at) > Date.now()).length,
+        trialing: marketplaceSubscriptions.filter((row) => row.status === "trialing" && !!row.trial_ends_at && Date.parse(row.trial_ends_at) > Date.now()).length,
+        total: marketplaceSubscriptions.length,
+        pastDue: marketplaceSubscriptions.filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
+        cancelAtPeriodEnd: marketplaceSubscriptions.filter((row) => row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)).length,
       },
     };
 
@@ -180,6 +187,15 @@ export async function GET(request: NextRequest) {
 
     return adminApiErrorResponse(error);
   }
+}
+
+function latestMarketplaceSubscriptions<T extends { profile_id: string }>(rows: T[]) {
+  const profileIds = new Set<string>();
+  return rows.filter((row) => {
+    if (profileIds.has(row.profile_id)) return false;
+    profileIds.add(row.profile_id);
+    return true;
+  });
 }
 
 function summarizeMarketplace(rows: Array<{ profile_id: string; payment_kind: string; status: string; amount_cents: number }>) {

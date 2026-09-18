@@ -6,9 +6,11 @@ import {
   BadgeEuro,
   Banknote,
   Clock3,
+  Crown,
   FileWarning,
   Inbox,
   MessageSquareWarning,
+  Map,
   RefreshCw,
   ShoppingCart,
   Target,
@@ -138,6 +140,39 @@ export function AdminDashboardConsole() {
             current={current.ownerRequests}
             previous={previous.ownerRequests}
             detail={`${current.publishedLeads} pubblicati nel periodo`}
+          />
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="section-kicker">Abbonamenti</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">Situazione attuale</h2>
+          </div>
+          <Link href="/admin/abbonamenti" className="text-sm font-bold text-green hover:underline">Apri abbonamenti</Link>
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <SubscriptionStatusCard
+            title="Lead Host PRIME"
+            icon={Crown}
+            tone="amber"
+            items={[
+              { label: "Attivi", value: payload.prime.snapshot.active },
+              { label: "Totali", value: payload.prime.snapshot.total },
+              { label: "Rinnovi off", value: payload.prime.snapshot.cancelAtPeriodEnd },
+            ]}
+          />
+          <SubscriptionStatusCard
+            title="Marketplace"
+            icon={Map}
+            tone="sky"
+            items={[
+              { label: "Paganti", value: payload.marketplace.snapshot.active },
+              { label: "In prova", value: payload.marketplace.snapshot.trialing },
+              { label: "Totali", value: payload.marketplace.snapshot.total },
+            ]}
+            note={`Rinnovi disattivati: ${payload.marketplace.snapshot.cancelAtPeriodEnd}`}
           />
         </div>
       </section>
@@ -300,6 +335,25 @@ export function AdminDashboardConsole() {
       </section>
     </div>
   );
+}
+
+function SubscriptionStatusCard({
+  title, icon: Icon, tone, items, note,
+}: {
+  title: string;
+  icon: typeof Crown;
+  tone: "amber" | "sky";
+  items: Array<{ label: string; value: number }>;
+  note?: string;
+}) {
+  const toneClasses = tone === "amber"
+    ? "border-amber-200 bg-amber-50/35 text-amber-700"
+    : "border-sky-200 bg-sky-50/40 text-sky-700";
+  return <div className={`rounded-lg border p-5 ${toneClasses}`}>
+    <div className="flex items-center gap-2"><span className="grid size-9 place-items-center rounded-lg bg-white/80"><Icon size={19} /></span><h3 className="font-semibold text-ink">{title}</h3></div>
+    <div className="mt-4 grid grid-cols-3 gap-3">{items.map((item) => <div key={item.label} className="rounded-lg border border-white/90 bg-white/80 px-3 py-3 text-center"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{item.label}</p><p className="mt-1 text-2xl font-semibold text-ink">{item.value}</p></div>)}</div>
+    {note ? <p className="mt-3 text-center text-xs font-semibold text-slate-600">{note}</p> : null}
+  </div>;
 }
 
 function OperationalTile({

@@ -11,6 +11,7 @@ import { marketplaceMonthlyPrice } from "@/lib/marketplace-membership/policy";
 import { ensureMarketplacePrice } from "@/lib/marketplace-membership/stripe-price";
 import { loadMarketplaceSubscription } from "@/lib/marketplace-membership/subscription";
 import { marketplaceCheckoutParams, marketplaceCheckoutSnapshotSchema } from "@/lib/marketplace-membership/checkout-params";
+import { reconcilePrimeMarketplace } from "@/lib/marketplace-membership/prime-reconciliation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,6 +98,11 @@ export async function POST(request: NextRequest) {
       stripe_checkout_expires_at: new Date(session.expires_at * 1000).toISOString(),
     } }).eq("id", pending.id).eq("status", "incomplete");
     if (error) throw error;
+    // PRIME may have activated after the initial check, while Stripe created the session.
+    if (await hasPrimeMarketplaceAccess(supabase, profile.id)) {
+      await reconcilePrimeMarketplace(stripe, profile.id);
+      throw new PropertyManagerApiError(409, "PRIME e stato attivato: il Marketplace e gia incluso. Aggiorna la pagina.");
+    }
     return NextResponse.json({ ok: true, checkoutUrl: session.url });
   } catch (error) {
     // An uncertain network result must never release the subscription reservation.

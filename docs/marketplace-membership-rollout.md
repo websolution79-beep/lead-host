@@ -45,6 +45,18 @@
 
 ## Integration findings
 
+### Pending checkout recovery phase
+
+- [x] Recover pending Marketplace sessions by persisted ID or Stripe customer/reference, validating product/profile/customer ownership before changes.
+- [x] Expire an open Marketplace checkout when PRIME is already active; recover the current subscription when payment completion wins the expiration race.
+- [x] Preserve uncertain reservations. Missing old sessions or multiple matching sessions require investigation, never automatic creation of a replacement subscription.
+- [x] Include pending sessions without a Stripe subscription ID in the daily sweep; release local reservations only after confirmed expiration with a conditional database update.
+- [x] Recheck PRIME immediately before returning a new Checkout URL. Existing completed payments are not refunded; only future Marketplace renewals are stopped.
+- [x] Marketplace expiration/failure webhook notifications use fresh reconciliation, not unconditional expiration based on an old event. Other product handlers are unchanged.
+- [x] 31 focused tests pass, including completion/expiration races, wrong ownership, uncertain network results and lost session persistence.
+- [ ] Validate simultaneous signups end-to-end in Stripe test mode before rollout. Cross-service operations are not atomic: two payments completed before either activation is observed can still require manual review. No automatic refund is performed.
+- [ ] Payment/invoice recovery beyond subscription synchronization and real scheduler verification remain separate release checks.
+
 ### Renewal recovery phase
 
 - [x] Add a separate daily Marketplace renewal recovery cron (02:35 UTC), with mandatory CRON_SECRET authentication and fail-closed behavior when the secret is missing.

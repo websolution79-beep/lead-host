@@ -175,6 +175,11 @@ export async function POST(request: NextRequest) {
         session.metadata?.kind === "addon_subscription" ||
         session.metadata?.kind === "prime_subscription"
       ) {
+        if (session.metadata?.addon_slug === "marketplace") {
+          if (!session.metadata.profile_id) throw new Error("Marketplace checkout profile missing");
+          await reconcilePrimeMarketplace(stripe, session.metadata.profile_id);
+          return NextResponse.json({ received: true });
+        }
         await expireAddonCheckout(session);
         if (session.metadata?.kind === "prime_subscription") {
           await expirePrimeCheckout(session);

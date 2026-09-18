@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
       loadPage: async (afterId) => {
         let query = db.from("addon_subscriptions").select("id,profile_id")
           .eq("addon_product_id", product.id).eq("source", "stripe")
-          .not("stripe_subscription_id", "is", null)
           .in("status", [...marketplaceCurrentStatuses]).eq("cancel_at_period_end", false)
           .order("id").limit(100);
         if (afterId) query = query.gt("id", afterId);

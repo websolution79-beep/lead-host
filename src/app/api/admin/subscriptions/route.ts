@@ -47,6 +47,7 @@ type ProfileRow = {
 type PrimeAccountRow = {
   profile_id: string;
   addon_subscription_id: string | null;
+  access_source: "none" | "stripe" | "manual";
   status: string;
   account_manager_member_id: string | null;
   prime_started_at: string | null;
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
       ? await Promise.all([
           supabase.from("profiles").select("id,email,first_name,last_name,status").in("id", profileIds),
           supabase.from("property_manager_profiles").select("profile_id,primary_city").in("profile_id", profileIds),
-          supabase.from("prime_accounts").select("profile_id,addon_subscription_id,status,account_manager_member_id,prime_started_at,prime_expires_at,grace_ends_at").in("profile_id", profileIds),
+          supabase.from("prime_accounts").select("profile_id,addon_subscription_id,access_source,status,account_manager_member_id,prime_started_at,prime_expires_at,grace_ends_at").in("profile_id", profileIds),
         ])
       : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
     if (profilesResult.error) throw profilesResult.error;
@@ -121,9 +122,14 @@ export async function GET(request: NextRequest) {
     const primeBySubscriptionId = new Map(accounts.filter((row) => row.addon_subscription_id).map((row) => [row.addon_subscription_id!, row]));
     const memberById = new Map(((membersResult.data ?? []) as TeamMemberRow[]).map((member) => [member.id, member]));
     const managerByProfileId = new Map((managerProfilesResult.data ?? []).map((profile) => [profile.id, profile]));
+    // PRIME is counted only after the linked PRIME account has actually been activated.
+    // This matches the Dashboard snapshot and excludes abandoned technical Stripe records.
+    const activePrimeSubscriptionIds = new Set(accounts
+      .filter((account) => account.access_source !== "none" && account.prime_started_at && account.addon_subscription_id)
+      .map((account) => account.addon_subscription_id!));
 
     const now = new Date();
-    const rows = latestSubscriptions
+    const allRows = latestSubscriptions
       .map((subscription) => {
         const product = productsById.get(subscription.addon_product_id)!;
         const profile = profilesById.get(subscription.profile_id);
@@ -165,7 +171,10 @@ export async function GET(request: NextRequest) {
           } : null,
         };
       })
-      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+
+    const stats = summarize(allRows, activePrimeSubscriptionIds);
+    const rows = allRows
       .filter((row) => productFilter === "all" || row.product.slug === productFilter)
       .filter((row) => statusFilter === "all" || row.status.key === statusFilter)
       .filter((row) => !search || [row.propertyManager.name, row.propertyManager.email, row.propertyManager.city ?? "", row.accountManager?.name ?? ""]
@@ -173,7 +182,6 @@ export async function GET(request: NextRequest) {
       .filter((row) => matchesDateRange(row.nextDate, dateFrom, dateTo))
       .sort((left, right) => (left.nextDate ?? "9999-12-31").localeCompare(right.nextDate ?? "9999-12-31"));
 
-    const stats = summarize(rows);
     const total = rows.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
@@ -209,8 +217,13 @@ function resolveState(row: SubscriptionRow, now: Date) {
   return { key: "canceled", label: "Scaduto o disdetto", tone: "slate" };
 }
 
-function summarize(rows: Array<{ product: { slug: ProductSlug }; status: { key: string } }>) {
-  const byProduct = (slug: ProductSlug) => rows.filter((row) => row.product.slug === slug);
+function summarize(
+  rows: Array<{ id: string; product: { slug: ProductSlug }; status: { key: string } }>,
+  activePrimeSubscriptionIds: Set<string>,
+) {
+  const byProduct = (slug: ProductSlug) => rows.filter((row) =>
+    row.product.slug === slug
+    && (slug !== "lead-host-prime" || activePrimeSubscriptionIds.has(row.id)));
   const metrics = (slug: ProductSlug) => {
     const productRows = byProduct(slug);
     return {

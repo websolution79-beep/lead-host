@@ -3,12 +3,14 @@ import { MarketplaceFilters } from "@/components/marketplace-filters";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { getPublishedMarketplaceLeads } from "@/lib/domain/marketplace-leads";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { requireMarketplacePageAccess } from "@/lib/marketplace-membership/page-access";
+import { getMarketplacePageAccess } from "@/lib/marketplace-membership/page-access";
+import MarketplaceMembershipPage from "@/components/marketplace-membership-page";
 
 export const dynamic = "force-dynamic";
 
 export default async function MarketplacePage() {
-  await requireMarketplacePageAccess();
+  const { access } = await getMarketplacePageAccess();
+  if (access === "required") return <MarketplaceMembershipPage />;
   const supabase = createServiceSupabaseClient();
   const [leads, { settings }] = await Promise.all([
     getPublishedMarketplaceLeads(),

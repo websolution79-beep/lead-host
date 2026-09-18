@@ -17,6 +17,6 @@ export async function getMarketplacePageAccess() {
 
 export async function requireMarketplacePageAccess() {
   const context = await getMarketplacePageAccess();
-  if (context.access === "required") redirect("/app/marketplace/abbonamento");
+  if (context.access === "required") redirect("/app/marketplace");
   return context;
 }

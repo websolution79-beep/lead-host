@@ -5,6 +5,8 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 type ServiceClient = SupabaseClient<Database>;
 
 export const transactionalEmailTemplateIds = [
+  "marketplace.cancellation_scheduled",
+  "admin.marketplace_cancellation_scheduled",
   "marketplace.activated",
   "admin.marketplace_activated",
   "marketplace.payment_received",
@@ -64,6 +66,23 @@ export type RenderedTransactionalEmail = {
 const SETTINGS_KEY = "email.transactional_templates";
 
 export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = [
+  ...(["marketplace.cancellation_scheduled", "admin.marketplace_cancellation_scheduled"] as const).map((id): TransactionalEmailTemplate => {
+    const admin = id.startsWith("admin.");
+    return {
+      id, enabled: true,
+      label: `${admin ? "Superadmin - " : ""}Marketplace: rinnovi disattivati`,
+      description: admin ? "Notifica esclusivamente ai Super Admin attivi." : "Conferma della disattivazione dei rinnovi Marketplace.",
+      subject: "Rinnovi Marketplace Lead Host disattivati",
+      preview: "Il tuo abbonamento Marketplace non si rinnovera automaticamente.",
+      title: "Rinnovi Marketplace disattivati",
+      body: "{{customer_name}}, i rinnovi automatici del tuo abbonamento Marketplace sono stati disattivati. L'accesso previsto dall'abbonamento resta disponibile fino al {{period_end}}.",
+      extra: admin ? "PM: {{customer_email}}. ID abbonamento: {{subscription_id}}."
+        : "Non saranno effettuati ulteriori rinnovi di questo abbonamento. Se hai PRIME attivo, il Marketplace resta incluso secondo le condizioni del servizio PRIME.",
+      ctaLabel: admin ? "Apri pagamenti" : "Gestisci abbonamento",
+      ctaUrl: admin ? "/admin/pagamenti" : "/app/profilo#abbonamento-marketplace",
+      variables: ["customer_name", "customer_email", "subscription_id", "period_end"],
+    };
+  }),
   ...(["marketplace.activated", "admin.marketplace_activated", "marketplace.payment_received", "admin.marketplace_payment_received"] as const).map((id): TransactionalEmailTemplate => {
     const admin = id.startsWith("admin.");
     const activation = id.endsWith("activated");

@@ -131,5 +131,12 @@ simultaneous signup reconciliation and trial/paid notification templates remain 
 Checkout older than the Stripe idempotency window is looked up by customer and local
 reference; an unresolved attempt fails closed instead of risking another subscription.
 The new nullable payment reference and unique index do not rewrite old invoices.
+2026-09-18: Added editable PM/superadmin scheduled-cancellation templates.
+Only current Stripe-confirmed period-end cancellations of active/trialing
+Marketplace subscriptions send these notices; persisted delivery keys prevent retries
+from sending duplicates. The rollout guard remains disabled. Template rendering,
+41 focused tests, TypeScript and targeted ESLint pass. No real email or payment sent.
+Payment-failure notifications and Stripe test-mode end-to-end verification remain pending.
+
 Migration uses short lock/statement timeouts; if busy, retry later rather than
 removing timeouts during live traffic. Paid access and checkout remain disabled.

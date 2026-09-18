@@ -210,6 +210,11 @@ export async function POST(request: NextRequest) {
         reason: `Webhook Stripe: ${event.type}`,
       });
       const primeResult = await syncPrimeAccountFromStripeSubscription(subscription);
+      if (!result.ignored && subscription.metadata.addon_slug === "marketplace" && subscription.cancel_at_period_end) {
+        const localSubscriptionId = subscription.metadata.addon_subscription_id;
+        if (!localSubscriptionId) throw new Error("Marketplace subscription missing");
+        await sendMarketplaceEmails(localSubscriptionId, undefined, String(subscription.canceled_at ?? subscription.cancel_at));
+      }
       if (!result.ignored && (subscription.metadata.kind === "prime_subscription" || subscription.metadata.addon_slug === "marketplace")) {
         await reconcilePrimeMarketplace(stripe, result.profileId);
       }

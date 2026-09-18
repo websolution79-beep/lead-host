@@ -93,6 +93,17 @@
 
 ## Release safety
 
+### Pre-release review (2026-09-18)
+
+- Corrected shared Marketing/Marketplace client list state: each tab now keeps its own records.
+- Corrected Marketplace monthly price in list and detail to use the agreed subscription snapshot; missing snapshots are not replaced with today's catalog price.
+- Marketplace analytics now uses settlement date, excludes expired periods from active counts and reads beyond the database default row limit. The paid-activation metric is explicitly labeled; it is not a count of free trial signups.
+- Marketplace subscription webhooks retrieve fresh Stripe state before synchronization to reduce regressions from delayed events. Other products retain their current handler.
+- Corrected Marketing-specific labels in the shared Marketplace detail drawer.
+- 41 Marketplace and invoice-generation tests and production build passed. Focused lint passed.
+- Read-only production verification confirms paidAccessEnabled=false, product=draft, checkout_enabled=false.
+- Stripe test credentials are absent locally. Stripe test-mode end-to-end purchases/renewals, authenticated access testing, isolated DB rejection/rollback, payment/cancellation notices and extended payment/invoice recovery remain release blockers. No live checkout or financial write performed for this review.
+
 Foundation migration only inserts missing settings and a draft catalog entry. It does not change RLS, functions, wallet balances, prices of existing products, or current subscriptions.
 The price examples in the discussion are not adopted as production settings: admin must configure actual prices and trial duration.
 Do not enable paidAccessEnabled until all protected paths and billing tests pass.

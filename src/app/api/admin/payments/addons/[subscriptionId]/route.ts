@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { subscriptionReportingPrice } from "@/lib/marketplace-membership/reporting";
 
 export async function GET(
   request: NextRequest,
@@ -12,14 +13,14 @@ export async function GET(
     const { data: subscription, error: subscriptionError } = await supabase
       .from("addon_subscriptions")
       .select(
-        "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,manual_reason,created_at,updated_at",
+        "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,manual_reason,created_at,updated_at,metadata",
       )
       .eq("id", subscriptionId)
       .single();
 
     if (subscriptionError || !subscription) {
       return NextResponse.json(
-        { error: "Abbonamento Marketing non trovato." },
+        { error: "Abbonamento non trovato." },
         { status: 404 },
       );
     }
@@ -38,7 +39,7 @@ export async function GET(
           .maybeSingle(),
         supabase
           .from("addon_products")
-          .select("id,name,sale_price_cents,currency,billing_interval,billing_interval_count")
+          .select("id,slug,name,sale_price_cents,currency,billing_interval,billing_interval_count")
           .eq("id", subscription.addon_product_id)
           .single(),
         supabase
@@ -81,7 +82,7 @@ export async function GET(
         },
         product: {
           name: product.name,
-          salePriceCents: product.sale_price_cents,
+          salePriceCents: subscriptionReportingPrice(product.slug, subscription.metadata, product.sale_price_cents),
           currency: product.currency,
           billingInterval: product.billing_interval,
           billingIntervalCount: product.billing_interval_count,
@@ -108,7 +109,7 @@ export async function GET(
               ? subscription.trial_ends_at
               : subscription.current_period_ends_at
             : null,
-          nextChargeCents: hasNextCharge ? product.sale_price_cents : null,
+          nextChargeCents: hasNextCharge ? subscriptionReportingPrice(product.slug, subscription.metadata, product.sale_price_cents) : null,
         },
         summary: {
           paymentCount: paidPayments.length,

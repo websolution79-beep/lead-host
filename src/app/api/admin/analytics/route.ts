@@ -5,6 +5,7 @@ import {
   type BusinessAnalyticsPayload,
 } from "@/lib/admin/business-analytics";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { readAllReportRows } from "@/lib/marketplace-membership/reporting";
 
 const ALLOWED_RANGES = new Set<AnalyticsRangeKey>([
   "today",
@@ -122,12 +123,12 @@ export async function GET(request: NextRequest) {
     const marketplaceProductId = marketplaceProductResult.data?.id;
     const [marketplaceCurrentResult, marketplacePreviousResult, marketplaceSubscriptionsResult] = marketplaceProductId
       ? await Promise.all([
-          supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
-            .eq("addon_product_id", marketplaceProductId).gte("created_at", range.fromDate).lt("created_at", range.toDateExclusive),
-          supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
-            .eq("addon_product_id", marketplaceProductId).gte("created_at", range.previousFromDate).lt("created_at", range.previousToDate),
-          supabase.from("addon_subscriptions").select("status,cancel_at_period_end")
-            .eq("addon_product_id", marketplaceProductId),
+          readAllReportRows((from, to) => supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
+            .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.fromDate).lt("paid_at", range.toDateExclusive).order("id").range(from, to)),
+          readAllReportRows((from, to) => supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
+            .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.previousFromDate).lt("paid_at", range.previousToDate).order("id").range(from, to)),
+          readAllReportRows((from, to) => supabase.from("addon_subscriptions").select("status,cancel_at_period_end,trial_ends_at,current_period_ends_at")
+            .eq("addon_product_id", marketplaceProductId).order("id").range(from, to)),
         ])
       : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
     if (marketplaceCurrentResult.error) throw marketplaceCurrentResult.error;
@@ -137,10 +138,10 @@ export async function GET(request: NextRequest) {
       current: summarizeMarketplace(marketplaceCurrentResult.data ?? []),
       previous: summarizeMarketplace(marketplacePreviousResult.data ?? []),
       snapshot: {
-        active: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "active").length,
-        trialing: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "trialing").length,
+        active: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "active" && !!row.current_period_ends_at && Date.parse(row.current_period_ends_at) > Date.now()).length,
+        trialing: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "trialing" && !!row.trial_ends_at && Date.parse(row.trial_ends_at) > Date.now()).length,
         pastDue: (marketplaceSubscriptionsResult.data ?? []).filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
-        cancelAtPeriodEnd: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.cancel_at_period_end).length,
+        cancelAtPeriodEnd: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)).length,
       },
     };
 

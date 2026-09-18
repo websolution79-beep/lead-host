@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { buildPagination, readPagination } from "@/lib/api/pagination";
+import { readAllReportRows, subscriptionReportingPrice } from "@/lib/marketplace-membership/reporting";
 
 type PaymentRow = {
   id: string;
@@ -71,6 +72,7 @@ type AddonPaymentRow = {
 };
 
 type AddonSubscriptionRow = {
+  metadata: unknown;
   id: string;
   addon_product_id: string;
   profile_id: string;
@@ -91,6 +93,7 @@ type AddonSubscriptionRow = {
 };
 
 type AddonProductRow = {
+  slug: string;
   id: string;
   name: string;
   sale_price_cents: number | null;
@@ -169,7 +172,7 @@ export async function GET(request: NextRequest) {
         .eq("addon_product_id", marketingProduct.id)
         .limit(1000),
       marketplaceProduct
-        ? supabase.from("addon_payments").select("status,amount_cents").eq("addon_product_id", marketplaceProduct.id).limit(1000)
+        ? readAllReportRows((from, to) => supabase.from("addon_payments").select("status,amount_cents").eq("addon_product_id", marketplaceProduct.id).order("id").range(from, to))
         : Promise.resolve({ data: [], error: null }),
       supabase
         .from("prime_billing_periods")
@@ -278,7 +281,7 @@ export async function GET(request: NextRequest) {
       addonProductIds.length
         ? supabase
             .from("addon_products")
-            .select("id,name,sale_price_cents,currency")
+            .select("id,slug,name,sale_price_cents,currency")
             .in("id", addonProductIds)
         : Promise.resolve({ data: [], error: null }),
       addonSubscriptionIds.length
@@ -490,7 +493,7 @@ export async function GET(request: NextRequest) {
                 : subscription.current_period_ends_at
               : null,
             nextChargeCents: hasNextCharge
-              ? product?.sale_price_cents ?? null
+              ? subscriptionReportingPrice(product?.slug, subscription.metadata, product?.sale_price_cents ?? null)
               : null,
             currency: product?.currency ?? "eur",
             paymentCount: paidPayments.length,
@@ -573,7 +576,7 @@ async function fetchActiveRows(
     return supabase
       .from("addon_subscriptions")
       .select(
-        "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,created_at,updated_at",
+        "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,created_at,updated_at,metadata",
         { count: "exact" },
       )
       .eq("addon_product_id", productId)

@@ -782,7 +782,7 @@ function MarketplaceAnalytics({
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={Users} label="Abbonati attivi" value={String(snapshot.active)} accent="green" />
         <MetricCard icon={Clock3} label="In prova gratuita" value={String(snapshot.trialing)} accent="blue" />
-        <MetricCard icon={UserPlus} label="Nuove iscrizioni" value={String(current.activations)} current={current.activations} previous={previous.activations} accent="blue" />
+        <MetricCard icon={UserPlus} label="Attivazioni pagate" value={String(current.activations)} current={current.activations} previous={previous.activations} accent="blue" />
         <MetricCard icon={RefreshCw} label="Rinnovi" value={String(current.renewals)} current={current.renewals} previous={previous.renewals} />
         <MetricCard icon={BadgeEuro} label="Incassi Marketplace" value={formatCurrencyCents(current.paidCents)} current={current.paidCents} previous={previous.paidCents} accent="green" />
         <MetricCard icon={UserRoundCheck} label="PM paganti nel periodo" value={String(current.uniquePropertyManagers)} current={current.uniquePropertyManagers} previous={previous.uniquePropertyManagers} />

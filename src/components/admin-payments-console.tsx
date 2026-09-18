@@ -224,6 +224,7 @@ export function AdminPaymentsConsole() {
   const [walletTransactions, setWalletTransactions] = useState<WalletTransactionRecord[]>([]);
   const [leadPurchases, setLeadPurchases] = useState<LeadPurchaseRecord[]>([]);
   const [addonCustomers, setAddonCustomers] = useState<AddonCustomerRecord[]>([]);
+  const [marketplaceCustomers, setMarketplaceCustomers] = useState<AddonCustomerRecord[]>([]);
   const [primePayments, setPrimePayments] = useState<PrimePaymentRecord[]>([]);
   const [selectedAddonCustomer, setSelectedAddonCustomer] =
     useState<AddonCustomerDetail | null>(null);
@@ -301,8 +302,10 @@ export function AdminPaymentsConsole() {
       setWalletTransactions(payload.walletTransactions ?? []);
     } else if (tab === "lead_purchases") {
       setLeadPurchases(payload.leadPurchases ?? []);
-    } else if (tab === "addon_payments" || tab === "marketplace_payments") {
+    } else if (tab === "addon_payments") {
       setAddonCustomers(payload.addonCustomers ?? []);
+    } else if (tab === "marketplace_payments") {
+      setMarketplaceCustomers(payload.addonCustomers ?? []);
     } else {
       setPrimePayments(payload.primePayments ?? []);
     }
@@ -354,7 +357,7 @@ export function AdminPaymentsConsole() {
       purchase.status,
     ]),
   );
-  const filteredAddonCustomers = addonCustomers.filter((customer) =>
+  const filteredAddonCustomers = (activeTab === "marketplace_payments" ? marketplaceCustomers : addonCustomers).filter((customer) =>
     matchesQuery(query, [
       customer.productName,
       customer.propertyManagerName,
@@ -658,7 +661,7 @@ function AddonCustomerList({
   if (!customers.length) {
     return (
       <section className="card p-8 text-center text-muted">
-        Nessun cliente del Modulo Marketing trovato.
+        Nessun abbonamento trovato per questo servizio.
       </section>
     );
   }
@@ -737,12 +740,12 @@ function AddonCustomerDrawer({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-label="Dettaglio abbonamento Modulo Marketing">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-label="Dettaglio abbonamento">
       <button className="absolute inset-0 cursor-default" type="button" aria-label="Chiudi dettaglio" onClick={onClose} />
       <section className="relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-xl bg-white shadow-2xl sm:max-w-4xl sm:rounded-xl">
         <header className="flex items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
           <div>
-            <p className="section-kicker">Modulo Marketing</p>
+            <p className="section-kicker">{detail?.product.name ?? "Abbonamento"}</p>
             <h2 className="mt-1 text-xl font-semibold text-ink">
               {detail?.customer.name ?? "Dettaglio cliente"}
             </h2>
@@ -805,7 +808,7 @@ function AddonCustomerDetailContent({ detail }: { detail: AddonCustomerDetail })
           <h3 className="font-semibold text-ink">Abbonamento</h3>
           <dl className="mt-3 grid gap-3 text-sm">
             <DetailRow label="Prodotto" value={product.name} />
-            <DetailRow label="Prezzo mensile" value={formatCents(product.salePriceCents ?? 0)} />
+            <DetailRow label="Prezzo mensile" value={product.salePriceCents === null ? "Non disponibile" : formatCents(product.salePriceCents)} />
             <DetailRow label="Origine" value={subscription.source === "stripe" ? "Stripe" : "Assegnazione manuale"} />
             <DetailRow label="Cliente Stripe" value={subscription.stripeCustomerId} />
             <DetailRow label="Abbonamento Stripe" value={subscription.stripeSubscriptionId} />
@@ -819,7 +822,7 @@ function AddonCustomerDetailContent({ detail }: { detail: AddonCustomerDetail })
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="section-kicker">Storico economico</p>
-            <h3 className="mt-1 text-lg font-semibold text-ink">Transazioni Modulo Marketing</h3>
+            <h3 className="mt-1 text-lg font-semibold text-ink">Transazioni {product.name}</h3>
           </div>
           <span className="text-sm font-semibold text-muted">{summary.paymentCount} transazioni</span>
         </div>

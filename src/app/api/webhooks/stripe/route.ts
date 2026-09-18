@@ -202,7 +202,10 @@ export async function POST(request: NextRequest) {
       event.type === "customer.subscription.paused" ||
       event.type === "customer.subscription.resumed"
     ) {
-      const subscription = event.data.object as Stripe.Subscription;
+      const eventSubscription = event.data.object as Stripe.Subscription;
+      const subscription = eventSubscription.metadata.addon_slug === "marketplace"
+        ? await stripe.subscriptions.retrieve(eventSubscription.id)
+        : eventSubscription;
       const result = await syncAddonSubscriptionFromStripe(subscription, {
         reason: `Webhook Stripe: ${event.type}`,
       });

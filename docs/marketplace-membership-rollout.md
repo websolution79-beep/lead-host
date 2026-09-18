@@ -54,6 +54,14 @@
 - [x] Wire activation to checkout completion and subscription recovery; paid notifications to confirmed Marketplace invoices. All new sends remain rollout-disabled.
 - [ ] Validate real delivery in an isolated environment; no live email sent during implementation. Payment failure/cancellation notices and long-term delivery recovery remain follow-up work.
 
+### Admin reporting phase
+
+- [x] Add a dedicated Marketplace tab in Admin Payments, keeping Marketing and PRIME records separate. It shows subscription status, trial/next charge, scheduled cancellation, paid history and total paid through the existing detail view.
+- [x] Add Marketplace revenue and failed-payment KPI cards without affecting Wallet, lead sales, Marketing or PRIME totals.
+- [x] Add Marketplace Analytics for the selected date range: new paid activations, renewals, paid revenue, unique paying PMs, current active/trialing subscriptions, scheduled cancellations and critical payments.
+- [x] Keep PRIME out of Marketplace subscription revenue and counts because PRIME includes access without creating a Marketplace subscription.
+- [x] No migration or production financial record change required; 32 Marketplace tests, lint and production build pass.
+
 ### Pending checkout recovery phase
 
 - [x] Recover pending Marketplace sessions by persisted ID or Stripe customer/reference, validating product/profile/customer ownership before changes.

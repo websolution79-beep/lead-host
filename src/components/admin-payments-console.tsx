@@ -180,6 +180,8 @@ type PaymentsResponse = {
     pendingTopUps: number;
     addonSalesCents: number;
     addonFailedPayments: number;
+    marketplaceSalesCents: number;
+    marketplaceFailedPayments: number;
     primeSalesCents: number;
     primeFailedPayments: number;
   };
@@ -192,7 +194,7 @@ type PaymentsResponse = {
   error?: string;
 };
 
-type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments" | "prime_payments";
+type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments" | "marketplace_payments" | "prime_payments";
 
 const emptyStats: PaymentsResponse["stats"] = {
   topUpsCents: 0,
@@ -202,6 +204,8 @@ const emptyStats: PaymentsResponse["stats"] = {
   pendingTopUps: 0,
   addonSalesCents: 0,
   addonFailedPayments: 0,
+  marketplaceSalesCents: 0,
+  marketplaceFailedPayments: 0,
   primeSalesCents: 0,
   primeFailedPayments: 0,
 };
@@ -234,6 +238,7 @@ export function AdminPaymentsConsole() {
     wallet: 1,
     lead_purchases: 1,
     addon_payments: 1,
+    marketplace_payments: 1,
     prime_payments: 1,
   });
   const [paginationByTab, setPaginationByTab] = useState<
@@ -243,6 +248,7 @@ export function AdminPaymentsConsole() {
     wallet: emptyPagination,
     lead_purchases: emptyPagination,
     addon_payments: emptyPagination,
+    marketplace_payments: emptyPagination,
     prime_payments: emptyPagination,
   });
   const loadedPageByTab = useRef(new Map<ActiveTab, number>());
@@ -295,7 +301,7 @@ export function AdminPaymentsConsole() {
       setWalletTransactions(payload.walletTransactions ?? []);
     } else if (tab === "lead_purchases") {
       setLeadPurchases(payload.leadPurchases ?? []);
-    } else if (tab === "addon_payments") {
+    } else if (tab === "addon_payments" || tab === "marketplace_payments") {
       setAddonCustomers(payload.addonCustomers ?? []);
     } else {
       setPrimePayments(payload.primePayments ?? []);
@@ -415,6 +421,8 @@ export function AdminPaymentsConsole() {
         <StatCard label="Ricariche pending" value={String(stats.pendingTopUps)} tone="slate" />
         <StatCard label="Modulo Marketing" value={formatCents(stats.addonSalesCents)} tone="blue" />
         <StatCard label="Insoluti Marketing" value={String(stats.addonFailedPayments)} tone="red" />
+        <StatCard label="Marketplace" value={formatCents(stats.marketplaceSalesCents)} tone="green" />
+        <StatCard label="Insoluti Marketplace" value={String(stats.marketplaceFailedPayments)} tone="red" />
         <StatCard label="Lead Host PRIME" value={formatCents(stats.primeSalesCents)} tone="green" />
         <StatCard label="Insoluti PRIME" value={String(stats.primeFailedPayments)} tone="red" />
       </div>
@@ -463,6 +471,11 @@ export function AdminPaymentsConsole() {
               active={activeTab === "addon_payments"}
               label="Modulo Marketing"
               onClick={() => setActiveTab("addon_payments")}
+            />
+            <TabButton
+              active={activeTab === "marketplace_payments"}
+              label="Marketplace"
+              onClick={() => setActiveTab("marketplace_payments")}
             />
             <TabButton
               active={activeTab === "prime_payments"}
@@ -557,7 +570,7 @@ export function AdminPaymentsConsole() {
         />
       ) : null}
 
-      {!loading && activeTab === "addon_payments" ? (
+      {!loading && (activeTab === "addon_payments" || activeTab === "marketplace_payments") ? (
         <AddonCustomerList customers={filteredAddonCustomers} onOpen={openAddonCustomer} />
       ) : null}
 

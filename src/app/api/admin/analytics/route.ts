@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       previousPrimeResult,
       primeAccountsResult,
       primeSubscriptionsResult,
+      marketplaceProductResult,
     ] = await Promise.all([
       supabase.rpc("get_admin_business_analytics", {
         p_from_date: range.fromDate,
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
       supabase
         .from("addon_subscriptions")
         .select("id,cancel_at_period_end"),
+      supabase.from("addon_products").select("id").eq("slug", "marketplace").maybeSingle(),
     ]);
     const { data, error } = analyticsResult;
 
@@ -95,6 +97,7 @@ export async function GET(request: NextRequest) {
     if (previousPrimeResult.error) throw previousPrimeResult.error;
     if (primeAccountsResult.error) throw primeAccountsResult.error;
     if (primeSubscriptionsResult.error) throw primeSubscriptionsResult.error;
+    if (marketplaceProductResult.error) throw marketplaceProductResult.error;
 
     analytics.snapshot.pendingReview = newLeadCountResult.count ?? 0;
     const subscriptionById = new Map(
@@ -116,10 +119,36 @@ export async function GET(request: NextRequest) {
       },
     };
 
+    const marketplaceProductId = marketplaceProductResult.data?.id;
+    const [marketplaceCurrentResult, marketplacePreviousResult, marketplaceSubscriptionsResult] = marketplaceProductId
+      ? await Promise.all([
+          supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
+            .eq("addon_product_id", marketplaceProductId).gte("created_at", range.fromDate).lt("created_at", range.toDateExclusive),
+          supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
+            .eq("addon_product_id", marketplaceProductId).gte("created_at", range.previousFromDate).lt("created_at", range.previousToDate),
+          supabase.from("addon_subscriptions").select("status,cancel_at_period_end")
+            .eq("addon_product_id", marketplaceProductId),
+        ])
+      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+    if (marketplaceCurrentResult.error) throw marketplaceCurrentResult.error;
+    if (marketplacePreviousResult.error) throw marketplacePreviousResult.error;
+    if (marketplaceSubscriptionsResult.error) throw marketplaceSubscriptionsResult.error;
+    const marketplace = {
+      current: summarizeMarketplace(marketplaceCurrentResult.data ?? []),
+      previous: summarizeMarketplace(marketplacePreviousResult.data ?? []),
+      snapshot: {
+        active: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "active").length,
+        trialing: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.status === "trialing").length,
+        pastDue: (marketplaceSubscriptionsResult.data ?? []).filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
+        cancelAtPeriodEnd: (marketplaceSubscriptionsResult.data ?? []).filter((row) => row.cancel_at_period_end).length,
+      },
+    };
+
     return NextResponse.json(
       {
         ...analytics,
         prime,
+        marketplace,
         range: {
           key: range.key,
           label: range.label,
@@ -150,6 +179,16 @@ export async function GET(request: NextRequest) {
 
     return adminApiErrorResponse(error);
   }
+}
+
+function summarizeMarketplace(rows: Array<{ profile_id: string; payment_kind: string; status: string; amount_cents: number }>) {
+  const paid = rows.filter((row) => row.status === "paid");
+  return {
+    activations: paid.filter((row) => row.payment_kind === "initial").length,
+    renewals: paid.filter((row) => row.payment_kind === "renewal").length,
+    uniquePropertyManagers: new Set(paid.map((row) => row.profile_id)).size,
+    paidCents: paid.reduce((total, row) => total + row.amount_cents, 0),
+  };
 }
 
 function summarizePrime(rows: Array<{

@@ -109,6 +109,16 @@ export type BusinessAnalyticsPayload = {
       cancelled: number;
     };
   };
+  marketplace: {
+    current: MarketplaceAnalyticsMetrics;
+    previous: MarketplaceAnalyticsMetrics;
+    snapshot: {
+      active: number;
+      trialing: number;
+      pastDue: number;
+      cancelAtPeriodEnd: number;
+    };
+  };
   recentActivity: Array<{
     type: string;
     label: string;
@@ -127,6 +137,13 @@ export type PrimeAnalyticsMetrics = {
   membershipCents: number;
   walletRechargeCents: number;
   totalPaidCents: number;
+};
+
+export type MarketplaceAnalyticsMetrics = {
+  activations: number;
+  renewals: number;
+  uniquePropertyManagers: number;
+  paidCents: number;
 };
 
 export const DASHBOARD_RANGE_OPTIONS: Array<{

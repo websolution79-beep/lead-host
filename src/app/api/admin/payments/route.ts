@@ -118,7 +118,7 @@ type PaymentsTable = {
   };
 };
 
-type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments" | "prime_payments";
+type ActiveTab = "payments" | "wallet" | "lead_purchases" | "addon_payments" | "marketplace_payments" | "prime_payments";
 
 export async function GET(request: NextRequest) {
   try {
@@ -129,17 +129,18 @@ export async function GET(request: NextRequest) {
       requestedTab === "wallet" ||
       requestedTab === "lead_purchases" ||
       requestedTab === "addon_payments" ||
+      requestedTab === "marketplace_payments" ||
       requestedTab === "prime_payments"
         ? requestedTab
         : "payments";
     const paymentsTable = supabase.from("payments" as never) as unknown as PaymentsTable;
-    const { data: marketingProduct, error: marketingProductError } = await supabase
-      .from("addon_products")
-      .select("id")
-      .eq("slug", "marketing")
-      .maybeSingle();
+    const [{ data: marketingProduct, error: marketingProductError }, { data: marketplaceProduct, error: marketplaceProductError }] = await Promise.all([
+      supabase.from("addon_products").select("id").eq("slug", "marketing").maybeSingle(),
+      supabase.from("addon_products").select("id").eq("slug", "marketplace").maybeSingle(),
+    ]);
 
     if (marketingProductError) throw marketingProductError;
+    if (marketplaceProductError) throw marketplaceProductError;
     if (!marketingProduct) {
       throw new Error("Prodotto Modulo Marketing non configurato.");
     }
@@ -149,6 +150,7 @@ export async function GET(request: NextRequest) {
       walletStatsResult,
       purchaseStatsResult,
       addonStatsResult,
+      marketplaceStatsResult,
       primeStatsResult,
       activeResult,
     ] = await Promise.all([
@@ -166,6 +168,9 @@ export async function GET(request: NextRequest) {
         .select("status,amount_cents")
         .eq("addon_product_id", marketingProduct.id)
         .limit(1000),
+      marketplaceProduct
+        ? supabase.from("addon_payments").select("status,amount_cents").eq("addon_product_id", marketplaceProduct.id).limit(1000)
+        : Promise.resolve({ data: [], error: null }),
       supabase
         .from("prime_billing_periods")
         .select("status,total_amount_cents,membership_amount_cents,wallet_recharge_amount_cents")
@@ -177,6 +182,7 @@ export async function GET(request: NextRequest) {
         pagination.from,
         pagination.to,
         marketingProduct.id,
+        marketplaceProduct?.id ?? null,
       ),
     ]);
 
@@ -184,6 +190,7 @@ export async function GET(request: NextRequest) {
     if (walletStatsResult.error) throw walletStatsResult.error;
     if (purchaseStatsResult.error) throw purchaseStatsResult.error;
     if (addonStatsResult.error) throw addonStatsResult.error;
+    if (marketplaceStatsResult.error) throw marketplaceStatsResult.error;
     if (primeStatsResult.error) throw primeStatsResult.error;
     if (activeResult.error) throw activeResult.error;
 
@@ -199,6 +206,7 @@ export async function GET(request: NextRequest) {
       ["paid", "contact_unlocked"].includes(item.status),
     );
     const addonStats = addonStatsResult.data ?? [];
+    const marketplaceStats = marketplaceStatsResult.data ?? [];
     const payments =
       activeTab === "payments" ? (activeResult.data as PaymentRow[]) : [];
     const walletTransactions =
@@ -210,7 +218,7 @@ export async function GET(request: NextRequest) {
         ? (activeResult.data as LeadPurchaseRow[])
         : [];
     const addonSubscriptions =
-      activeTab === "addon_payments"
+      activeTab === "addon_payments" || activeTab === "marketplace_payments"
         ? (activeResult.data as AddonSubscriptionRow[])
         : [];
     const primeBillingPeriods =
@@ -353,6 +361,12 @@ export async function GET(request: NextRequest) {
           addonFailedPayments: addonStats.filter((item) =>
             ["failed", "uncollectible"].includes(item.status),
           ).length,
+          marketplaceSalesCents: sumCents(
+            marketplaceStats.filter((item) => item.status === "paid").map((item) => item.amount_cents),
+          ),
+          marketplaceFailedPayments: marketplaceStats.filter((item) =>
+            ["failed", "uncollectible"].includes(item.status),
+          ).length,
           primeSalesCents: sumCents(
             (primeStatsResult.data ?? [])
               .filter((item) => item.status === "paid")
@@ -455,7 +469,7 @@ export async function GET(request: NextRequest) {
           return {
             id: subscription.id,
             profileId: subscription.profile_id,
-            productName: product?.name ?? "Modulo Marketing",
+            productName: product?.name ?? "Abbonamento",
             propertyManagerName: formatProfileName(profile, "Property Manager"),
             propertyManagerEmail: profile?.email ?? null,
             status: subscription.status,
@@ -530,6 +544,7 @@ async function fetchActiveRows(
   from: number,
   to: number,
   marketingProductId: string,
+  marketplaceProductId: string | null,
 ) {
   if (activeTab === "payments") {
     return paymentsTable
@@ -552,14 +567,16 @@ async function fetchActiveRows(
       .range(from, to);
   }
 
-  if (activeTab === "addon_payments") {
+  if (activeTab === "addon_payments" || activeTab === "marketplace_payments") {
+    const productId = activeTab === "addon_payments" ? marketingProductId : marketplaceProductId;
+    if (!productId) return { data: [], error: null, count: 0 };
     return supabase
       .from("addon_subscriptions")
       .select(
         "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,created_at,updated_at",
         { count: "exact" },
       )
-      .eq("addon_product_id", marketingProductId)
+      .eq("addon_product_id", productId)
       .order("updated_at", { ascending: false })
       .range(from, to);
   }

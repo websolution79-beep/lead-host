@@ -43,6 +43,7 @@ type AnalyticsTab =
   | "wallet"
   | "propertyManagers"
   | "prime"
+  | "marketplace"
   | "operations";
 
 const tabs: Array<{ key: AnalyticsTab; label: string }> = [
@@ -51,6 +52,7 @@ const tabs: Array<{ key: AnalyticsTab; label: string }> = [
   { key: "wallet", label: "Vendite e wallet" },
   { key: "propertyManagers", label: "Property Manager" },
   { key: "prime", label: "Lead Host PRIME" },
+  { key: "marketplace", label: "Marketplace" },
   { key: "operations", label: "Operatività" },
 ];
 
@@ -186,6 +188,7 @@ export function AdminAnalyticsConsole() {
         <PropertyManagerAnalytics payload={payload} />
       ) : null}
       {tab === "prime" ? <PrimeAnalytics payload={payload} /> : null}
+      {tab === "marketplace" ? <MarketplaceAnalytics payload={payload} /> : null}
       {tab === "operations" ? <OperationsAnalytics payload={payload} /> : null}
     </div>
   );
@@ -763,6 +766,33 @@ function PrimeAnalytics({
         <BreakdownPanel title="Rinnovi annullati" count={snapshot.cancelAtPeriodEnd} value="Fine periodo programmata" detail="Abbonamenti ancora attivi che non si rinnoveranno" />
         <BreakdownPanel title="Pagamento in ritardo" count={snapshot.pastDue} value="Grace period" detail="PM da contattare prima della sospensione" />
         <BreakdownPanel title="Abbonamenti cancellati" count={snapshot.cancelled} value="Storico" detail="Account PRIME non più attivi" />
+      </section>
+    </div>
+  );
+}
+
+function MarketplaceAnalytics({
+  payload,
+}: {
+  payload: NonNullable<ReturnType<typeof useBusinessAnalytics>["payload"]>;
+}) {
+  const { current, previous, snapshot } = payload.marketplace;
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard icon={Users} label="Abbonati attivi" value={String(snapshot.active)} accent="green" />
+        <MetricCard icon={Clock3} label="In prova gratuita" value={String(snapshot.trialing)} accent="blue" />
+        <MetricCard icon={UserPlus} label="Nuove iscrizioni" value={String(current.activations)} current={current.activations} previous={previous.activations} accent="blue" />
+        <MetricCard icon={RefreshCw} label="Rinnovi" value={String(current.renewals)} current={current.renewals} previous={previous.renewals} />
+        <MetricCard icon={BadgeEuro} label="Incassi Marketplace" value={formatCurrencyCents(current.paidCents)} current={current.paidCents} previous={previous.paidCents} accent="green" />
+        <MetricCard icon={UserRoundCheck} label="PM paganti nel periodo" value={String(current.uniquePropertyManagers)} current={current.uniquePropertyManagers} previous={previous.uniquePropertyManagers} />
+        <MetricCard icon={Clock3} label="Rinnovi disdetti" value={String(snapshot.cancelAtPeriodEnd)} accent="amber" />
+        <MetricCard icon={XCircle} label="Pagamenti critici" value={String(snapshot.pastDue)} accent="amber" />
+      </div>
+      <section className="rounded-lg border border-slate-200 bg-white p-5">
+        <p className="section-kicker">Marketplace</p>
+        <h2 className="mt-1 text-xl font-semibold text-ink">Abbonamenti e rinnovi</h2>
+        <p className="mt-2 text-sm leading-6 text-muted">Gli incassi conteggiano solo pagamenti Stripe confermati. I PM PRIME non sono inclusi qui: il Marketplace e compreso nel loro piano.</p>
       </section>
     </div>
   );

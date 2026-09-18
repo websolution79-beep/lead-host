@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, Crown, Eye, Map, RefreshCw, Search, X } from "lucide-react";
+import { CalendarClock, Crown, Eye, Filter, Map, RefreshCw, RotateCcw, Search, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import { PaginationControls, type PaginationState } from "@/components/pagination-controls";
@@ -126,18 +126,18 @@ export function AdminSubscriptionsConsole() {
       <SubscriptionGroup title="Modulo Marketing" icon={<CalendarClock className="size-5 text-emerald-600" />} tone="green" summary={stats.marketing} />
     </section>
 
-    <section className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+    <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="section-kicker">Archivio abbonamenti</p><h2 className="mt-1 text-xl font-semibold text-ink">Situazione abbonamenti</h2></div>
+        <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-lg border border-emerald-100 bg-emerald-50 text-green"><Filter size={19} /></span><div><p className="section-kicker">Archivio abbonamenti</p><h2 className="mt-1 text-xl font-semibold text-ink">Filtra gli abbonamenti</h2></div></div>
         <button type="button" className="icon-button" title="Aggiorna abbonamenti" aria-label="Aggiorna abbonamenti" disabled={loading} onClick={() => void load(page)}><RefreshCw className={loading ? "animate-spin" : undefined} size={17} /></button>
       </div>
-      <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_repeat(2,minmax(0,0.7fr))_auto]">
-        <label className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" /><input className="input w-full pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cerca PM, email, città o Account Manager" /></label>
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500"><span>Abbonamento</span><select className="input" value={product} onChange={(event) => { setProduct(event.target.value as Product); setPage(1); }}><option value="all">Tutti</option><option value="lead-host-prime">Lead Host PRIME</option><option value="marketplace">Marketplace</option><option value="marketing">Modulo Marketing</option></select></label>
-        <label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500"><span>Stato</span><select className="input" value={status} onChange={(event) => { setStatus(event.target.value as Status); setPage(1); }}><option value="all">Tutti</option><option value="active">Attivi</option><option value="trialing">In prova</option><option value="cancel_at_period_end">Rinnovi disattivati</option><option value="past_due">Pagamento da regolarizzare</option><option value="canceled">Scaduti o disdetti</option></select></label>
-        <button type="button" className="btn btn-secondary min-h-11" onClick={reset}>Reset</button>
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(11rem,0.72fr)_minmax(11rem,0.72fr)_auto] lg:items-end">
+        <label className="grid gap-2 text-sm font-semibold text-ink"><span>Cerca Property Manager</span><span className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-slate-400" /><input className="input min-h-12 w-full bg-white pl-11 shadow-sm" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, email, città o Account Manager" /></span></label>
+        <label className="grid gap-2 text-sm font-semibold text-ink"><span>Abbonamento</span><select className="input min-h-12 bg-white shadow-sm" value={product} onChange={(event) => { setProduct(event.target.value as Product); setPage(1); }}><option value="all">Tutti gli abbonamenti</option><option value="lead-host-prime">Lead Host PRIME</option><option value="marketplace">Marketplace</option><option value="marketing">Modulo Marketing</option></select></label>
+        <label className="grid gap-2 text-sm font-semibold text-ink"><span>Stato</span><select className="input min-h-12 bg-white shadow-sm" value={status} onChange={(event) => { setStatus(event.target.value as Status); setPage(1); }}><option value="all">Tutti gli stati</option><option value="active">Attivi</option><option value="trialing">In prova</option><option value="cancel_at_period_end">Rinnovi disattivati</option><option value="past_due">Pagamento da regolarizzare</option><option value="canceled">Scaduti o disdetti</option></select></label>
+        <button type="button" className="btn btn-secondary min-h-12 px-4" onClick={reset}><RotateCcw size={16} /> Reset</button>
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">Scadenza da<input className="input" type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} /></label><label className="grid gap-1 text-xs font-bold uppercase tracking-wide text-slate-500">Scadenza fino a<input className="input" type="date" value={dateTo} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} /></label></div>
+      <div className="mt-5 border-t border-slate-200 pt-4"><div className="flex items-center gap-2 text-sm font-semibold text-slate-700"><CalendarClock size={16} className="text-green" /> Prossima scadenza</div><div className="mt-3 grid gap-4 sm:max-w-2xl sm:grid-cols-2"><label className="grid gap-2 text-sm font-semibold text-ink"><span>Da</span><input className="input min-h-11 bg-white shadow-sm" type="date" value={dateFrom} onChange={(event) => { setDateFrom(event.target.value); setPage(1); }} /></label><label className="grid gap-2 text-sm font-semibold text-ink"><span>Fino a</span><input className="input min-h-11 bg-white shadow-sm" type="date" value={dateTo} onChange={(event) => { setDateTo(event.target.value); setPage(1); }} /></label></div></div>
     </section>
 
     {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div> : null}

@@ -186,6 +186,13 @@ const adminLinks: AppNavLink[] = [
     permission: "payments",
   },
   {
+    label: "Abbonamenti",
+    href: "/admin/abbonamenti",
+    icon: CreditCard,
+    category: "Finanza",
+    superAdminOnly: true,
+  },
+  {
     label: "Coupon",
     href: "/admin/coupon",
     icon: BadgePercent,

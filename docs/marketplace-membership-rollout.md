@@ -136,7 +136,11 @@ Only current Stripe-confirmed period-end cancellations of active/trialing
 Marketplace subscriptions send these notices; persisted delivery keys prevent retries
 from sending duplicates. The rollout guard remains disabled. Template rendering,
 41 focused tests, TypeScript and targeted ESLint pass. No real email or payment sent.
-Payment-failure notifications and Stripe test-mode end-to-end verification remain pending.
+2026-09-18: Added editable PM/superadmin payment-action-required and payment-failed
+templates. Webhooks re-read the invoice from Stripe and only notify while the stored
+Marketplace payment remains pending, failed or uncollectible; voided and subsequently
+paid invoices do not trigger a payment-issue notice. Stripe test-mode end-to-end
+verification remains pending.
 
 Migration uses short lock/statement timeouts; if busy, retry later rather than
 removing timeouts during live traffic. Paid access and checkout remain disabled.

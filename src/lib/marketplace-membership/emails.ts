@@ -3,16 +3,35 @@ import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { sendTransactionalEmail } from "@/lib/email/service";
 import { MARKETPLACE_MEMBERSHIP_ROLLOUT_READY } from "./settings";
 
-export async function sendMarketplaceEmails(subscriptionId: string, invoiceId?: string, cancellationKey?: string) {
+type MarketplaceEmailNotification =
+  | "activation"
+  | "payment_received"
+  | "cancellation_scheduled"
+  | "payment_action_required"
+  | "payment_failed";
+
+type MarketplaceEmailOptions = {
+  invoiceId?: string;
+  cancellationKey?: string;
+  notification?: MarketplaceEmailNotification;
+};
+
+export async function sendMarketplaceEmails(
+  subscriptionId: string,
+  { invoiceId, cancellationKey, notification }: MarketplaceEmailOptions = {},
+) {
   if (!MARKETPLACE_MEMBERSHIP_ROLLOUT_READY) return;
+  const resolvedNotification = notification ?? (cancellationKey
+    ? "cancellation_scheduled"
+    : invoiceId ? "payment_received" : "activation");
   const db = createServiceSupabaseClient();
   const { data: subscription, error } = await db.from("addon_subscriptions").select("*").eq("id", subscriptionId).single();
   if (error) throw error;
   const { data: product, error: productError } = await db.from("addon_products").select("slug").eq("id", subscription.addon_product_id).single();
   if (productError) throw productError;
   if (product.slug !== "marketplace" || subscription.source !== "stripe") return;
-  if (cancellationKey && (!subscription.cancel_at_period_end || !["trialing", "active"].includes(subscription.status))) return;
-  if (!invoiceId && !cancellationKey && !["trialing", "active"].includes(subscription.status)) return;
+  if (resolvedNotification === "cancellation_scheduled" && (!subscription.cancel_at_period_end || !["trialing", "active"].includes(subscription.status))) return;
+  if (resolvedNotification === "activation" && !["trialing", "active"].includes(subscription.status)) return;
   const { data: profile, error: profileError } = await db.from("profiles").select("id,email,first_name,last_name,status").eq("id", subscription.profile_id).single();
   if (profileError) throw profileError;
   const { data: payment, error: paymentError } = invoiceId
@@ -20,7 +39,9 @@ export async function sendMarketplaceEmails(subscriptionId: string, invoiceId?: 
       .eq("subscription_id", subscriptionId).eq("provider_invoice_id", invoiceId).eq("provider", "stripe").single()
     : { data: null, error: null };
   if (paymentError) throw paymentError;
-  if (invoiceId && (!payment || payment.status !== "paid" || payment.amount_cents <= 0)) return;
+  if (resolvedNotification === "payment_received" && (!payment || payment.status !== "paid" || payment.amount_cents <= 0)) return;
+  if (resolvedNotification === "payment_action_required" && (!payment || payment.status !== "pending" || payment.amount_cents <= 0)) return;
+  if (resolvedNotification === "payment_failed" && (!payment || !["failed", "uncollectible"].includes(payment.status) || payment.amount_cents <= 0)) return;
   const metadata = subscription.metadata && typeof subscription.metadata === "object" && !Array.isArray(subscription.metadata) ? subscription.metadata : {};
   const money = (value: number, currency = "EUR") => new Intl.NumberFormat("it-IT", { style: "currency", currency }).format(value / 100);
   const date = (value: string | null) => value ? new Date(value).toLocaleDateString("it-IT", { timeZone: "Europe/Rome" }) : "non prevista";
@@ -45,12 +66,11 @@ export async function sendMarketplaceEmails(subscriptionId: string, invoiceId?: 
     ...admins.map(admin => ({ ...admin, admin: true })),
   ];
   for (const recipient of recipients) {
-    const eventType = cancellationKey
-      ? recipient.admin ? "admin.marketplace_cancellation_scheduled" as const : "marketplace.cancellation_scheduled" as const
-      : invoiceId
-      ? recipient.admin ? "admin.marketplace_payment_received" as const : "marketplace.payment_received" as const
-      : recipient.admin ? "admin.marketplace_activated" as const : "marketplace.activated" as const;
-    const key = createHash("sha256").update(`${eventType}:${cancellationKey ? `${subscriptionId}:${cancellationKey}` : invoiceId ?? subscriptionId}:${recipient.email.toLowerCase()}`).digest("hex");
+    const eventType = `${recipient.admin ? "admin." : ""}marketplace.${resolvedNotification}` as Parameters<typeof sendTransactionalEmail>[0]["eventType"];
+    const deliveryReference = resolvedNotification === "cancellation_scheduled"
+      ? `${subscriptionId}:${cancellationKey}`
+      : invoiceId ?? subscriptionId;
+    const key = createHash("sha256").update(`${eventType}:${deliveryReference}:${recipient.email.toLowerCase()}`).digest("hex");
     const { data: sent, error: logError } = await db.from("email_delivery_logs").select("id")
       .eq("event_type", eventType).eq("status", "sent").contains("metadata", { marketplace_email_key: key }).limit(1);
     if (logError) throw logError;

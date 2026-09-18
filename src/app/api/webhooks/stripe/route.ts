@@ -213,7 +213,9 @@ export async function POST(request: NextRequest) {
       if (!result.ignored && subscription.metadata.addon_slug === "marketplace" && subscription.cancel_at_period_end) {
         const localSubscriptionId = subscription.metadata.addon_subscription_id;
         if (!localSubscriptionId) throw new Error("Marketplace subscription missing");
-        await sendMarketplaceEmails(localSubscriptionId, undefined, String(subscription.canceled_at ?? subscription.cancel_at));
+        await sendMarketplaceEmails(localSubscriptionId, {
+          cancellationKey: String(subscription.canceled_at ?? subscription.cancel_at),
+        });
       }
       if (!result.ignored && (subscription.metadata.kind === "prime_subscription" || subscription.metadata.addon_slug === "marketplace")) {
         await reconcilePrimeMarketplace(stripe, result.profileId);
@@ -297,7 +299,7 @@ export async function POST(request: NextRequest) {
       if (isMarketplace && !result.ignored && paymentStatus === "paid" && invoice.amount_paid > 0) {
         const localSubscriptionId = invoice.parent?.subscription_details?.metadata?.addon_subscription_id;
         if (!localSubscriptionId) throw new Error("Marketplace invoice subscription missing");
-        await sendMarketplaceEmails(localSubscriptionId, invoice.id);
+        await sendMarketplaceEmails(localSubscriptionId, { invoiceId: invoice.id });
         const db = createServiceSupabaseClient();
         const { settings, storageReady } = await fetchBillingIssuerSettings(db);
         if (!storageReady) throw new Error("Archivio fatture Marketplace non disponibile.");
@@ -308,6 +310,12 @@ export async function POST(request: NextRequest) {
           // Billing failure is retryable after payment/access have been persisted.
           await generateMarketplaceInvoice({ supabase: db, marketplacePaymentId: payment.id });
         }
+      }
+      if (isMarketplace && !result.ignored && ["pending", "failed", "uncollectible"].includes(paymentStatus)) {
+        const localSubscriptionId = invoice.parent?.subscription_details?.metadata?.addon_subscription_id;
+        if (!localSubscriptionId) throw new Error("Marketplace invoice subscription missing");
+        const notification = paymentStatus === "pending" ? "payment_action_required" : "payment_failed";
+        await sendMarketplaceEmails(localSubscriptionId, { invoiceId: invoice.id, notification });
       }
       if (!primeResult.ignored && primeResult.status === "paid") {
         await reconcilePrimeMarketplace(stripe, primeResult.profile_id);

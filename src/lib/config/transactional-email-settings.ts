@@ -5,6 +5,10 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 type ServiceClient = SupabaseClient<Database>;
 
 export const transactionalEmailTemplateIds = [
+  "marketplace.payment_action_required",
+  "admin.marketplace_payment_action_required",
+  "marketplace.payment_failed",
+  "admin.marketplace_payment_failed",
   "marketplace.cancellation_scheduled",
   "admin.marketplace_cancellation_scheduled",
   "marketplace.activated",
@@ -66,6 +70,26 @@ export type RenderedTransactionalEmail = {
 const SETTINGS_KEY = "email.transactional_templates";
 
 export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = [
+  ...(["marketplace.payment_action_required", "admin.marketplace_payment_action_required", "marketplace.payment_failed", "admin.marketplace_payment_failed"] as const).map((id): TransactionalEmailTemplate => {
+    const admin = id.startsWith("admin.");
+    const actionRequired = id.includes("action_required");
+    return {
+      id, enabled: true,
+      label: `${admin ? "Superadmin - " : ""}Marketplace: ${actionRequired ? "azione richiesta sul pagamento" : "pagamento non riuscito"}`,
+      description: admin ? "Notifica esclusivamente ai Super Admin attivi." : "Notifica transazionale al Property Manager per un rinnovo Marketplace non completato.",
+      subject: actionRequired ? "Azione richiesta per il pagamento Marketplace" : "Pagamento Marketplace non riuscito",
+      preview: actionRequired ? "Completa l'azione richiesta per continuare il rinnovo." : "Il rinnovo Marketplace non e stato completato.",
+      title: actionRequired ? "Completa il pagamento Marketplace" : "Rinnovo Marketplace non riuscito",
+      body: actionRequired
+        ? "{{customer_name}}, Stripe richiede un'azione per completare il pagamento di {{paid_amount}} del tuo abbonamento Marketplace."
+        : "{{customer_name}}, il pagamento di {{paid_amount}} per il rinnovo del tuo abbonamento Marketplace non e stato completato.",
+      extra: admin ? "PM: {{customer_email}}. ID abbonamento: {{subscription_id}}."
+        : "Controlla o aggiorna il metodo di pagamento dal tuo profilo. L'accesso puo dipendere dallo stato del pagamento comunicato da Stripe.",
+      ctaLabel: admin ? "Apri pagamenti" : "Gestisci abbonamento",
+      ctaUrl: admin ? "/admin/pagamenti" : "/app/profilo#abbonamento-marketplace",
+      variables: ["customer_name", "customer_email", "subscription_id", "paid_amount", "period_end"],
+    };
+  }),
   ...(["marketplace.cancellation_scheduled", "admin.marketplace_cancellation_scheduled"] as const).map((id): TransactionalEmailTemplate => {
     const admin = id.startsWith("admin.");
     return {

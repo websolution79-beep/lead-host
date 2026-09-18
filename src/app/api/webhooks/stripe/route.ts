@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
 import { reconcilePrimeMarketplace } from "@/lib/marketplace-membership/prime-reconciliation";
+import { sendMarketplaceEmails } from "@/lib/marketplace-membership/emails";
 import { getEnv } from "@/lib/env";
 import {
   sendPrimeBillingEmails,
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
       }
       if (session.metadata?.kind === "addon_subscription") {
         const result = await completeAddonSubscription(stripe, session);
+        if (session.metadata?.addon_slug === "marketplace") await sendMarketplaceEmails(result.subscriptionId);
         after(async () => {
           if (session.metadata?.addon_slug === "marketplace") return;
           await sendMarketingAddonActivationEmails({
@@ -285,6 +287,9 @@ export async function POST(request: NextRequest) {
       }
 
       if (isMarketplace && !result.ignored && paymentStatus === "paid" && invoice.amount_paid > 0) {
+        const localSubscriptionId = invoice.parent?.subscription_details?.metadata?.addon_subscription_id;
+        if (!localSubscriptionId) throw new Error("Marketplace invoice subscription missing");
+        await sendMarketplaceEmails(localSubscriptionId, invoice.id);
         const db = createServiceSupabaseClient();
         const { settings, storageReady } = await fetchBillingIssuerSettings(db);
         if (!storageReady) throw new Error("Archivio fatture Marketplace non disponibile.");

@@ -5,6 +5,10 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 type ServiceClient = SupabaseClient<Database>;
 
 export const transactionalEmailTemplateIds = [
+  "marketplace.activated",
+  "admin.marketplace_activated",
+  "marketplace.payment_received",
+  "admin.marketplace_payment_received",
   "pm.welcome",
   "pm.verified",
   "pm.account_deactivated",
@@ -60,6 +64,26 @@ export type RenderedTransactionalEmail = {
 const SETTINGS_KEY = "email.transactional_templates";
 
 export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = [
+  ...(["marketplace.activated", "admin.marketplace_activated", "marketplace.payment_received", "admin.marketplace_payment_received"] as const).map((id): TransactionalEmailTemplate => {
+    const admin = id.startsWith("admin.");
+    const activation = id.endsWith("activated");
+    return {
+      id, enabled: true,
+      label: `${admin ? "Superadmin - " : ""}Marketplace: ${activation ? "nuova iscrizione" : "pagamento ricevuto"}`,
+      description: admin ? "Notifica esclusivamente ai Super Admin attivi." : "Notifica transazionale al Property Manager.",
+      subject: activation ? "Iscrizione Marketplace Lead Host confermata" : "Pagamento Marketplace Lead Host confermato",
+      preview: activation ? "Accesso al Marketplace attivato." : "Il pagamento dell'abbonamento Marketplace e stato ricevuto.",
+      title: activation ? "Benvenuto nel Marketplace Lead Host" : "Pagamento Marketplace confermato",
+      body: activation
+        ? "{{customer_name}}, l'iscrizione al Marketplace e confermata. Stato: {{subscription_status}}. Canone concordato: {{monthly_price}} al mese. Fine prova gratuita: {{trial_end}}."
+        : "Pagamento di {{paid_amount}} ricevuto per l'abbonamento Marketplace di {{customer_name}}. Periodo coperto fino al {{period_end}}.",
+      extra: admin ? "PM: {{customer_email}}. ID abbonamento: {{subscription_id}}."
+        : "Puoi gestire l'abbonamento dal tuo profilo. Il costo dei singoli lead non e incluso. {{renewal_terms}}",
+      ctaLabel: admin ? "Apri pagamenti" : "Gestisci abbonamento",
+      ctaUrl: admin ? "/admin/pagamenti" : "/app/profilo#abbonamento-marketplace",
+      variables: ["customer_name", "customer_email", "subscription_id", "subscription_status", "monthly_price", "trial_end", "paid_amount", "period_end", "renewal_terms"],
+    };
+  }),
   {
     id: "pm.welcome",
     label: "Benvenuto PM",

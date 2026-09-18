@@ -12,6 +12,7 @@ import { resolveTransactionalEmailInternalRecipients } from "@/lib/config/transa
 export type EmailEventType = TransactionalEmailTemplateId;
 
 type EmailPayload = {
+  idempotencyKey?: string;
   to: string;
   subject: string;
   html: string;
@@ -74,6 +75,7 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(payload.idempotencyKey ? { "Idempotency-Key": payload.idempotencyKey } : {}),
       },
       body: JSON.stringify({
         from,

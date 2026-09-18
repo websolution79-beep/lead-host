@@ -45,6 +45,15 @@
 
 ## Integration findings
 
+### Marketplace transactional email phase
+
+- [x] Add editable PM/superadmin templates for signup (including trial) and successful positive-value subscription payments.
+- [x] Superadmin messages resolve only active profiles with the super_admin role. PM notifications skip inactive profiles; Marketing/PRIME templates are unchanged.
+- [x] Use the stored signup amount and settled payment amount, not today's catalog price. Respect scheduled cancellation in customer copy.
+- [x] Per-event/per-recipient sent-log checks plus Resend idempotency keys protect retries. Missing configuration and delivery failures remain retryable; deliberately disabled templates are respected.
+- [x] Wire activation to checkout completion and subscription recovery; paid notifications to confirmed Marketplace invoices. All new sends remain rollout-disabled.
+- [ ] Validate real delivery in an isolated environment; no live email sent during implementation. Payment failure/cancellation notices and long-term delivery recovery remain follow-up work.
+
 ### Pending checkout recovery phase
 
 - [x] Recover pending Marketplace sessions by persisted ID or Stripe customer/reference, validating product/profile/customer ownership before changes.

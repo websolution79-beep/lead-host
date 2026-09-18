@@ -6,6 +6,7 @@ import { hasPrimeMarketplaceAccess } from "./access";
 import { loadMarketplaceSubscription } from "./subscription";
 import { cancelMarketplaceRenewalForPrime } from "./prime-cancellation";
 import { assertMarketplaceSubscription, recoverPendingMarketplaceCheckout } from "./pending-checkout";
+import { sendMarketplaceEmails } from "./emails";
 
 export async function reconcilePrimeMarketplace(stripe: Stripe, profileId: string) {
   if (!MARKETPLACE_MEMBERSHIP_ROLLOUT_READY) return;
@@ -41,6 +42,7 @@ export async function reconcilePrimeMarketplace(stripe: Stripe, profileId: strin
       assertMarketplaceSubscription(current, { id: subscription.id, profileId, productId: product.id });
       await syncAddonSubscriptionFromStripe(current, { reason: "Recupero stato abbonamento Marketplace" });
     }
+    await sendMarketplaceEmails(subscription.id);
     return;
   }
   const updated = await cancelMarketplaceRenewalForPrime(stripe, {
@@ -48,4 +50,5 @@ export async function reconcilePrimeMarketplace(stripe: Stripe, profileId: strin
     localSubscriptionId: subscription.id, profileId,
   });
   await syncAddonSubscriptionFromStripe(updated, { reason: "Marketplace incluso nell'accesso PRIME" });
+  await sendMarketplaceEmails(subscription.id);
 }

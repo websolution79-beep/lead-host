@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/marketplace-renewals",
+      "schedule": "35 2 * * *"
+    },
+    {
       "path": "/api/cron/expire-leads",
       "schedule": "5 0 * * *"
     },

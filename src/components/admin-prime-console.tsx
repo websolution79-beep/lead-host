@@ -312,8 +312,9 @@ export function AdminPrimeConsole() {
       },
       body: JSON.stringify(body),
     });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    const payload = (await response.json().catch(() => ({}))) as { error?: string; marketplaceRenewalPending?: boolean };
     if (!response.ok) throw new Error(payload.error ?? "Operazione PRIME non riuscita.");
+    return payload;
   }
 
   async function claimManager(row: PrimeRow) {
@@ -493,7 +494,7 @@ export function AdminPrimeConsole() {
     setError("");
     setSuccess("");
     try {
-      await patch({
+      const result = await patch({
         action: "manage_access",
         profileId: actionDraft.row.profile.id,
         accessAction: actionDraft.action,
@@ -504,6 +505,7 @@ export function AdminPrimeConsole() {
         reason: actionDraft.reason,
       });
       setSuccess(accessActionSuccess(actionDraft.action));
+      if (result.marketplaceRenewalPending) setError("PRIME attivato. Lo stop dei rinnovi Marketplace non e ancora confermato: il sistema riprovera automaticamente. Verifica l'abbonamento prima del prossimo addebito.");
       setActionDraft(null);
       await loadPrime();
     } catch (requestError) {

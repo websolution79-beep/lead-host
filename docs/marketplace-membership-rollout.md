@@ -45,6 +45,16 @@
 
 ## Integration findings
 
+### Renewal recovery phase
+
+- [x] Add a separate daily Marketplace renewal recovery cron (02:35 UTC), with mandatory CRON_SECRET authentication and fail-closed behavior when the secret is missing.
+- [x] Select only Marketplace Stripe subscriptions; keyset pagination avoids skipping records when reconciliation changes status. Individual failures do not stop the remaining records and produce a non-success response for monitoring.
+- [x] Attempt reconciliation after successful manual PRIME activation. A Stripe failure preserves the completed PRIME grant and displays a warning to the admin; the daily sweep retries it.
+- [x] Keep the new cron and manual-activation integration inert while MARKETPLACE_MEMBERSHIP_ROLLOUT_READY is false. No live subscriptions changed during development.
+- [x] Verify 22 focused tests, including page traversal, isolated failures and empty recovery.
+- [ ] Resolve incomplete/simultaneous checkout recovery and verify real scheduler execution before activation. The daily sweep is a fallback, not a guarantee against a renewal immediately following a failed Stripe request.
+- [x] Offer component checked at 320/390/768/1440px with static rendering and Playwright; no horizontal overflow. Full authenticated end-to-end scenarios still pending.
+
 - addon_products/subscriptions/payments/trial_usage already provide product isolation and uniqueness constraints.
 - Marketing checkout and activation email paths currently contain Marketing-specific logic. Do not dispatch Marketplace events through Marketing emails.
 - getPrimeAccessState supplies entitlement; eligibility alone must not grant access.

@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
+import Stripe from "stripe";
+import { getEnv } from "@/lib/env";
+import { MARKETPLACE_MEMBERSHIP_ROLLOUT_READY } from "@/lib/marketplace-membership/settings";
+import { reconcilePrimeMarketplace } from "@/lib/marketplace-membership/prime-reconciliation";
 import {
   AdminApiError,
   adminApiErrorResponse,
@@ -596,7 +600,20 @@ export async function PATCH(request: NextRequest) {
       after: afterResult.data,
     });
 
-    return NextResponse.json({ ok: true });
+    let marketplaceRenewalPending = false;
+    if (MARKETPLACE_MEMBERSHIP_ROLLOUT_READY && payload.action === "manage_access" && payload.accessAction === "activate") {
+      try {
+        const key = getEnv("STRIPE_SECRET_KEY");
+        if (!key) throw new Error("Stripe not configured");
+        await reconcilePrimeMarketplace(new Stripe(key, { timeout: 10000, maxNetworkRetries: 1 }), payload.profileId);
+      } catch (error) {
+        // PRIME is already granted: retry separately without undoing successful access.
+        marketplaceRenewalPending = true;
+        console.error("Manual PRIME Marketplace renewal recovery pending", payload.profileId,
+          error instanceof Error ? error.message : "Unknown error");
+      }
+    }
+    return NextResponse.json({ ok: true, marketplaceRenewalPending });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

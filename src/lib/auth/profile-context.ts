@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { AppRole } from "@/lib/auth/roles";
-import { requireEnv } from "@/lib/env";
+import { getEnv, requireEnv } from "@/lib/env";
 import type { Database } from "@/lib/supabase/database.types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
@@ -18,7 +18,10 @@ export async function getAuthenticatedProfileContext(accessToken: string) {
 
   const supabase = createClient<Database>(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    // Keep server-side session checks aligned with the browser client. Newer
+    // Supabase projects provide a publishable key instead of the legacy anon key.
+    getEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") ??
+      requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
       global: {
         headers: {

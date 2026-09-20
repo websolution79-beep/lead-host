@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getEnv } from "@/lib/env";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 export const dynamic = "force-dynamic";
 const TEMPORARY_DIAGNOSTIC_NONCE = "bcfdc4d9-1f18-4e43-87eb-dc7796062049";
@@ -23,36 +24,37 @@ export async function GET(request: NextRequest) {
 
   const [profiles, pmProfiles, wallets, primeAccounts, primeNotes, subscriptions, authUsers] =
     await Promise.all([
-      supabase
+      readRowsInIdBatches(profileIds, (batch) => supabase
         .from("profiles")
         .select("id,email,first_name,last_name,phone,status,created_at")
-        .in("id", profileIds),
-      supabase
+        .in("id", batch)),
+      readRowsInIdBatches(profileIds, (batch) => supabase
         .from("property_manager_profiles")
         .select("profile_id,primary_city,managed_properties_range,managed_properties_count")
-        .in("profile_id", profileIds),
-      supabase
+        .in("profile_id", batch)),
+      readRowsInIdBatches(profileIds, (batch) => supabase
         .from("wallets")
         .select("profile_id,balance_cents,currency")
-        .in("profile_id", profileIds),
-      supabase.from("prime_accounts").select("*").in("profile_id", profileIds),
-      supabase
+        .in("profile_id", batch)),
+      readRowsInIdBatches(profileIds, (batch) => supabase
+        .from("prime_accounts").select("*").in("profile_id", batch)),
+      readRowsInIdBatches(profileIds, (batch) => supabase
         .from("prime_internal_notes")
         .select("profile_id,interest_locations")
-        .in("profile_id", profileIds),
-      supabase
+        .in("profile_id", batch)),
+      readRowsInIdBatches(profileIds, (batch) => supabase
         .from("addon_subscriptions")
         .select("id,profile_id,status,source,current_period_ends_at,cancel_at_period_end,canceled_at,updated_at")
-        .in("profile_id", profileIds),
+        .in("profile_id", batch)),
       supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     ]);
 
-  checks.profiles = summarize(profiles);
-  checks.propertyManagerProfiles = summarize(pmProfiles);
-  checks.wallets = summarize(wallets);
-  checks.primeAccounts = summarize(primeAccounts);
-  checks.primeNotes = summarize(primeNotes);
-  checks.subscriptions = summarize(subscriptions);
+  checks.profiles = { ok: true, count: profiles.length };
+  checks.propertyManagerProfiles = { ok: true, count: pmProfiles.length };
+  checks.wallets = { ok: true, count: wallets.length };
+  checks.primeAccounts = { ok: true, count: primeAccounts.length };
+  checks.primeNotes = { ok: true, count: primeNotes.length };
+  checks.subscriptions = { ok: true, count: subscriptions.length };
   checks.authUsers = authUsers.error
     ? { ok: false, error: safeError(authUsers.error) }
     : { ok: true, count: authUsers.data.users.length };

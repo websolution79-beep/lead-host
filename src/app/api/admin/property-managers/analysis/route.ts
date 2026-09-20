@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { adminApiErrorResponse, requireAdminPermission } from "@/lib/admin/auth";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 const purchaseStatuses = ["paid", "contact_unlocked", "refunded"] as const;
 
@@ -84,70 +85,58 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [profilesResult, managersResult, walletsResult, consentResult] =
-      await Promise.all([
-        supabase
+    const [profileRows, managerRows, walletRows, consentRows] = await Promise.all([
+        readRowsInIdBatches<ProfileRow>(profileIds, (batch) => supabase
           .from("profiles")
           .select("id,email,first_name,last_name,phone,status,created_at")
-          .in("id", profileIds),
-        supabase
+          .in("id", batch)),
+        readRowsInIdBatches<ManagerRow>(profileIds, (batch) => supabase
           .from("property_manager_profiles")
           .select("id,profile_id,primary_city")
-          .in("profile_id", profileIds),
-        supabase
+          .in("profile_id", batch)),
+        readRowsInIdBatches<WalletRow>(profileIds, (batch) => supabase
           .from("wallets")
           .select("profile_id,balance_cents,currency")
-          .in("profile_id", profileIds),
-        supabase
+          .in("profile_id", batch)),
+        readRowsInIdBatches<ConsentRow>(profileIds, (batch) => supabase
           .from("pm_marketing_preferences")
           .select("profile_id,status")
-          .in("profile_id", profileIds),
+          .in("profile_id", batch)),
       ]);
-
-    if (profilesResult.error) throw profilesResult.error;
-    if (managersResult.error) throw managersResult.error;
-    if (walletsResult.error) throw walletsResult.error;
-    if (consentResult.error) throw consentResult.error;
-
-    const managerRows = (managersResult.data ?? []) as ManagerRow[];
     const managerIds = managerRows.map((row) => row.id);
     let purchaseRows: PurchaseRow[] = [];
     if (managerIds.length) {
-      let purchasesQuery = supabase
-        .from("lead_purchases")
-        .select("id,property_manager_id,mode,status,amount_cents,created_at")
-        .in("property_manager_id", managerIds)
-        .in("status", [...purchaseStatuses])
-        .order("created_at", { ascending: true })
-        .limit(10000);
-      if (dateFrom) purchasesQuery = purchasesQuery.gte("created_at", dateFrom);
-      if (dateTo) purchasesQuery = purchasesQuery.lte("created_at", dateTo);
-      if (mode === "shared" || mode === "exclusive") {
-        purchasesQuery = purchasesQuery.eq("mode", mode);
-      }
-      const purchasesResult = await purchasesQuery;
-      if (purchasesResult.error) throw purchasesResult.error;
-      purchaseRows = (purchasesResult.data ?? []) as PurchaseRow[];
+      purchaseRows = await readRowsInIdBatches<PurchaseRow>(managerIds, (batch) => {
+        let query = supabase
+          .from("lead_purchases")
+          .select("id,property_manager_id,mode,status,amount_cents,created_at")
+          .in("property_manager_id", batch)
+          .in("status", [...purchaseStatuses]);
+        if (dateFrom) query = query.gte("created_at", dateFrom);
+        if (dateTo) query = query.lte("created_at", dateTo);
+        if (mode === "shared" || mode === "exclusive") query = query.eq("mode", mode);
+        return query.order("created_at", { ascending: true }).limit(10000);
+      });
+      purchaseRows.sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
     }
 
-    let walletQuery = supabase
-      .from("wallet_transactions")
-      .select("profile_id,type,status,amount_cents,completed_at,created_at")
-      .in("profile_id", profileIds)
-      .in("type", ["top_up", "refund"])
-      .eq("status", "completed")
-      .order("created_at", { ascending: true })
-      .limit(10000);
-    if (dateFrom) walletQuery = walletQuery.gte("completed_at", dateFrom);
-    if (dateTo) walletQuery = walletQuery.lte("completed_at", dateTo);
-
-    const walletTransactionsResult = await walletQuery;
-    if (walletTransactionsResult.error) throw walletTransactionsResult.error;
-
-    const profileRows = (profilesResult.data ?? []) as ProfileRow[];
-    const walletRows = (walletsResult.data ?? []) as WalletRow[];
-    const consentRows = (consentResult.data ?? []) as ConsentRow[];
-    const walletTransactionRows = (walletTransactionsResult.data ?? []) as WalletTransactionRow[];
+    const walletTransactionRows = await readRowsInIdBatches<WalletTransactionRow>(
+      profileIds,
+      (batch) => {
+        let query = supabase
+          .from("wallet_transactions")
+          .select("profile_id,type,status,amount_cents,completed_at,created_at")
+          .in("profile_id", batch)
+          .in("type", ["top_up", "refund"])
+          .eq("status", "completed");
+        if (dateFrom) query = query.gte("completed_at", dateFrom);
+        if (dateTo) query = query.lte("completed_at", dateTo);
+        return query.order("created_at", { ascending: true }).limit(10000);
+      },
+    );
+    walletTransactionRows.sort(
+      (left, right) => Date.parse(left.created_at) - Date.parse(right.created_at),
+    );
 
     const managersByProfile = new Map(
       managerRows.map((row) => [row.profile_id, row]),

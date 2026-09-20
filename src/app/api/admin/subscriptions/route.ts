@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { readAllReportRows, subscriptionReportingPrice } from "@/lib/marketplace-membership/reporting";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 const productFilterSchema = z.enum(["all", "lead-host-prime", "marketing", "marketplace"]);
 const statusFilterSchema = z.enum([
@@ -56,6 +57,13 @@ type PrimeAccountRow = {
 };
 
 type TeamMemberRow = { id: string; profile_id: string };
+type CityRow = { profile_id: string; primary_city: string | null };
+type ManagerProfileRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -94,34 +102,30 @@ export async function GET(request: NextRequest) {
       (subscriptionsResult.data as SubscriptionRow[]).filter((row) => productsById.has(row.addon_product_id)),
     );
     const profileIds = [...new Set(latestSubscriptions.map((row) => row.profile_id))];
-    const [profilesResult, citiesResult, primeAccountsResult] = profileIds.length
-      ? await Promise.all([
-          supabase.from("profiles").select("id,email,first_name,last_name,status").in("id", profileIds),
-          supabase.from("property_manager_profiles").select("profile_id,primary_city").in("profile_id", profileIds),
-          supabase.from("prime_accounts").select("profile_id,addon_subscription_id,access_source,status,account_manager_member_id,prime_started_at,prime_expires_at,grace_ends_at").in("profile_id", profileIds),
-        ])
-      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
-    if (profilesResult.error) throw profilesResult.error;
-    if (citiesResult.error) throw citiesResult.error;
-    if (primeAccountsResult.error) throw primeAccountsResult.error;
-
-    const accounts = (primeAccountsResult.data ?? []) as PrimeAccountRow[];
+    const [profiles, cities, accounts] = await Promise.all([
+      readRowsInIdBatches<ProfileRow>(profileIds, (batch) => supabase
+        .from("profiles").select("id,email,first_name,last_name,status").in("id", batch)),
+      readRowsInIdBatches<CityRow>(profileIds, (batch) => supabase
+        .from("property_manager_profiles").select("profile_id,primary_city").in("profile_id", batch)),
+      readRowsInIdBatches<PrimeAccountRow>(profileIds, (batch) => supabase
+        .from("prime_accounts")
+        .select("profile_id,addon_subscription_id,access_source,status,account_manager_member_id,prime_started_at,prime_expires_at,grace_ends_at")
+        .in("profile_id", batch)),
+    ]);
     const managerIds = [...new Set(accounts.map((row) => row.account_manager_member_id).filter(Boolean))] as string[];
     const membersResult = managerIds.length
       ? await supabase.from("team_members").select("id,profile_id").in("id", managerIds)
       : { data: [], error: null };
     if (membersResult.error) throw membersResult.error;
     const managerProfileIds = [...new Set(((membersResult.data ?? []) as TeamMemberRow[]).map((row) => row.profile_id))];
-    const managerProfilesResult = managerProfileIds.length
-      ? await supabase.from("profiles").select("id,first_name,last_name,email").in("id", managerProfileIds)
-      : { data: [], error: null };
-    if (managerProfilesResult.error) throw managerProfilesResult.error;
+    const managerProfiles = await readRowsInIdBatches<ManagerProfileRow>(managerProfileIds, (batch) => supabase
+      .from("profiles").select("id,first_name,last_name,email").in("id", batch));
 
-    const profilesById = new Map(((profilesResult.data ?? []) as ProfileRow[]).map((profile) => [profile.id, profile]));
-    const cityByProfileId = new Map((citiesResult.data ?? []).map((row) => [row.profile_id, row.primary_city]));
+    const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
+    const cityByProfileId = new Map(cities.map((row) => [row.profile_id, row.primary_city]));
     const primeBySubscriptionId = new Map(accounts.filter((row) => row.addon_subscription_id).map((row) => [row.addon_subscription_id!, row]));
     const memberById = new Map(((membersResult.data ?? []) as TeamMemberRow[]).map((member) => [member.id, member]));
-    const managerByProfileId = new Map((managerProfilesResult.data ?? []).map((profile) => [profile.id, profile]));
+    const managerByProfileId = new Map(managerProfiles.map((profile) => [profile.id, profile]));
     // PRIME is counted only after the linked PRIME account has actually been activated.
     // This matches the Dashboard snapshot and excludes abandoned technical Stripe records.
     const activePrimeSubscriptionIds = new Set(accounts

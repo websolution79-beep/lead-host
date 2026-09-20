@@ -3,6 +3,7 @@ import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { getManagedPropertiesLabel } from "@/lib/domain/pm-onboarding";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 const managedPropertiesValues = [
   "starting_now",
@@ -68,7 +69,7 @@ type PropertyManagerProfileRow = {
 
 type WalletTransactionRow = {
   profile_id: string;
-  type: "top_up" | "lead_purchase" | "refund" | "adjustment";
+  type: "top_up" | "lead_purchase" | "refund" | "adjustment" | "prime_wallet_recharge";
   status: "pending" | "completed" | "failed" | "cancelled";
   amount_cents: number;
   created_at: string;
@@ -93,6 +94,16 @@ type AuthUser = {
   last_sign_in_at?: string | null;
   email_confirmed_at?: string | null;
   user_metadata?: AuthMetadata | null;
+};
+
+type WalletRow = { profile_id: string; balance_cents: number };
+type MarketingPreferenceRow = { profile_id: string; status: string; granted_at: string | null };
+type PrimeAccountRow = { profile_id: string; status: string; prime_expires_at: string | null };
+type MarketingSubscriptionRow = {
+  profile_id: string;
+  status: string;
+  current_period_ends_at: string | null;
+  trial_ends_at: string | null;
 };
 
 const columnDefinitions: Record<(typeof exportColumns)[number], { header: string }> = {
@@ -153,83 +164,68 @@ export async function POST(request: NextRequest) {
       return buildCsvResponse([], payload.columns);
     }
 
-    const [
-      { data: profiles, error: profilesError },
-      { data: pmProfiles, error: pmProfilesError },
-      { data: wallets, error: walletsError },
-      { data: preferences, error: preferencesError },
-      { data: transactions, error: transactionsError },
-      { data: addonProducts, error: addonProductsError },
-      { data: primeAccounts, error: primeAccountsError },
-      { data: authUsersData, error: authUsersError },
-    ] = await Promise.all([
-      supabase
+    const [profiles, pmProfiles, wallets, preferences, transactions, addonProductsResult, primeAccounts, authUsersResult] = await Promise.all([
+      readRowsInIdBatches<ProfileRow>(profileIds, (batch) => supabase
         .from("profiles")
         .select("id,auth_user_id,email,first_name,last_name,phone,status,created_at")
-        .in("id", profileIds),
-      supabase
+        .in("id", batch)),
+      readRowsInIdBatches<PropertyManagerProfileRow & { id: string }>(profileIds, (batch) => supabase
         .from("property_manager_profiles")
         .select("id,profile_id,managed_properties_count,managed_properties_range,primary_city")
-        .in("profile_id", profileIds),
-      supabase.from("wallets").select("profile_id,balance_cents").in("profile_id", profileIds),
-      supabase
+        .in("profile_id", batch)),
+      readRowsInIdBatches<WalletRow>(profileIds, (batch) => supabase
+        .from("wallets").select("profile_id,balance_cents").in("profile_id", batch)),
+      readRowsInIdBatches<MarketingPreferenceRow>(profileIds, (batch) => supabase
         .from("pm_marketing_preferences")
         .select("profile_id,status,granted_at")
-        .in("profile_id", profileIds),
-      supabase
+        .in("profile_id", batch)),
+      readRowsInIdBatches<WalletTransactionRow>(profileIds, (batch) => supabase
         .from("wallet_transactions")
         .select("profile_id,type,status,amount_cents,created_at,completed_at")
-        .in("profile_id", profileIds),
+        .in("profile_id", batch)),
       supabase.from("addon_products").select("id,slug").eq("slug", "marketing"),
-      supabase
+      readRowsInIdBatches<PrimeAccountRow>(profileIds, (batch) => supabase
         .from("prime_accounts")
         .select("profile_id,status,prime_expires_at")
-        .in("profile_id", profileIds),
+        .in("profile_id", batch)),
       supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     ]);
 
-    if (profilesError) throw profilesError;
-    if (pmProfilesError) throw pmProfilesError;
-    if (walletsError) throw walletsError;
-    if (preferencesError) throw preferencesError;
-    if (transactionsError) throw transactionsError;
-    if (addonProductsError) throw addonProductsError;
-    if (primeAccountsError) throw primeAccountsError;
-    if (authUsersError) throw authUsersError;
+    if (addonProductsResult.error) throw addonProductsResult.error;
+    if (authUsersResult.error) throw authUsersResult.error;
 
-    const marketingProductId = addonProducts?.[0]?.id;
-    const { data: marketingSubscriptions, error: marketingSubscriptionsError } = marketingProductId
-      ? await supabase
+    const marketingProductId = addonProductsResult.data?.[0]?.id;
+    const marketingSubscriptions = marketingProductId
+      ? await readRowsInIdBatches<MarketingSubscriptionRow>(profileIds, (batch) => supabase
           .from("addon_subscriptions")
           .select("profile_id,status,current_period_ends_at,trial_ends_at")
           .eq("addon_product_id", marketingProductId)
-          .in("profile_id", profileIds)
-      : { data: [], error: null };
-    if (marketingSubscriptionsError) throw marketingSubscriptionsError;
+          .in("profile_id", batch))
+      : [];
 
     const pmProfilesById = new Map(
-      ((pmProfiles ?? []) as PropertyManagerProfileRow[]).map((row) => [row.profile_id, row]),
+      pmProfiles.map((row) => [row.profile_id, row]),
     );
     const walletsById = new Map(
-      (wallets ?? []).map((row) => [row.profile_id, row.balance_cents]),
+      wallets.map((row) => [row.profile_id, row.balance_cents]),
     );
     const preferencesById = new Map(
-      (preferences ?? []).map((row) => [row.profile_id, row]),
+      preferences.map((row) => [row.profile_id, row]),
     );
     const marketingSubscriptionsById = new Map(
-      (marketingSubscriptions ?? []).map((row) => [row.profile_id, row]),
+      marketingSubscriptions.map((row) => [row.profile_id, row]),
     );
     const primeAccountsById = new Map(
-      (primeAccounts ?? []).map((row) => [row.profile_id, row]),
+      primeAccounts.map((row) => [row.profile_id, row]),
     );
     const authUsersById = new Map(
-      ((authUsersData?.users ?? []) as AuthUser[]).map((user) => [user.id, user]),
+      ((authUsersResult.data?.users ?? []) as AuthUser[]).map((user) => [user.id, user]),
     );
     const purchasesByPmId = new Map<string, LeadPurchaseRow[]>();
     const transactionsByProfileId = new Map<string, WalletTransactionRow[]>();
 
     const pmProfileIdByProfileId = new Map(
-      ((pmProfiles ?? []) as Array<{ id?: string; profile_id: string }>).map((row) => [
+      pmProfiles.map((row) => [
         row.profile_id,
         row.id,
       ]),
@@ -237,26 +233,25 @@ export async function POST(request: NextRequest) {
     const propertyManagerIds = Array.from(pmProfileIdByProfileId.values()).filter(
       (value): value is string => Boolean(value),
     );
-    const { data: purchases, error: purchasesError } = propertyManagerIds.length
-      ? await supabase
+    const purchases = propertyManagerIds.length
+      ? await readRowsInIdBatches<LeadPurchaseRow>(propertyManagerIds, (batch) => supabase
           .from("lead_purchases")
           .select("property_manager_id,amount_cents,mode,status,created_at")
-          .in("property_manager_id", propertyManagerIds)
-      : { data: [], error: null };
-    if (purchasesError) throw purchasesError;
+          .in("property_manager_id", batch))
+      : [];
 
-    for (const purchase of (purchases ?? []) as LeadPurchaseRow[]) {
+    for (const purchase of purchases) {
       const rows = purchasesByPmId.get(purchase.property_manager_id) ?? [];
       rows.push(purchase);
       purchasesByPmId.set(purchase.property_manager_id, rows);
     }
-    for (const transaction of (transactions ?? []) as WalletTransactionRow[]) {
+    for (const transaction of transactions) {
       const rows = transactionsByProfileId.get(transaction.profile_id) ?? [];
       rows.push(transaction);
       transactionsByProfileId.set(transaction.profile_id, rows);
     }
 
-    const rows = ((profiles ?? []) as ProfileRow[])
+    const rows = profiles
       .map((profile) => {
         const pmProfile = pmProfilesById.get(profile.id);
         const authUser = profile.auth_user_id ? authUsersById.get(profile.auth_user_id) : undefined;
@@ -368,30 +363,39 @@ async function resolveFilteredPropertyManagerIds({
 }) {
   if (!search && !managedPropertiesFilter) return allProfileIds;
 
-  const [profilesResult, pmProfilesResult, authUsersResult] = await Promise.all([
-    supabase
+  const [profiles, pmProfiles, authUsersResult] = await Promise.all([
+    readRowsInIdBatches<{
+      id: string;
+      auth_user_id: string | null;
+      email: string;
+      first_name: string | null;
+      last_name: string | null;
+      phone: string | null;
+    }>(allProfileIds, (batch) => supabase
       .from("profiles")
       .select("id,auth_user_id,email,first_name,last_name,phone")
-      .in("id", allProfileIds),
-    supabase
+      .in("id", batch)),
+    readRowsInIdBatches<{
+      profile_id: string;
+      managed_properties_range: string | null;
+      primary_city: string | null;
+    }>(allProfileIds, (batch) => supabase
       .from("property_manager_profiles")
       .select("profile_id,managed_properties_range,primary_city")
-      .in("profile_id", allProfileIds),
+      .in("profile_id", batch)),
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
-  if (profilesResult.error) throw profilesResult.error;
-  if (pmProfilesResult.error) throw pmProfilesResult.error;
   if (authUsersResult.error) throw authUsersResult.error;
 
   const pmProfilesById = new Map(
-    (pmProfilesResult.data ?? []).map((row) => [row.profile_id, row]),
+    pmProfiles.map((row) => [row.profile_id, row]),
   );
   const authUsersById = new Map(
     ((authUsersResult.data.users ?? []) as AuthUser[]).map((user) => [user.id, user]),
   );
   const normalizedSearch = search.toLocaleLowerCase("it-IT");
 
-  return (profilesResult.data ?? [])
+  return profiles
     .filter((profile) => {
       const pmProfile = pmProfilesById.get(profile.id);
       const metadata = profile.auth_user_id

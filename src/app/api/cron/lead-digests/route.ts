@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getEnv } from "@/lib/env";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { sendLeadDigest } from "@/lib/email/notifications";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 type PreferenceRow = {
   profile_id: string;
@@ -75,18 +76,17 @@ export async function GET(request: NextRequest) {
   }
 
   const profileIds = duePreferences.map((item) => item.profile_id);
-  const [{ data: profiles }, { data: propertyManagers }, { data: leads }] =
-    await Promise.all([
-      supabase
+  const [profiles, propertyManagers, leadsResult] = await Promise.all([
+      readRowsInIdBatches<ProfileRow>(profileIds, (batch) => supabase
         .from("profiles")
         .select("id,email,first_name,last_name,status")
-        .in("id", profileIds)
-        .eq("status", "active"),
-      supabase
+        .in("id", batch)
+        .eq("status", "active")),
+      readRowsInIdBatches<PropertyManagerRow>(profileIds, (batch) => supabase
         .from("property_manager_profiles")
         .select("id,profile_id")
-        .in("profile_id", profileIds)
-        .neq("verification_status", "suspended"),
+        .in("profile_id", batch)
+        .neq("verification_status", "suspended")),
       supabase
         .from("leads")
         .select("id,property_id,title,shared_price_cents,exclusive_price_cents,published_at")
@@ -95,11 +95,13 @@ export async function GET(request: NextRequest) {
         .limit(40),
     ]);
 
-  const profileById = new Map(((profiles ?? []) as ProfileRow[]).map((item) => [item.id, item]));
+  if (leadsResult.error) throw leadsResult.error;
+
+  const profileById = new Map(profiles.map((item) => [item.id, item]));
   const pmByProfileId = new Map(
-    ((propertyManagers ?? []) as PropertyManagerRow[]).map((item) => [item.profile_id, item]),
+    propertyManagers.map((item) => [item.profile_id, item]),
   );
-  const leadRows = (leads ?? []) as unknown as LeadRow[];
+  const leadRows = (leadsResult.data ?? []) as unknown as LeadRow[];
   const propertyIds = Array.from(new Set(leadRows.map((lead) => lead.property_id)));
   const { data: properties } = propertyIds.length
     ? await supabase

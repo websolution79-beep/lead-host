@@ -1,4 +1,5 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import {
   fetchEffectiveMarketplacePromotion,
@@ -658,22 +659,24 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
 
   const pmRows = propertyManagers as PropertyManagerRow[];
   const profileIds = Array.from(new Set(pmRows.map((item) => item.profile_id)));
-  const [{ data: profiles, error: profilesError }, preferencesResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id,email,first_name,last_name,status")
-      .in("id", profileIds)
-      .eq("status", "active"),
-    fetchEmailPreferences(supabase, profileIds),
-  ]);
-
-  if (profilesError) {
-    console.warn("New lead email profiles not loaded:", profilesError.message);
+  let profiles: ProfileRow[];
+  let preferences: EmailPreferenceRow[];
+  try {
+    [profiles, preferences] = await Promise.all([
+      readRowsInIdBatches<ProfileRow>(profileIds, (batch) => supabase
+        .from("profiles")
+        .select("id,email,first_name,last_name,status")
+        .in("id", batch)
+        .eq("status", "active")),
+      fetchEmailPreferences(supabase, profileIds),
+    ]);
+  } catch (error) {
+    console.warn("New lead email recipients not loaded:", error);
     return emptySummary;
   }
 
   const preferencesByProfileId = new Map(
-    (preferencesResult.data ?? []).map((item) => [item.profile_id, item]),
+    preferences.map((item) => [item.profile_id, item]),
   );
   const pmByProfileId = new Map(pmRows.map((item) => [item.profile_id, item]));
   const email = renderNewLeadEmail({
@@ -683,7 +686,7 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
     exclusivePriceCents: effectiveLead.exclusive_price_cents,
   });
 
-  const eligibleProfiles = ((profiles ?? []) as ProfileRow[]).filter((profile) => {
+  const eligibleProfiles = profiles.filter((profile) => {
     const preference = preferencesByProfileId.get(profile.id);
     const transactionalEnabled = preference?.transactional_enabled ?? true;
 
@@ -754,16 +757,9 @@ async function fetchEmailPreferences(
     };
   };
 
-  const { data, error } = await preferencesTable
+  return readRowsInIdBatches<EmailPreferenceRow>(profileIds, (batch) => preferencesTable
     .select("profile_id,new_lead_frequency,transactional_enabled,last_lead_digest_sent_at")
-    .in("profile_id", profileIds);
-
-  if (error) {
-    console.warn("New lead email preferences not loaded:", error.message);
-    return { data: null };
-  }
-
-  return { data };
+    .in("profile_id", batch));
 }
 
 async function fetchAlreadySentNewLeadEmails(
@@ -787,19 +783,18 @@ async function fetchAlreadySentNewLeadEmails(
     select: (columns: string) => EmailLogsQuery;
   };
 
-  const { data, error } = await logsTable
-    .select("recipient_email")
-    .eq("lead_id", leadId)
-    .eq("event_type", "lead.new_available")
-    .eq("status", "sent")
-    .in("recipient_email", emails);
-
-  if (error) {
-    console.warn("New lead email duplicate check failed:", error.message);
+  try {
+    const data = await readRowsInIdBatches<{ recipient_email: string }>(emails, (batch) => logsTable
+      .select("recipient_email")
+      .eq("lead_id", leadId)
+      .eq("event_type", "lead.new_available")
+      .eq("status", "sent")
+      .in("recipient_email", batch));
+    return new Set(data.map((item) => item.recipient_email));
+  } catch (error) {
+    console.warn("New lead email duplicate check failed:", error);
     return new Set<string>();
   }
-
-  return new Set((data ?? []).map((item) => item.recipient_email));
 }
 
 async function hasSentWalletTopUpEmail(profileId: string, walletTransactionId: string) {

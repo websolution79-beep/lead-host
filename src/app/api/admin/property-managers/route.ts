@@ -11,6 +11,7 @@ import {
 } from "@/lib/domain/pm-onboarding";
 import { buildPagination, readPagination } from "@/lib/api/pagination";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 const updatePropertyManagerSchema = z.object({
   profileId: z.string().uuid(),
@@ -174,43 +175,32 @@ export async function GET(request: NextRequest) {
         search,
         managedPropertiesFilter,
       });
-      const [
-        { data: profiles, error: profilesError, count: profilesCount },
-        { data: summaryProfiles, error: summaryProfilesError },
-        { data: summaryPmProfiles, error: summaryPmProfilesError },
-        { data: primeAccounts, error: primeAccountsError },
-      ] = await Promise.all([
-        filteredProfileIds.length
-          ?
-          supabase
-          .from("profiles")
-          .select(
-            "id,auth_user_id,email,first_name,last_name,phone,avatar_url,status,created_at,updated_at",
-            { count: "exact" },
-          )
-          .in("id", filteredProfileIds)
-          .order("created_at", { ascending: false })
-          .range(pagination.from, pagination.to)
-          : Promise.resolve({ data: [], error: null, count: 0 }),
-        supabase
-          .from("profiles")
-          .select("id,status")
-          .in("id", allProfileIds),
-        supabase
-          .from("property_manager_profiles")
-          .select("profile_id,verification_status")
-          .in("profile_id", allProfileIds),
-        supabase
-          .from("prime_accounts")
-          .select("profile_id,status,prime_expires_at")
-          .in("profile_id", allProfileIds)
-          .eq("status", "active"),
-      ]);
-
-      if (profilesError) throw profilesError;
-      if (summaryProfilesError) throw summaryProfilesError;
-      if (summaryPmProfilesError) throw summaryPmProfilesError;
-      if (primeAccountsError) throw primeAccountsError;
+      const [profiles, summaryProfiles, summaryPmProfiles, primeAccounts] =
+        await Promise.all([
+          readRowsInIdBatches<ProfileRow>(filteredProfileIds, (batch) =>
+            supabase
+              .from("profiles")
+              .select("id,auth_user_id,email,first_name,last_name,phone,avatar_url,status,created_at,updated_at")
+              .in("id", batch)),
+          readRowsInIdBatches<{ id: string; status: string }>(allProfileIds, (batch) =>
+            supabase.from("profiles").select("id,status").in("id", batch)),
+          readRowsInIdBatches<{ profile_id: string; verification_status: string }>(
+            allProfileIds,
+            (batch) => supabase
+              .from("property_manager_profiles")
+              .select("profile_id,verification_status")
+              .in("profile_id", batch),
+          ),
+          readRowsInIdBatches<{
+            profile_id: string;
+            status: string;
+            prime_expires_at: string | null;
+          }>(allProfileIds, (batch) => supabase
+            .from("prime_accounts")
+            .select("profile_id,status,prime_expires_at")
+            .in("profile_id", batch)
+            .eq("status", "active")),
+        ]);
 
       const profileStatusById = new Map(
         (summaryProfiles ?? []).map((profile) => [profile.id, profile.status]),
@@ -240,7 +230,9 @@ export async function GET(request: NextRequest) {
           .map((account) => account.profile_id),
       );
 
-      const profileRows = (profiles ?? []) as ProfileRow[];
+      const profileRows = profiles
+        .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
+        .slice(pagination.from, pagination.to + 1);
       const pageProfileIds = profileRows.map((profile) => profile.id);
       const [
         { data: pmProfiles, error: pmProfilesError },
@@ -328,7 +320,7 @@ export async function GET(request: NextRequest) {
             pagination: buildPagination(
               pagination.page,
               pagination.pageSize,
-              profilesCount ?? 0,
+              profiles.length,
             ),
           stats: {
             total: allProfileIds.length,
@@ -665,24 +657,33 @@ async function resolveFilteredPropertyManagerIds({
 }) {
   if (!search && !managedPropertiesFilter) return allProfileIds;
 
-  const [profilesResult, pmProfilesResult, authUsersResult] = await Promise.all([
-    supabase
+  const [profiles, pmProfiles, authUsersResult] = await Promise.all([
+    readRowsInIdBatches<{
+      id: string;
+      auth_user_id: string | null;
+      email: string;
+      first_name: string | null;
+      last_name: string | null;
+      phone: string | null;
+    }>(allProfileIds, (batch) => supabase
       .from("profiles")
       .select("id,auth_user_id,email,first_name,last_name,phone")
-      .in("id", allProfileIds),
-    supabase
+      .in("id", batch)),
+    readRowsInIdBatches<{
+      profile_id: string;
+      managed_properties_range: string | null;
+      primary_city: string | null;
+    }>(allProfileIds, (batch) => supabase
       .from("property_manager_profiles")
       .select("profile_id,managed_properties_range,primary_city")
-      .in("profile_id", allProfileIds),
+      .in("profile_id", batch)),
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
-  if (profilesResult.error) throw profilesResult.error;
-  if (pmProfilesResult.error) throw pmProfilesResult.error;
   if (authUsersResult.error) throw authUsersResult.error;
 
   const pmProfilesByProfileId = new Map(
-    (pmProfilesResult.data ?? []).map((profile) => [profile.profile_id, profile]),
+    pmProfiles.map((profile) => [profile.profile_id, profile]),
   );
   const metadataByAuthUserId = new Map(
     (authUsersResult.data.users ?? []).map((user) => [
@@ -692,7 +693,7 @@ async function resolveFilteredPropertyManagerIds({
   );
   const normalizedSearch = search.toLocaleLowerCase("it-IT");
 
-  return (profilesResult.data ?? [])
+  return profiles
     .filter((profile) => {
       const pmProfile = pmProfilesByProfileId.get(profile.id);
       const metadata = profile.auth_user_id

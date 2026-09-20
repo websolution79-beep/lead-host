@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { getEnv } from "@/lib/env";
 import { MARKETPLACE_MEMBERSHIP_ROLLOUT_READY } from "@/lib/marketplace-membership/settings";
 import { reconcilePrimeMarketplace } from "@/lib/marketplace-membership/prime-reconciliation";
+import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 import {
   AdminApiError,
   adminApiErrorResponse,
@@ -141,14 +142,15 @@ export async function GET(request: NextRequest) {
         throw new AdminApiError(403, "Portafoglio PRIME non disponibile.");
       }
 
-      const { data: portfolioAccounts, error: assignedError } = await supabase
+      const portfolioAccounts = await readRowsInIdBatches<{
+        profile_id: string;
+        account_manager_member_id: string | null;
+      }>(availableProfileIds, (batch) => supabase
         .from("prime_accounts")
         .select("profile_id,account_manager_member_id")
-        .in("profile_id", availableProfileIds);
-
-      if (assignedError) throw assignedError;
+        .in("profile_id", batch));
       const managerByProfileId = new Map(
-        (portfolioAccounts ?? []).map((row) => [
+        portfolioAccounts.map((row) => [
           row.profile_id,
           row.account_manager_member_id,
         ]),
@@ -159,86 +161,70 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const [profilesResult, pmProfilesResult, walletsResult, eligibilitiesResult, accountsResult, subscriptionsResult, interestLocationsResult] =
-      availableProfileIds.length
-        ? await Promise.all([
-            supabase
-              .from("profiles")
-              .select("id,email,first_name,last_name,phone,status,created_at")
-              .in("id", availableProfileIds),
-            supabase
-              .from("property_manager_profiles")
-              .select("profile_id,primary_city,managed_properties_range,managed_properties_count")
-              .in("profile_id", availableProfileIds),
-            supabase
-              .from("wallets")
-              .select("profile_id,balance_cents,currency")
-              .in("profile_id", availableProfileIds),
-            supabase
-              .from("prime_eligibilities")
-              .select("*")
-              .in("profile_id", availableProfileIds),
-            supabase
-              .from("prime_accounts")
-              .select("*")
-              .in("profile_id", availableProfileIds),
-            supabase
-              .from("addon_subscriptions")
-              .select("id,profile_id,status,source,current_period_ends_at,cancel_at_period_end,canceled_at,updated_at")
-              .in("profile_id", availableProfileIds)
-              .order("updated_at", { ascending: false }),
-            supabase
-              .from("prime_internal_notes")
-              .select("profile_id,interest_locations")
-              .in("profile_id", availableProfileIds),
-          ])
-        : [
-            { data: [], error: null },
-            { data: [], error: null },
-            { data: [], error: null },
-            { data: [], error: null },
-            { data: [], error: null },
-            { data: [], error: null },
-            { data: [], error: null },
-          ];
-
-    const storageError =
-      profilesResult.error ??
-      pmProfilesResult.error ??
-      walletsResult.error ??
-      eligibilitiesResult.error ??
-      accountsResult.error ??
-      subscriptionsResult.error ??
-      interestLocationsResult.error;
-    if (storageError) throw storageError;
+    const [profiles, pmProfiles, wallets, eligibilities, accounts, subscriptions, interestLocations] =
+      await Promise.all([
+        readRowsInIdBatches<ProfileRow>(availableProfileIds, (batch) => supabase
+          .from("profiles")
+          .select("id,email,first_name,last_name,phone,status,created_at")
+          .in("id", batch)),
+        readRowsInIdBatches<PmProfileRow>(availableProfileIds, (batch) => supabase
+          .from("property_manager_profiles")
+          .select("profile_id,primary_city,managed_properties_range,managed_properties_count")
+          .in("profile_id", batch)),
+        readRowsInIdBatches<{
+          profile_id: string;
+          balance_cents: number;
+          currency: string;
+        }>(availableProfileIds, (batch) => supabase
+          .from("wallets")
+          .select("profile_id,balance_cents,currency")
+          .in("profile_id", batch)),
+        readRowsInIdBatches(availableProfileIds, (batch) => supabase
+          .from("prime_eligibilities")
+          .select("*")
+          .in("profile_id", batch)),
+        readRowsInIdBatches(availableProfileIds, (batch) => supabase
+          .from("prime_accounts")
+          .select("*")
+          .in("profile_id", batch)),
+        readRowsInIdBatches(availableProfileIds, (batch) => supabase
+          .from("addon_subscriptions")
+          .select("id,profile_id,status,source,current_period_ends_at,cancel_at_period_end,canceled_at,updated_at")
+          .in("profile_id", batch)
+          .order("updated_at", { ascending: false })),
+        readRowsInIdBatches<PrimeInterestLocationsRow>(availableProfileIds, (batch) => supabase
+          .from("prime_internal_notes")
+          .select("profile_id,interest_locations")
+          .in("profile_id", batch)),
+      ]);
 
     const pmProfilesById = new Map(
-      ((pmProfilesResult.data ?? []) as PmProfileRow[]).map((row) => [row.profile_id, row]),
+      pmProfiles.map((row) => [row.profile_id, row]),
     );
     const walletsById = new Map(
-      (walletsResult.data ?? []).map((row) => [row.profile_id, row]),
+      wallets.map((row) => [row.profile_id, row]),
     );
     const eligibilitiesById = new Map(
-      (eligibilitiesResult.data ?? []).map((row) => [row.profile_id, row]),
+      eligibilities.map((row) => [row.profile_id, row]),
     );
     const accountsById = new Map(
-      (accountsResult.data ?? []).map((row) => [row.profile_id, row]),
+      accounts.map((row) => [row.profile_id, row]),
     );
     const interestLocationsByProfileId = new Map(
-      ((interestLocationsResult.data ?? []) as PrimeInterestLocationsRow[]).map((row) => [
+      interestLocations.map((row) => [
         row.profile_id,
         row.interest_locations ?? [],
       ]),
     );
     const subscriptionsById = new Map<
       string,
-      NonNullable<typeof subscriptionsResult.data>[number]
+      (typeof subscriptions)[number]
     >();
-    for (const subscription of subscriptionsResult.data ?? []) {
+    for (const subscription of subscriptions) {
       subscriptionsById.set(subscription.id, subscription);
     }
 
-    const allRows = ((profilesResult.data ?? []) as ProfileRow[])
+    const allRows = profiles
       .map((profile) => {
         const pmProfile = pmProfilesById.get(profile.id);
         const wallet = walletsById.get(profile.id);

@@ -780,9 +780,9 @@ export function ProfileCenter() {
                 Dati di fatturazione
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                Servono solo per emettere correttamente fatture e ricevute relative
-                alle ricariche wallet. Non sono necessari per consultare marketplace
-                e lead.
+                Servono per emettere correttamente fatture e ricevute relative
+                agli acquisti e agli abbonamenti Lead Host. Completa questi dati
+                prima di attivare un servizio a pagamento.
               </p>
             </div>
             <span className="flex size-11 items-center justify-center rounded-xl bg-green/10 text-green">

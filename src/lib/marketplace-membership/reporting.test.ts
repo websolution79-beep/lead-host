@@ -1,12 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readAllReportRows, subscriptionReportingPrice } from "./reporting";
+import {
+  isReportableMarketplaceSubscription,
+  readAllReportRows,
+  subscriptionReportingPrice,
+} from "./reporting";
 
 test("Marketplace reporting keeps the agreed price after catalog changes", () => {
   assert.equal(subscriptionReportingPrice("marketplace", { monthly_price_cents: 2900 }, 4900), 2900);
   assert.equal(subscriptionReportingPrice("marketplace", {}, 4900), null);
   assert.equal(subscriptionReportingPrice("marketplace", { monthly_price_cents: -1 }, 4900), null);
   assert.equal(subscriptionReportingPrice("marketing", {}, 4900), 4900);
+});
+
+test("Marketplace reporting excludes Stripe checkouts that were never completed", () => {
+  assert.equal(
+    isReportableMarketplaceSubscription({ source: "stripe", stripe_subscription_id: null }),
+    false,
+  );
+  assert.equal(
+    isReportableMarketplaceSubscription({ source: "stripe", stripe_subscription_id: "sub_live" }),
+    true,
+  );
+  assert.equal(
+    isReportableMarketplaceSubscription({ source: "manual", stripe_subscription_id: null }),
+    true,
+  );
 });
 
 test("reporting reads beyond the database default row limit", async () => {

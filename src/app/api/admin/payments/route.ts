@@ -573,13 +573,16 @@ async function fetchActiveRows(
   if (activeTab === "addon_payments" || activeTab === "marketplace_payments") {
     const productId = activeTab === "addon_payments" ? marketingProductId : marketplaceProductId;
     if (!productId) return { data: [], error: null, count: 0 };
-    return supabase
+    const query = supabase
       .from("addon_subscriptions")
       .select(
         "id,addon_product_id,profile_id,status,source,stripe_customer_id,stripe_subscription_id,stripe_price_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,created_at,updated_at,metadata",
         { count: "exact" },
       )
-      .eq("addon_product_id", productId)
+      .eq("addon_product_id", productId);
+    return (activeTab === "marketplace_payments"
+      ? query.not("stripe_subscription_id", "is", null)
+      : query)
       .order("updated_at", { ascending: false })
       .range(from, to);
   }

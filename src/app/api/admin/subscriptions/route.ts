@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
-import { readAllReportRows, subscriptionReportingPrice } from "@/lib/marketplace-membership/reporting";
+import {
+  isReportableMarketplaceSubscription,
+  readAllReportRows,
+  subscriptionReportingPrice,
+} from "@/lib/marketplace-membership/reporting";
 import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 
 const productFilterSchema = z.enum(["all", "lead-host-prime", "marketing", "marketplace"]);
@@ -17,6 +21,7 @@ type SubscriptionRow = {
   profile_id: string;
   status: string;
   source: "stripe" | "manual";
+  stripe_subscription_id: string | null;
   trial_started_at: string | null;
   trial_ends_at: string | null;
   current_period_started_at: string | null;
@@ -94,12 +99,17 @@ export async function GET(request: NextRequest) {
 
     const subscriptionsResult = await readAllReportRows((from, to) => supabase
       .from("addon_subscriptions")
-      .select("id,addon_product_id,profile_id,status,source,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,metadata,created_at,updated_at")
+      .select("id,addon_product_id,profile_id,status,source,stripe_subscription_id,trial_started_at,trial_ends_at,current_period_started_at,current_period_ends_at,cancel_at_period_end,canceled_at,access_expires_at,metadata,created_at,updated_at")
       .in("addon_product_id", productIds)
       .order("updated_at", { ascending: false })
       .range(from, to));
     const latestSubscriptions = latestByProfileAndProduct(
-      (subscriptionsResult.data as SubscriptionRow[]).filter((row) => productsById.has(row.addon_product_id)),
+      (subscriptionsResult.data as SubscriptionRow[]).filter((row) => {
+        const product = productsById.get(row.addon_product_id);
+        return Boolean(product) && (
+          product?.slug !== "marketplace" || isReportableMarketplaceSubscription(row)
+        );
+      }),
     );
     const profileIds = [...new Set(latestSubscriptions.map((row) => row.profile_id))];
     const [profiles, cities, accounts] = await Promise.all([

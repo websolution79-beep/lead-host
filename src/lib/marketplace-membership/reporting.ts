@@ -5,6 +5,13 @@ export function subscriptionReportingPrice(slug: string | undefined, metadata: u
   return typeof amount === "number" && Number.isSafeInteger(amount) && amount > 0 ? amount : null;
 }
 
+export function isReportableMarketplaceSubscription(subscription: {
+  source: string;
+  stripe_subscription_id: string | null;
+}) {
+  return subscription.source !== "stripe" || Boolean(subscription.stripe_subscription_id);
+}
+
 export async function readAllReportRows<T>(load: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
   const rows: T[] = [];
   for (let from = 0; ; from += 500) {

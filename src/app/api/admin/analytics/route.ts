@@ -5,7 +5,10 @@ import {
   type BusinessAnalyticsPayload,
 } from "@/lib/admin/business-analytics";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
-import { readAllReportRows } from "@/lib/marketplace-membership/reporting";
+import {
+  isReportableMarketplaceSubscription,
+  readAllReportRows,
+} from "@/lib/marketplace-membership/reporting";
 
 const ALLOWED_RANGES = new Set<AnalyticsRangeKey>([
   "today",
@@ -132,14 +135,16 @@ export async function GET(request: NextRequest) {
             .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.fromDate).lt("paid_at", range.toDateExclusive).order("id").range(from, to)),
           readAllReportRows((from, to) => supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
             .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.previousFromDate).lt("paid_at", range.previousToDate).order("id").range(from, to)),
-          readAllReportRows((from, to) => supabase.from("addon_subscriptions").select("profile_id,status,cancel_at_period_end,trial_ends_at,current_period_ends_at,updated_at")
+          readAllReportRows((from, to) => supabase.from("addon_subscriptions").select("profile_id,status,source,stripe_subscription_id,cancel_at_period_end,trial_ends_at,current_period_ends_at,updated_at")
             .eq("addon_product_id", marketplaceProductId).order("updated_at", { ascending: false }).range(from, to)),
         ])
       : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
     if (marketplaceCurrentResult.error) throw marketplaceCurrentResult.error;
     if (marketplacePreviousResult.error) throw marketplacePreviousResult.error;
     if (marketplaceSubscriptionsResult.error) throw marketplaceSubscriptionsResult.error;
-    const marketplaceSubscriptions = latestMarketplaceSubscriptions(marketplaceSubscriptionsResult.data ?? []);
+    const marketplaceSubscriptions = latestMarketplaceSubscriptions(
+      (marketplaceSubscriptionsResult.data ?? []).filter(isReportableMarketplaceSubscription),
+    );
     const marketplace = {
       current: summarizeMarketplace(marketplaceCurrentResult.data ?? []),
       previous: summarizeMarketplace(marketplacePreviousResult.data ?? []),

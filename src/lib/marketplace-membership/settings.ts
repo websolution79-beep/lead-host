@@ -4,7 +4,7 @@ import { marketplaceMembershipSettingsSchema } from "./policy";
 
 export const MARKETPLACE_MEMBERSHIP_SETTINGS_KEY = "marketplace.membership";
 // Enable only after checkout, entitlement checks and renewal recovery are deployed.
-export const MARKETPLACE_MEMBERSHIP_ROLLOUT_READY = false;
+export const MARKETPLACE_MEMBERSHIP_ROLLOUT_READY = true;
 
 export async function fetchMarketplaceMembershipSettings(db: SupabaseClient<Database>) {
   const { data, error } = await db.from("settings").select("value")

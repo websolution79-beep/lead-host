@@ -83,14 +83,28 @@ export async function PATCH(request: NextRequest) {
     const previous = await fetchMarketplaceMembershipSettings(supabase);
     if (!previous.storageReady) throw new AdminApiError(409, "Configurazione Marketplace non disponibile.");
     const { data: product, error: productError } = await supabase.from("addon_products")
-      .select("stripe_product_id").eq("slug", "marketplace").single();
+      .select("id,stripe_product_id").eq("slug", "marketplace").single();
     if (productError) throw productError;
+    if (settings.paidAccessEnabled && !product.stripe_product_id) {
+      throw new AdminApiError(409, "Collega il prodotto Stripe prima di attivare il Marketplace a pagamento.");
+    }
     const amount = marketplaceMonthlyPrice(settings);
     let stripePriceId: string | null = null;
     if (product.stripe_product_id && amount !== null) {
       const key = getEnv("STRIPE_SECRET_KEY");
       if (!key) throw new AdminApiError(503, "Stripe non configurato sul server.");
       stripePriceId = await ensureMarketplacePrice(new Stripe(key), product.stripe_product_id, amount);
+    }
+    if (settings.paidAccessEnabled) {
+      const { error: activationError } = await supabase.from("addon_products").update({
+        status: "active",
+        checkout_enabled: true,
+        trial_days: settings.trialDays,
+        list_price_cents: settings.listPriceCents,
+        sale_price_cents: settings.promoEnabled ? settings.promoPriceCents : null,
+        updated_by: profile.id,
+      }).eq("id", product.id);
+      if (activationError) throw activationError;
     }
     // Persist configuration and its immutable price together in the same row.
     // Do not mutate addon billing or existing subscriptions during preparation.

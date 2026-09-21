@@ -1,14 +1,44 @@
 import { createHash } from "node:crypto";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { sendTransactionalEmail } from "@/lib/email/service";
+import { sendTransactionalEmail, type EmailEventType } from "@/lib/email/service";
 import { MARKETPLACE_MEMBERSHIP_ROLLOUT_READY } from "./settings";
 
-type MarketplaceEmailNotification =
+export type MarketplaceEmailNotification =
   | "activation"
   | "payment_received"
   | "cancellation_scheduled"
   | "payment_action_required"
   | "payment_failed";
+
+const marketplaceEmailEvents = {
+  activation: {
+    customer: "marketplace.activated",
+    admin: "admin.marketplace_activated",
+  },
+  payment_received: {
+    customer: "marketplace.payment_received",
+    admin: "admin.marketplace_payment_received",
+  },
+  cancellation_scheduled: {
+    customer: "marketplace.cancellation_scheduled",
+    admin: "admin.marketplace_cancellation_scheduled",
+  },
+  payment_action_required: {
+    customer: "marketplace.payment_action_required",
+    admin: "admin.marketplace_payment_action_required",
+  },
+  payment_failed: {
+    customer: "marketplace.payment_failed",
+    admin: "admin.marketplace_payment_failed",
+  },
+} as const satisfies Record<MarketplaceEmailNotification, Record<"customer" | "admin", EmailEventType>>;
+
+export function marketplaceEmailEventType(
+  notification: MarketplaceEmailNotification,
+  admin: boolean,
+) {
+  return marketplaceEmailEvents[notification][admin ? "admin" : "customer"];
+}
 
 type MarketplaceEmailOptions = {
   invoiceId?: string;
@@ -66,7 +96,7 @@ export async function sendMarketplaceEmails(
     ...admins.map(admin => ({ ...admin, admin: true })),
   ];
   for (const recipient of recipients) {
-    const eventType = `${recipient.admin ? "admin." : ""}marketplace.${resolvedNotification}` as Parameters<typeof sendTransactionalEmail>[0]["eventType"];
+    const eventType = marketplaceEmailEventType(resolvedNotification, recipient.admin);
     const deliveryReference = resolvedNotification === "cancellation_scheduled"
       ? `${subscriptionId}:${cancellationKey}`
       : invoiceId ?? subscriptionId;

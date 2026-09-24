@@ -7,6 +7,10 @@ import { MARKETPLACE_MEMBERSHIP_ROLLOUT_READY } from "@/lib/marketplace-membersh
 import { reconcilePrimeMarketplace } from "@/lib/marketplace-membership/prime-reconciliation";
 import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
 import {
+  isPrimeSubscriber,
+  matchesPrimeSubscriberStatus,
+} from "@/lib/prime/subscriber-reporting";
+import {
   AdminApiError,
   adminApiErrorResponse,
   requireAdminPermission,
@@ -257,11 +261,7 @@ export async function GET(request: NextRequest) {
         if (scope === "mine") return Boolean(teamMemberId && managerId === teamMemberId);
         if (scope === "assigned") return managerId !== null;
         if (scope === "subscribers") {
-          const isSubscriber = Boolean(
-            row.account &&
-            row.account.access_source !== "none" &&
-            row.account.prime_started_at,
-          );
+          const isSubscriber = isPrimeSubscriber(row.account);
           if (!isSubscriber) return false;
           if (!isSuperAdmin && row.account?.account_manager_member_id !== teamMemberId) {
             return false;
@@ -269,7 +269,7 @@ export async function GET(request: NextRequest) {
           if (subscriberManagerId && row.account?.account_manager_member_id !== subscriberManagerId) {
             return false;
           }
-          return matchesSubscriberStatus(row, subscriberStatus);
+          return matchesPrimeSubscriberStatus(row, subscriberStatus);
         }
         return true;
       })
@@ -346,9 +346,7 @@ export async function GET(request: NextRequest) {
           active: allRows.filter((row) => row.account?.status === "active").length,
           pastDue: allRows.filter((row) => row.account?.status === "past_due").length,
           suspended: allRows.filter((row) => row.account?.status === "suspended").length,
-          subscribers: allRows.filter((row) =>
-            Boolean(row.account?.access_source !== "none" && row.account?.prime_started_at),
-          ).length,
+          subscribers: allRows.filter((row) => isPrimeSubscriber(row.account)).length,
         },
         managers,
         propertyManagers: pageRows.map((row) => ({
@@ -379,29 +377,6 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
-}
-
-function matchesSubscriberStatus(
-  row: {
-    account: { status: string; prime_expires_at: string | null; grace_ends_at: string | null } | null;
-    subscription: { cancel_at_period_end: boolean; current_period_ends_at: string | null } | null;
-  },
-  status: string,
-) {
-  if (status === "all") return true;
-  if (status === "active") {
-    return row.account?.status === "active" && !row.subscription?.cancel_at_period_end;
-  }
-  if (status === "expiring") {
-    const value = row.subscription?.current_period_ends_at ?? row.account?.prime_expires_at;
-    if (!value || row.account?.status !== "active") return false;
-    const remaining = new Date(value).getTime() - Date.now();
-    return remaining >= 0 && remaining <= 7 * 86_400_000;
-  }
-  if (status === "canceling") return Boolean(row.subscription?.cancel_at_period_end);
-  if (status === "attention") return row.account?.status === "past_due";
-  if (status === "cancelled") return row.account?.status === "cancelled";
-  return true;
 }
 
 export async function PATCH(request: NextRequest) {

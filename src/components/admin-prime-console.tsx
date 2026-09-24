@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowDownToLine,
   CalendarClock,
   CheckCircle2,
   Crown,
@@ -17,6 +18,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { PrimeSubscriberExportModal } from "@/components/prime-subscriber-export-modal";
 import {
   managedPropertiesOptions,
   type ManagedPropertiesRange,
@@ -253,6 +255,7 @@ export function AdminPrimeConsole() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const getToken = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -562,6 +565,7 @@ export function AdminPrimeConsole() {
             : [
                 ["unassigned", "PM da contattare"],
                 ["mine", "Il mio portafoglio"],
+                ["subscribers", "Abbonati PRIME"],
               ]
           ).map(([value, label]) => (
             <button
@@ -582,7 +586,7 @@ export function AdminPrimeConsole() {
           ))}
         </div>
         {scope === "subscribers" ? (
-          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)] lg:items-end">
+          <div className={`mt-3 grid gap-3 lg:items-end ${data.access.isSuperAdmin ? "lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)_auto]" : "lg:grid-cols-[minmax(0,1fr)_auto]"}`}>
             <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Stato abbonamenti PRIME">
               {[
                 ["all", "Tutti gli abbonati"],
@@ -626,6 +630,14 @@ export function AdminPrimeConsole() {
                 </span>
               </label>
             ) : null}
+            <button
+              className="btn btn-secondary w-full shrink-0 lg:w-auto"
+              type="button"
+              onClick={() => setIsExportOpen(true)}
+            >
+              <ArrowDownToLine size={16} />
+              Esporta CSV
+            </button>
           </div>
         ) : null}
         <form className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,20rem)_auto_auto] lg:items-end" onSubmit={submitSearch}>
@@ -843,6 +855,18 @@ export function AdminPrimeConsole() {
           onSubmit={submitAccessAction}
         />
       ) : null}
+
+      <PrimeSubscriberExportModal
+        open={isExportOpen}
+        isSuperAdmin={data.access.isSuperAdmin}
+        actorId={data.access.teamMemberId}
+        search={search}
+        managedProperties={managedPropertiesFilter}
+        subscriberStatus={subscriberStatus}
+        subscriberManagerId={subscriberManagerId}
+        getAccessToken={getToken}
+        onClose={() => setIsExportOpen(false)}
+      />
     </div>
   );
 }

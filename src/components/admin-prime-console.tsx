@@ -565,7 +565,6 @@ export function AdminPrimeConsole() {
             : [
                 ["unassigned", "PM da contattare"],
                 ["mine", "Il mio portafoglio"],
-                ["subscribers", "Abbonati PRIME"],
               ]
           ).map(([value, label]) => (
             <button
@@ -632,6 +631,18 @@ export function AdminPrimeConsole() {
             ) : null}
             <button
               className="btn btn-secondary w-full shrink-0 lg:w-auto"
+              type="button"
+              onClick={() => setIsExportOpen(true)}
+            >
+              <ArrowDownToLine size={16} />
+              Esporta CSV
+            </button>
+          </div>
+        ) : null}
+        {!data.access.isSuperAdmin && scope === "mine" ? (
+          <div className="mt-3 flex justify-end">
+            <button
+              className="btn btn-secondary w-full sm:w-auto"
               type="button"
               onClick={() => setIsExportOpen(true)}
             >

@@ -212,7 +212,7 @@ export function PrimeSubscriberExportModal({
                 />
                 <span>
                   <span className="block font-semibold text-ink">
-                    {isSuperAdmin ? "Tutti gli Abbonati PRIME" : "Tutto il mio portafoglio PRIME"}
+                    {isSuperAdmin ? "Tutti gli Abbonati PRIME" : "I PM PRIME del mio portafoglio"}
                   </span>
                   <span className="mt-1 block text-sm text-muted">
                     {isSuperAdmin

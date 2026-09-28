@@ -27,6 +27,7 @@ import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import { AdminLeadVerificationCompensation } from "@/components/admin-lead-verification-compensation";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
+import { PaginationControls } from "@/components/pagination-controls";
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import {
@@ -138,6 +139,7 @@ export function AdminLeadsConsole() {
     useState<AdminLeadRecord | null>(null);
   const [filter, setFilter] = useState<FilterState>("new");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +185,14 @@ export function AdminLeadsConsole() {
 
     return query.trim() ? haystack.includes(query.trim().toLowerCase()) : true;
   });
+
+  const pageSize = 25;
+  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const selectedRecord = selectedId
     ? records.find((record) => record.ownerRequestId === selectedId) ?? null
@@ -684,6 +694,7 @@ export function AdminLeadsConsole() {
                   type="button"
                   onClick={() => {
                     setFilter(value as FilterState);
+                    setPage(1);
                     setSelectedId(null);
                   }}
                 >
@@ -702,6 +713,7 @@ export function AdminLeadsConsole() {
                 value={query}
                 onChange={(event) => {
                   setQuery(event.target.value);
+                  setPage(1);
                   setSelectedId(null);
                 }}
               />
@@ -745,7 +757,7 @@ export function AdminLeadsConsole() {
             <div className="p-8 text-center text-muted">Caricamento lead...</div>
           ) : filteredRecords.length > 0 ? (
             <div className="divide-y divide-slate-200">
-              {filteredRecords.map((record) => (
+              {paginatedRecords.map((record) => (
                 <div
                   key={record.ownerRequestId}
                   className={`admin-leads-row ${
@@ -831,6 +843,16 @@ export function AdminLeadsConsole() {
               </p>
             </div>
           )}
+          <PaginationControls
+            pagination={{
+              page: currentPage,
+              pageSize,
+              total: filteredRecords.length,
+              totalPages,
+            }}
+            disabled={loading}
+            onPageChange={setPage}
+          />
         </div>
         )}
 

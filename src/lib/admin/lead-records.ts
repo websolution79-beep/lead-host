@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   getVisibleSharedSlotsAvailable,
@@ -115,6 +115,25 @@ export type AdminLeadRecord = {
 export async function fetchAdminLeadRecords(supabase: ServiceClient) {
   const { settings } = await fetchCommercialSettings(supabase);
   const ownerRequestsResult = await fetchAdminOwnerRequests(supabase);
+  if (ownerRequestsResult.error) throw ownerRequestsResult.error;
+
+  const requests = ownerRequestsResult.data ?? [];
+  const records: AdminLeadRecord[] = [];
+  // Keep joined queries below row and URL limits as the archive grows.
+  for (let offset = 0; offset < requests.length; offset += 100) {
+    records.push(...await fetchAdminLeadRecordBatch(supabase, settings, {
+      ...ownerRequestsResult,
+      data: requests.slice(offset, offset + 100),
+    }));
+  }
+  return records;
+}
+
+async function fetchAdminLeadRecordBatch(
+  supabase: ServiceClient,
+  settings: Awaited<ReturnType<typeof fetchCommercialSettings>>["settings"],
+  ownerRequestsResult: Awaited<ReturnType<typeof fetchAdminOwnerRequests>>,
+) {
   const { data: requests, error: requestsError } = ownerRequestsResult;
 
   if (requestsError) {
@@ -322,23 +341,25 @@ export async function fetchAdminLeadRecords(supabase: ServiceClient) {
 async function fetchAdminOwnerRequests(supabase: ServiceClient) {
   const fields =
     "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,subletting_available,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at";
-  const result = await supabase
+  const result = await fetchAllOwnerRequestPages((from, to) => supabase
     .from("owner_requests")
     .select(fields)
     .order("created_at", { ascending: false })
-    .limit(150);
+    .order("id", { ascending: false })
+    .range(from, to));
 
   if (!result.error || !isMissingSublettingColumnError(result.error)) {
     return { ...result, sublettingColumnAvailable: true };
   }
 
-  const fallback = await supabase
+  const fallback = await fetchAllOwnerRequestPages((from, to) => supabase
     .from("owner_requests")
     .select(
       "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at",
     )
     .order("created_at", { ascending: false })
-    .limit(150);
+    .order("id", { ascending: false })
+    .range(from, to));
 
   return {
     ...fallback,
@@ -348,6 +369,22 @@ async function fetchAdminOwnerRequests(supabase: ServiceClient) {
     })),
     sublettingColumnAvailable: false,
   };
+}
+
+async function fetchAllOwnerRequestPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{
+    data: T[] | null;
+    error: PostgrestError | null;
+  }>,
+) {
+  const data: T[] = [];
+  const pageSize = 100;
+  for (let from = 0; ; from += pageSize) {
+    const result = await fetchPage(from, from + pageSize - 1);
+    if (result.error) return { data: null, error: result.error };
+    data.push(...(result.data ?? []));
+    if ((result.data ?? []).length < pageSize) return { data, error: null };
+  }
 }
 
 function isMissingSublettingColumnError(error: { code?: string; message?: string }) {

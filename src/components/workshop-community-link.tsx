@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { ArrowRight, MessageCircle } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight } from "lucide-react";
 import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
 
 const COMMUNITY_URL = "https://chat.whatsapp.com/DkYCM4dsODCEOtu2mFooe1";
@@ -39,7 +40,7 @@ export function WorkshopCommunityLink({ children }: { children: ReactNode }) {
       onClick={trackClick}
       className="btn btn-primary min-h-14 w-full gap-2 px-3 text-center text-xs uppercase leading-5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-green sm:w-auto sm:px-7 sm:text-sm"
     >
-      <MessageCircle aria-hidden="true" className="shrink-0" size={20} />
+      <Image src="/images/workshop-whatsapp.svg" alt="" width={22} height={22} className="shrink-0 brightness-0 invert" />
       <span>{children}</span>
       <ArrowRight aria-hidden="true" className="shrink-0" size={18} />
     </a>

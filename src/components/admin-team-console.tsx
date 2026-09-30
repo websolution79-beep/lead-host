@@ -1252,6 +1252,14 @@ function MemberEditModal({
           memberId={member.id}
           onDirtyChange={onCompensationRulesDirtyChange}
         />
+        <a
+          className="btn btn-secondary w-full justify-center sm:w-auto"
+          href={`/admin/i-miei-guadagni?previewMemberId=${member.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Anteprima guadagni collaboratore
+        </a>
         <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 sm:flex-row sm:justify-between">
           <div className="flex flex-col gap-2 sm:flex-row">
             {member.status === "invited" ? (

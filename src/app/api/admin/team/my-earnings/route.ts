@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   adminApiErrorResponse,
   requireActiveTeamMember,
+  requireSuperAdmin,
 } from "@/lib/admin/auth";
 
 const querySchema = z.object({
@@ -42,7 +43,17 @@ type ExportEvent = {
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase, teamMemberId } = await requireActiveTeamMember(request);
+    const previewMemberId = request.nextUrl.searchParams.get("previewMemberId");
+    const context = previewMemberId
+      ? await requireSuperAdmin(request)
+      : await requireActiveTeamMember(request);
+    const teamMemberId = previewMemberId
+      ? z.string().uuid().parse(previewMemberId)
+      : context.teamMemberId;
+    if (!teamMemberId) {
+      throw new Error("Membro del Team non disponibile.");
+    }
+    const { supabase } = context;
     const query = querySchema.parse({
       page: request.nextUrl.searchParams.get("page") ?? undefined,
       pageSize: request.nextUrl.searchParams.get("pageSize") ?? undefined,
@@ -100,7 +111,11 @@ export async function GET(request: NextRequest) {
       throw new Error(reportResult.error?.message ?? "Report guadagni non disponibile.");
     }
 
-    return NextResponse.json({ ...baseResult.data, ...reportResult.data });
+    return NextResponse.json({
+      ...baseResult.data,
+      ...reportResult.data,
+      lifetimeSummary: baseResult.data.summary,
+    });
   } catch (error) {
     return adminApiErrorResponse(error);
   }

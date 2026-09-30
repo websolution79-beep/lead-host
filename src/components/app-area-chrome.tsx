@@ -61,6 +61,7 @@ const adminLinks: Array<{
   group: string;
   permission?: AdminPermissionKey;
   superAdminOnly?: boolean;
+  teamMemberOnly?: boolean;
   grouped?: boolean;
   subitem?: boolean;
   subitemLast?: boolean;
@@ -164,6 +165,7 @@ const adminLinks: Array<{
     superAdminOnly: true,
   },
   { label: "Team", href: "/admin/team", group: "Configurazione", superAdminOnly: true },
+  { label: "I miei guadagni", href: "/admin/i-miei-guadagni", group: "Configurazione", teamMemberOnly: true },
   { label: "Profilo", href: "/admin/profilo", group: "Configurazione" },
 ];
 
@@ -185,6 +187,7 @@ export function AppAreaChrome({
       ? adminLinks.filter(
           (link) =>
             (isSuperAdmin || !link.superAdminOnly) &&
+            (!isSuperAdmin || !link.teamMemberOnly) &&
             (isSuperAdmin ||
               !link.permission ||
               hasAdminPermission(adminPermissions, link.permission)),

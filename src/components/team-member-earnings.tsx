@@ -68,6 +68,7 @@ type EarningsPayload = {
     paidCents: number;
     dueCents: number;
   };
+  lifetimeSummary: EarningsPayload["summary"];
   events: EarningsEvent[];
   payouts: EarningsPayout[];
   pagination: {
@@ -89,7 +90,7 @@ type RangeKey =
   | "current_year"
   | "custom";
 
-export function TeamMemberEarnings() {
+export function TeamMemberEarnings({ previewMemberId }: { previewMemberId?: string }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [payload, setPayload] = useState<EarningsPayload | null>(null);
   const [page, setPage] = useState(1);
@@ -118,6 +119,7 @@ export function TeamMemberEarnings() {
     }
 
     const params = new URLSearchParams({ page: String(page), pageSize: "25" });
+    if (previewMemberId) params.set("previewMemberId", previewMemberId);
     if (selectedRange.dateFrom) params.set("dateFrom", selectedRange.dateFrom);
     if (selectedRange.dateTo) params.set("dateTo", selectedRange.dateTo);
     if (eventType) params.set("eventType", eventType);
@@ -136,7 +138,7 @@ export function TeamMemberEarnings() {
       setPayload(result);
     }
     setLoading(false);
-  }, [eventType, page, selectedRange.dateFrom, selectedRange.dateTo, supabase]);
+  }, [eventType, page, previewMemberId, selectedRange.dateFrom, selectedRange.dateTo, supabase]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
@@ -173,6 +175,7 @@ export function TeamMemberEarnings() {
       return;
     }
     const params = new URLSearchParams({ format: "csv" });
+    if (previewMemberId) params.set("previewMemberId", previewMemberId);
     if (selectedRange.dateFrom) params.set("dateFrom", selectedRange.dateFrom);
     if (selectedRange.dateTo) params.set("dateTo", selectedRange.dateTo);
     if (eventType) params.set("eventType", eventType);
@@ -200,6 +203,11 @@ export function TeamMemberEarnings() {
 
   return (
     <div className="grid min-w-0 gap-6">
+      {previewMemberId ? (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+          Anteprima in sola lettura della vista collaboratore.
+        </div>
+      ) : null}
       {!payload.featureEnabled ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
           <strong>Area compensi in preparazione.</strong> Le regole sono configurate, ma la maturazione automatica non è ancora attiva.
@@ -217,7 +225,20 @@ export function TeamMemberEarnings() {
         </button>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <section aria-label="Situazione complessiva dei compensi">
+        <div className="mb-3">
+          <p className="section-kicker">Situazione complessiva</p>
+          <h2 className="mt-1 text-xl font-semibold text-ink">I tuoi compensi</h2>
+          <p className="mt-1 text-sm text-muted">Totali dall&apos;inizio della collaborazione, indipendenti dai filtri.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <TotalCard label="Maturato totale" value={payload.lifetimeSummary.netAccruedCents} icon={Coins} />
+          <TotalCard label="Pagato totale" value={payload.lifetimeSummary.paidCents} icon={Banknote} />
+          <TotalCard label="Ancora da liquidare" value={payload.lifetimeSummary.dueCents} icon={HandCoins} />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-5">
         <div className="flex items-center gap-2">
           <CalendarRange className="text-green" size={18} />
           <div>
@@ -226,9 +247,9 @@ export function TeamMemberEarnings() {
           </div>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
-          <label className="grid gap-2 text-sm font-semibold text-ink">
+          <label className="filter-control grid gap-2 text-sm font-semibold text-ink">
             Intervallo
-            <select className="input" value={rangeKey} onChange={(event) => { setRangeKey(event.target.value as RangeKey); setPage(1); }}>
+            <select className="filter-select shadow-sm" value={rangeKey} onChange={(event) => { setRangeKey(event.target.value as RangeKey); setPage(1); }}>
               <option value="today">Oggi</option>
               <option value="yesterday">Ieri</option>
               <option value="last_7_days">Ultimi 7 giorni</option>
@@ -239,9 +260,9 @@ export function TeamMemberEarnings() {
               <option value="custom">Periodo personalizzato</option>
             </select>
           </label>
-          <label className="grid gap-2 text-sm font-semibold text-ink">
+          <label className="filter-control grid gap-2 text-sm font-semibold text-ink">
             Attività
-            <select className="input" value={eventType} onChange={(event) => { setEventType(event.target.value); setPage(1); }}>
+            <select className="filter-select shadow-sm" value={eventType} onChange={(event) => { setEventType(event.target.value); setPage(1); }}>
               <option value="">Tutte le attività</option>
               <option value="lead_verification">Verifica Lead</option>
               <option value="prime_first_activation">Nuovo PM PRIME</option>
@@ -257,8 +278,8 @@ export function TeamMemberEarnings() {
         </div>
         {rangeKey === "custom" ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-semibold text-ink">Dal<input className="input" type="date" value={customFrom} onChange={(event) => { setCustomFrom(event.target.value); setPage(1); }} /></label>
-            <label className="grid gap-2 text-sm font-semibold text-ink">Al<input className="input" type="date" value={customTo} onChange={(event) => { setCustomTo(event.target.value); setPage(1); }} /></label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">Dal<input className="form-input min-h-14 shadow-sm" type="date" value={customFrom} onChange={(event) => { setCustomFrom(event.target.value); setPage(1); }} /></label>
+            <label className="grid gap-2 text-sm font-semibold text-ink">Al<input className="form-input min-h-14 shadow-sm" type="date" value={customTo} onChange={(event) => { setCustomTo(event.target.value); setPage(1); }} /></label>
           </div>
         ) : null}
         <p className="mt-3 text-sm text-muted">{selectedRange.label}</p>
@@ -366,6 +387,10 @@ export function TeamMemberEarnings() {
 function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value: number; icon: typeof ShieldCheck; tone: "green" | "amber" | "blue" }) {
   const toneClass = tone === "amber" ? "bg-amber-50 text-amber-700" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700";
   return <div className="rounded-lg border border-slate-200 bg-white p-5"><div className={`flex size-10 items-center justify-center rounded-lg ${toneClass}`}><Icon size={19} /></div><p className="mt-4 text-sm font-semibold text-muted">{label}</p><p className="mt-2 text-2xl font-bold text-ink">{formatCurrencyCents(value)}</p></div>;
+}
+
+function TotalCard({ label, value, icon: Icon }: { label: string; value: number; icon: typeof ShieldCheck }) {
+  return <div className="min-w-0 rounded-lg border border-emerald-300 bg-white p-5"><div className="flex size-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><Icon size={19} /></div><p className="mt-4 text-sm font-semibold text-muted">{label}</p><p className="mt-2 break-words text-2xl font-bold text-ink">{formatCurrencyCents(value)}</p></div>;
 }
 
 function getActiveRules(rules: EarningsPayload["rules"]) {

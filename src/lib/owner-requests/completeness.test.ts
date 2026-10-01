@@ -36,7 +36,6 @@ test("reports missing owner, property and consent information", () => {
       "email",
       "phone",
       "currentStatus",
-      "timing",
       "dataSharingConsent",
     ],
   );
@@ -70,4 +69,29 @@ test("accepts zero room counts as supplied values", () => {
   });
 
   assert.equal(missing.length, 0);
+});
+
+test("accepts the shortened owner form without services or timing", () => {
+  const missing = getMissingLeadFields({
+    contact: {
+      firstName: "Mario",
+      lastName: "Rossi",
+      email: "mario@example.com",
+      phone: "3331234567",
+      preciseAddress: "Via Roma 10",
+    },
+    property: {
+      region: "Lazio",
+      province: "Roma",
+      city: "Roma",
+      propertyType: "Appartamento",
+      bedrooms: 2,
+      bathrooms: 1,
+      areaSqm: 75,
+      currentStatus: ["Mai usato per affitti brevi"],
+    },
+    consents: { privacy: true, dataSharing: true },
+  });
+
+  assert.deepEqual(missing, []);
 });

@@ -30,25 +30,6 @@ const currentStatuses = [
   "Affidato a un altro gestore",
 ];
 
-const requestedServices = [
-  "Gestione completa",
-  "Gestione online",
-  "Gestione annunci",
-  "Revenue management",
-  "Comunicazione ospiti",
-  "Check-in / Check-out",
-  "Pulizie",
-  "Non lo so, vorrei essere consigliato",
-];
-
-const timings = [
-  "Il prima possibile",
-  "Entro 30 giorni",
-  "Entro 3 mesi",
-  "Piu avanti",
-  "Sto solo valutando",
-];
-
 const steps = [
   {
     icon: MapPin,
@@ -61,15 +42,10 @@ const steps = [
     description: "Poche informazioni utili per capire il potenziale del lead.",
   },
   {
-    icon: CheckCircle2,
-    title: "Cosa stai cercando",
-    description: "Servizi richiesti, tempistiche e una nota facoltativa.",
-  },
-  {
     icon: UserRound,
     title: "Ti manca un ultimo step",
     description:
-      "I tuoi dati saranno visibili solo ad un massimo di 2 Consulenti esperti verificati.",
+      "Lascia i tuoi recapiti per ricevere informazioni sulla richiesta.",
   },
 ];
 
@@ -83,15 +59,11 @@ type FormState = {
   bathrooms: string;
   areaSqm: string;
   currentStatus: string[];
-  requestedServices: string[];
-  timing: string;
-  description: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  privacyConsent: boolean;
-  dataSharingConsent: boolean;
+  consentAccepted: boolean;
 };
 
 const initialFormState: FormState = {
@@ -104,15 +76,11 @@ const initialFormState: FormState = {
   bathrooms: "",
   areaSqm: "",
   currentStatus: [],
-  requestedServices: [],
-  timing: "",
-  description: "",
   firstName: "",
   lastName: "",
   email: "",
   phone: "",
-  privacyConsent: false,
-  dataSharingConsent: false,
+  consentAccepted: false,
 };
 
 type OwnerRequestFormProps = {
@@ -173,12 +141,12 @@ export function OwnerRequestForm({
     }));
   }
 
-  function toggleListValue(key: "currentStatus" | "requestedServices", value: string) {
+  function toggleListValue(value: string) {
     setForm((current) => {
-      const values = current[key];
+      const values = current.currentStatus;
       return {
         ...current,
-        [key]: values.includes(value)
+        currentStatus: values.includes(value)
           ? values.filter((item) => item !== value)
           : [...values, value],
       };
@@ -405,40 +373,12 @@ export function OwnerRequestForm({
               label="Stato attuale"
               options={currentStatuses}
               selected={form.currentStatus}
-              onToggle={(value) => toggleListValue("currentStatus", value)}
+              onToggle={toggleListValue}
             />
           </div>
         ) : null}
 
         {step === 2 ? (
-          <div className="grid gap-4">
-            <OptionGrid
-              label="Servizi richiesti"
-              options={requestedServices}
-              selected={form.requestedServices}
-              onToggle={(value) => toggleListValue("requestedServices", value)}
-            />
-            <SelectField
-              label="Quando vorresti iniziare?"
-              value={form.timing}
-              options={timings}
-              placeholder="Seleziona tempistica"
-              onChange={(value) => updateField("timing", value)}
-            />
-            <label className="grid gap-2 text-sm font-semibold text-ink">
-              Descrizione breve facoltativa
-              <textarea
-                className="min-h-28 resize-y rounded-lg border border-ink/12 px-4 py-3 outline-none focus:border-green"
-                maxLength={700}
-                placeholder="Raccontaci in poche parole cosa cerchi"
-                value={form.description}
-                onChange={(event) => updateField("description", event.target.value)}
-              />
-            </label>
-          </div>
-        ) : null}
-
-        {step === 3 ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               label="Nome"
@@ -462,16 +402,10 @@ export function OwnerRequestForm({
               type="tel"
               onChange={(value) => updateField("phone", value)}
             />
-            <div className="grid gap-3 sm:col-span-2">
+            <div className="sm:col-span-2">
               <ConsentCheckbox
-                checked={form.privacyConsent}
-                label="Accetto il trattamento dei dati secondo la Privacy Policy."
-                onChange={(checked) => updateField("privacyConsent", checked)}
-              />
-              <ConsentCheckbox
-                checked={form.dataSharingConsent}
-                label="Accetto che i miei contatti possano essere condivisi con massimo 2 Consulenti esperti verificati."
-                onChange={(checked) => updateField("dataSharingConsent", checked)}
+                checked={form.consentAccepted}
+                onChange={(checked) => updateField("consentAccepted", checked)}
               />
             </div>
           </div>
@@ -642,23 +576,25 @@ function OptionGrid({
 
 function ConsentCheckbox({
   checked,
-  label,
   onChange,
 }: {
   checked: boolean;
-  label: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-ink">
+    <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-4 text-sm font-semibold leading-6 text-ink">
       <input
+        id="owner-request-consent"
         className="mt-1 size-4 accent-green"
         type="checkbox"
         checked={checked}
         onChange={(event) => onChange(event.target.checked)}
+        required
       />
-      <span>{label}</span>
-    </label>
+      <label htmlFor="owner-request-consent">
+        Presa visione e accettazione della <a className="text-green underline" href="https://www.iubenda.com/privacy-policy/12644511" target="_blank" rel="noopener noreferrer">Privacy Policy</a> e dei <a className="text-green underline" href="/termini" target="_blank" rel="noopener noreferrer">Termini e Condizioni</a>, inclusa la possibilità di ricevere chiamate esplicative
+      </label>
+    </div>
   );
 }
 
@@ -679,12 +615,6 @@ function validateStep(step: number, form: FormState) {
   }
 
   if (step === 2) {
-    if (form.requestedServices.length === 0 || !form.timing) {
-      return "Seleziona almeno un servizio e una tempistica.";
-    }
-  }
-
-  if (step === 3) {
     if (
       !form.firstName.trim() ||
       !form.lastName.trim() ||
@@ -693,8 +623,8 @@ function validateStep(step: number, form: FormState) {
     ) {
       return "Tutti i campi dovranno essere compilati per l'invio della richiesta.";
     }
-    if (!form.privacyConsent || !form.dataSharingConsent) {
-      return "Per inviare la richiesta servono entrambi i consensi.";
+    if (!form.consentAccepted) {
+      return "Per inviare la richiesta devi accettare Privacy Policy e Termini e Condizioni.";
     }
   }
 

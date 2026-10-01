@@ -36,22 +36,26 @@ const completionSchema = z.object({
   bathrooms: z.coerce.number().int().min(0).max(50),
   areaSqm: z.coerce.number().int().min(10).max(5000),
   currentStatus: z.array(z.string()).min(1).max(5),
-  requestedServices: z.array(z.string()).min(1).max(8),
+  requestedServices: z.array(z.string()).max(8).optional(),
   timing: z.enum([
     "Il prima possibile",
     "Entro 30 giorni",
     "Entro 3 mesi",
     "Piu avanti",
     "Sto solo valutando",
-  ]),
-  description: z.string().trim().max(700).optional().default(""),
+  ]).optional(),
+  description: z.string().trim().max(700).optional(),
   firstName: z.string().trim().min(2).max(80),
   lastName: z.string().trim().min(2).max(80),
   email: z.string().trim().email().max(160),
   phone: z.string().trim().min(6).max(30),
-  privacyConsent: z.literal(true),
-  dataSharingConsent: z.literal(true),
-});
+  consentAccepted: z.literal(true).optional(),
+  privacyConsent: z.literal(true).optional(),
+  dataSharingConsent: z.literal(true).optional(),
+}).refine(
+  (data) => data.consentAccepted || (data.privacyConsent && data.dataSharingConsent),
+  { message: "Accetta Privacy Policy e Termini e Condizioni." },
+);
 
 const allowedCurrentStatuses = new Set([
   "Gia su Airbnb/Booking",
@@ -121,7 +125,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (
       data.currentStatus.some((item) => !allowedCurrentStatuses.has(item)) ||
-      data.requestedServices.some((item) => !allowedServices.has(item))
+      data.requestedServices?.some((item) => !allowedServices.has(item))
     ) {
       return NextResponse.json(
         { error: "Opzioni selezionate non valide." },
@@ -131,6 +135,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const supabase = createServiceSupabaseClient();
     const now = new Date().toISOString();
+    const requestedServices = data.requestedServices ?? completion.data.initialValues.requestedServices;
+    const timing = data.timing ?? (completion.data.initialValues.timing || null);
+    const description = data.description ?? completion.data.initialValues.description;
     const normalizedPayload = {
       ...completion.data.normalizedPayload,
       property: {
@@ -142,9 +149,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         bathrooms: data.bathrooms,
         approximate_area_sqm: data.areaSqm,
         current_status: data.currentStatus,
-        requested_services: data.requestedServices,
-        timing: data.timing,
-        description: data.description || null,
+        requested_services: requestedServices,
+        timing,
+        description: description || null,
       },
       contact: {
         first_name: data.firstName,
@@ -182,9 +189,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           bathrooms: data.bathrooms,
           approximate_area_sqm: data.areaSqm,
           current_status: data.currentStatus,
-          requested_services: data.requestedServices,
-          timing: data.timing,
-          description: data.description || null,
+          requested_services: requestedServices,
+          timing,
+          description: description || null,
         },
         { onConflict: "owner_request_id" },
       ),
@@ -340,8 +347,7 @@ async function fetchCompletionRequest(token: string): Promise<
         lastName: contactResult.data?.last_name ?? "",
         email: contactResult.data?.email ?? "",
         phone: contactResult.data?.phone ?? "",
-        privacyConsent: false,
-        dataSharingConsent: false,
+        consentAccepted: false,
       },
     },
   };
@@ -410,6 +416,5 @@ type CompletionInitialValues = {
   lastName: string;
   email: string;
   phone: string;
-  privacyConsent: boolean;
-  dataSharingConsent: boolean;
+  consentAccepted: boolean;
 };

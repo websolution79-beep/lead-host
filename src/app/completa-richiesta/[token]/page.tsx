@@ -77,15 +77,10 @@ async function fetchCompletionInitialValues(token: string): Promise<
         bathrooms: string;
         areaSqm: string;
         currentStatus: string[];
-        requestedServices: string[];
-        timing: string;
-        description: string;
         firstName: string;
         lastName: string;
         email: string;
         phone: string;
-        privacyConsent: boolean;
-        dataSharingConsent: boolean;
       };
     }
   | { ok: false; error: string }
@@ -128,7 +123,7 @@ async function fetchCompletionInitialValues(token: string): Promise<
     supabase
       .from("properties")
       .select(
-        "region,province,city,property_type,bedrooms,bathrooms,approximate_area_sqm,current_status,requested_services,timing,description",
+        "region,province,city,property_type,bedrooms,bathrooms,approximate_area_sqm,current_status",
       )
       .eq("owner_request_id", ownerRequest.id)
       .maybeSingle(),
@@ -154,15 +149,10 @@ async function fetchCompletionInitialValues(token: string): Promise<
       bathrooms: stringifyNumber(propertyResult.data?.bathrooms),
       areaSqm: stringifyNumber(propertyResult.data?.approximate_area_sqm),
       currentStatus: propertyResult.data?.current_status ?? [],
-      requestedServices: propertyResult.data?.requested_services ?? [],
-      timing: propertyResult.data?.timing ?? "",
-      description: propertyResult.data?.description ?? "",
       firstName: contactResult.data?.first_name ?? "",
       lastName: contactResult.data?.last_name ?? "",
       email: contactResult.data?.email ?? "",
       phone: contactResult.data?.phone ?? "",
-      privacyConsent: false,
-      dataSharingConsent: false,
     },
   };
 }

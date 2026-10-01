@@ -29,21 +29,22 @@ const ownerRequestSchema = z.object({
   bathrooms: z.coerce.number().int().min(0).max(50),
   areaSqm: z.coerce.number().int().min(10).max(5000),
   currentStatus: z.array(z.string()).min(1).max(5),
-  requestedServices: z.array(z.string()).min(1).max(8),
+  requestedServices: z.array(z.string()).max(8).optional().default([]),
   timing: z.enum([
     "Il prima possibile",
     "Entro 30 giorni",
     "Entro 3 mesi",
     "Piu avanti",
     "Sto solo valutando",
-  ]),
+  ]).optional(),
   description: z.string().trim().max(700).optional().default(""),
   firstName: z.string().trim().min(2).max(80),
   lastName: z.string().trim().min(2).max(80),
   email: z.string().trim().email().max(160),
   phone: z.string().trim().min(6).max(30),
-  privacyConsent: z.literal(true),
-  dataSharingConsent: z.literal(true),
+  consentAccepted: z.literal(true).optional(),
+  privacyConsent: z.literal(true).optional(),
+  dataSharingConsent: z.literal(true).optional(),
   website: z.string().max(300).optional().default(""),
   startedAt: z.coerce.number().int().positive(),
   attribution: z
@@ -57,7 +58,10 @@ const ownerRequestSchema = z.object({
       utmTerm: z.string().max(160).optional(),
     })
     .optional(),
-});
+}).refine(
+  (data) => data.consentAccepted || (data.privacyConsent && data.dataSharingConsent),
+  { message: "Accetta Privacy Policy e Termini e Condizioni." },
+);
 
 const allowedCurrentStatuses = new Set([
   "Gia su Airbnb/Booking",
@@ -178,7 +182,7 @@ export async function POST(request: Request) {
       approximate_area_sqm: data.areaSqm,
       current_status: data.currentStatus,
       requested_services: data.requestedServices,
-      timing: data.timing,
+      timing: data.timing ?? null,
       description: data.description || null,
     },
     contact: {
@@ -229,7 +233,7 @@ export async function POST(request: Request) {
         approximate_area_sqm: data.areaSqm,
         current_status: data.currentStatus,
         requested_services: data.requestedServices,
-        timing: data.timing,
+        timing: data.timing ?? null,
         description: data.description || null,
       }),
       supabase.from("lead_sources").insert({

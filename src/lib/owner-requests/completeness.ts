@@ -74,16 +74,6 @@ export function getMissingLeadFields(
     });
   }
 
-  if (!property?.requestedServices?.length) {
-    missing.push({
-      key: "requestedServices",
-      label: "Servizi richiesti",
-      group: "immobile",
-    });
-  }
-
-  addMissing(missing, "timing", "Tempistica", "immobile", property?.timing);
-
   if (!consents?.privacy) {
     missing.push({
       key: "privacyConsent",

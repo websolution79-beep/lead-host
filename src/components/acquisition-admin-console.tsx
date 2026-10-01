@@ -173,7 +173,7 @@ function OverviewTab({
 function OwnersTab({ landingUrl, embedUrl }: { landingUrl: string; embedUrl: string }) {
   const trackedEmbedUrl = `${embedUrl}?utm_source=landing-esterna&utm_medium=iframe&utm_campaign=nome-campagna`;
   const embedOrigin = new URL(embedUrl).origin;
-  const iframeCode = `<iframe id="leadhost-owner-form" src="${trackedEmbedUrl}" width="100%" style="border:0;width:100%;height:1px;overflow:hidden;" scrolling="no" loading="lazy" title="Richiesta proprietario Lead Host"></iframe>
+  const iframeCode = `<iframe id="leadhost-owner-form" src="${trackedEmbedUrl}" width="100%" style="border:0;width:100%;height:1px;overflow:hidden;" scrolling="no" loading="lazy" title="Richiesta proprietario Lead Host in 3 passaggi"></iframe>
 <script>
 window.addEventListener("message", function (event) {
   var iframe = document.getElementById("leadhost-owner-form");
@@ -202,7 +202,7 @@ window.addEventListener("message", function (event) {
           Canale landing ed embed proprietari
         </h2>
         <p className="mt-3 max-w-3xl leading-7 text-muted">
-          Il form proprietari salva richiesta, immobile, contatti, consenso privacy e
+          Il form proprietari in tre passaggi salva richiesta, immobile, contatti, accettazione di Privacy Policy e Termini e Condizioni e
           attribuzione marketing. I lead arrivano in Nuovi Lead nella pagina Lead.
         </p>
         <div className="mt-5 grid gap-3 md:grid-cols-2">

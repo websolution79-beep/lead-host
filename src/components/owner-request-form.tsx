@@ -12,6 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
+import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
 
 const propertyTypes = [
   "Appartamento",
@@ -219,6 +220,8 @@ export function OwnerRequestForm({
     );
 
     const result = (await response.json()) as {
+      status?: string;
+      ownerRequestId?: string;
       reference?: string;
       error?: string;
     };
@@ -231,6 +234,9 @@ export function OwnerRequestForm({
     }
 
     setSuccessReference(result.reference ?? "");
+    if (result.status === "created" && result.ownerRequestId) {
+      trackOwnerRequestLead(result.ownerRequestId, variant);
+    }
   }
 
   if (successReference) {
@@ -442,6 +448,36 @@ export function OwnerRequestForm({
       </div>
     </form>
   );
+}
+
+function trackOwnerRequestLead(ownerRequestId: string, variant: "page" | "embed") {
+  const eventId = `owner_request_${ownerRequestId}`;
+
+  if (variant !== "embed" || window.parent === window) {
+    dispatchBrowserTrackingEvent("lead", { eventId });
+    return;
+  }
+
+  let acknowledged = false;
+  const handleAcknowledgement = (event: MessageEvent) => {
+    if (
+      event.source !== window.parent ||
+      event.data?.type !== "leadhost-embed-lead-ack" ||
+      event.data.eventId !== eventId
+    ) return;
+
+    acknowledged = true;
+    window.clearTimeout(fallbackTimer);
+    window.removeEventListener("message", handleAcknowledgement);
+  };
+
+  window.addEventListener("message", handleAcknowledgement);
+  const fallbackTimer = window.setTimeout(() => {
+    window.removeEventListener("message", handleAcknowledgement);
+    if (!acknowledged) dispatchBrowserTrackingEvent("lead", { eventId });
+  }, 500);
+
+  window.parent.postMessage({ type: "leadhost-embed-lead", eventId }, "*");
 }
 
 function TextField({

@@ -175,6 +175,7 @@ function OwnersTab({ landingUrl, embedUrl }: { landingUrl: string; embedUrl: str
   const embedOrigin = new URL(embedUrl).origin;
   const iframeCode = `<iframe id="leadhost-owner-form" src="${trackedEmbedUrl}" width="100%" style="border:0;width:100%;height:1px;overflow:hidden;" scrolling="no" loading="lazy" title="Richiesta proprietario Lead Host in 3 passaggi"></iframe>
 <script>
+window.leadhostTrackedLeads = window.leadhostTrackedLeads || Object.create(null);
 window.addEventListener("message", function (event) {
   var iframe = document.getElementById("leadhost-owner-form");
   var data = event.data;
@@ -182,13 +183,30 @@ window.addEventListener("message", function (event) {
     event.origin !== "${embedOrigin}" ||
     !iframe ||
     event.source !== iframe.contentWindow ||
-    !data ||
-    data.type !== "leadhost-embed-resize"
+    !data
   ) return;
 
-  var height = Number(data.height);
-  if (Number.isFinite(height) && height > 0) {
-    iframe.style.height = Math.ceil(height) + "px";
+  if (data.type === "leadhost-embed-resize") {
+    var height = Number(data.height);
+    if (Number.isFinite(height) && height > 0) {
+      iframe.style.height = Math.ceil(height) + "px";
+    }
+  }
+
+  if (
+    data.type === "leadhost-embed-lead" &&
+    typeof data.eventId === "string" &&
+    /^owner_request_[0-9a-f-]{36}$/.test(data.eventId) &&
+    typeof window.fbq === "function"
+  ) {
+    if (!window.leadhostTrackedLeads[data.eventId]) {
+      window.leadhostTrackedLeads[data.eventId] = true;
+      window.fbq("track", "Lead", {}, { eventID: data.eventId });
+    }
+    iframe.contentWindow.postMessage({
+      type: "leadhost-embed-lead-ack",
+      eventId: data.eventId
+    }, event.origin);
   }
 });
 </script>`;
@@ -249,7 +267,9 @@ window.addEventListener("message", function (event) {
           </div>
           <p className="mt-3 text-sm leading-6 text-muted">
             Cambia i parametri UTM per distinguere dominio, campagna o landing esterna.
-            Lo script aggiorna automaticamente l&apos;altezza del form senza scrollbar.
+            Sostituisci il vecchio codice iframe anche sui siti dove il form è già installato.
+            Questo script aggiorna l&apos;altezza e invia l&apos;evento Meta Lead solo dopo una richiesta salvata.
+            Il Pixel deve essere presente nella pagina che ospita l&apos;iframe.
           </p>
         </div>
       </div>

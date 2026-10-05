@@ -125,6 +125,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
 }
 
 function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOpen }: { record: AdminLeadRecord; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void }) {
+  const internalNotes = record.qualificationNotes?.trim();
   return <button className={`group w-full rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`} draggable={draggable} type="button" onClick={onOpen} onDragEnd={onDragEnd} onDragStart={onDragStart}>
     <div className="flex items-start gap-2">
       {draggable ? <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} /> : null}
@@ -144,6 +145,10 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Phone size={12} />Telefono</p>
           <p className="mt-1 break-all text-sm font-semibold leading-5 text-slate-700">{record.contact?.phone ?? "Non indicato"}</p>
         </div>
+        {internalNotes ? <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-red-700">Note interne</p>
+          <p className="mt-1 line-clamp-3 whitespace-pre-line break-words text-sm leading-5 text-ink">{internalNotes}</p>
+        </div> : null}
       </div>
     </div>
   </button>;

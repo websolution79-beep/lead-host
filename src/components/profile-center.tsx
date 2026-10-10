@@ -20,6 +20,8 @@ import { MarketingSubscriptionManager } from "@/components/marketing-subscriptio
 import { MarketplaceSubscriptionManager } from "@/components/marketplace-subscription-manager";
 import { PrimeSubscriptionActions } from "@/components/prime-subscription-actions";
 import { AccountDeactivationPanel } from "@/components/account-deactivation-panel";
+import { getBillingProfileCompleteness, type BillingSubjectType } from "@/lib/billing/completeness";
+import { normalizeFiscalCode, normalizeItalianVatNumber } from "@/lib/billing/fiscal-validation";
 
 type Profile = {
   id: string;
@@ -36,8 +38,6 @@ type WalletRow = {
   balance_cents: number;
   currency: string;
 };
-
-type BillingSubjectType = "individual" | "company";
 
 type BillingProfile = {
   id: string;
@@ -61,6 +61,29 @@ type BillingProfile = {
 
 type NewLeadFrequency = "immediate" | "daily" | "every_3_days" | "off";
 type MarketingConsentStatus = "granted" | "not_granted" | "withdrawn";
+
+const billingIssueMessages: Record<string, { field: string; message: string }> = {
+  first_name: { field: "first_name", message: "Inserisci il nome." },
+  last_name: { field: "last_name", message: "Inserisci il cognome." },
+  fiscal_code: { field: "fiscal_code", message: "Inserisci il codice fiscale." },
+  fiscal_code_invalid: { field: "fiscal_code", message: "Il codice fiscale non supera il controllo. Verifica tutti i caratteri." },
+  company_name: { field: "company_name", message: "Inserisci la ragione sociale." },
+  vat_number: { field: "vat_number", message: "Inserisci la partita IVA." },
+  vat_number_invalid: { field: "vat_number", message: "La partita IVA non supera il controllo." },
+  company_fiscal_code_invalid: { field: "company_fiscal_code", message: "Il codice fiscale societario non supera il controllo." },
+  address_line: { field: "address_line", message: "Inserisci l'indirizzo." },
+  postal_code: { field: "postal_code", message: "Inserisci il CAP." },
+  postal_code_invalid: { field: "postal_code", message: "Il CAP deve contenere 5 cifre." },
+  city: { field: "city", message: "Inserisci la citta." },
+  province: { field: "province", message: "Inserisci la provincia." },
+  province_invalid: { field: "province", message: "Usa la sigla di 2 lettere della provincia, ad esempio RM." },
+  country: { field: "country", message: "Seleziona il Paese." },
+  country_invalid: { field: "country", message: "Al momento e supportata soltanto l'Italia (IT)." },
+  electronic_recipient: { field: "electronic_recipient", message: "Inserisci almeno un Codice SDI o una PEC." },
+  sdi_code_invalid: { field: "sdi_code", message: "Il Codice SDI deve avere 7 caratteri alfanumerici." },
+  pec_invalid: { field: "pec", message: "Inserisci una PEC valida." },
+  invoice_email_invalid: { field: "invoice_email", message: "Inserisci un'email fatture valida." },
+};
 
 export function ProfileCenter() {
   const appSession = useAppSession();
@@ -99,6 +122,8 @@ export function ProfileCenter() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [isBillingSuccessVisible, setIsBillingSuccessVisible] = useState(false);
+  const [billingIssues, setBillingIssues] = useState<string[]>([]);
+  const [billingSaveError, setBillingSaveError] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingBilling, setIsSavingBilling] = useState(false);
@@ -147,6 +172,7 @@ export function ProfileCenter() {
       setPhone(typedProfile.phone ?? "");
 
       if (typedBilling) {
+        setBillingIssues(getBillingProfileCompleteness(typedBilling).missingFields);
         setBillingSubjectType(typedBilling.subject_type);
         setBillingFirstName(typedBilling.first_name ?? "");
         setBillingLastName(typedBilling.last_name ?? "");
@@ -158,7 +184,7 @@ export function ProfileCenter() {
         setBillingPostalCode(typedBilling.postal_code ?? "");
         setBillingCity(typedBilling.city ?? "");
         setBillingProvince(typedBilling.province ?? "");
-        setBillingCountry(typedBilling.country ?? "IT");
+        setBillingCountry(typedBilling.country?.trim().toUpperCase() === "IT" ? "IT" : "");
         setBillingSdiCode(typedBilling.sdi_code ?? "");
         setBillingPec(typedBilling.pec ?? "");
         setBillingInvoiceEmail(typedBilling.invoice_email ?? "");
@@ -262,87 +288,46 @@ export function ProfileCenter() {
     setError("");
     setStatusMessage("");
     setIsBillingSuccessVisible(false);
+    setBillingSaveError("");
 
     const normalizedSdiCode = billingSdiCode.trim().toUpperCase();
     const normalizedPec = billingPec.trim().toLowerCase();
     const normalizedProvince = billingProvince.trim().toUpperCase();
-
-    if (!/^[A-Z]{2}$/.test(normalizedProvince)) {
-      setError(
-        "Nel campo Provincia inserisci la sigla di due lettere, ad esempio RM.",
-      );
+    const billingValues = {
+      subject_type: billingSubjectType,
+      first_name: billingSubjectType === "individual" ? billingFirstName.trim() : null,
+      last_name: billingSubjectType === "individual" ? billingLastName.trim() : null,
+      fiscal_code: billingSubjectType === "individual" ? normalizeFiscalCode(billingFiscalCode) : null,
+      company_name: billingSubjectType === "company" ? billingCompanyName.trim() : null,
+      vat_number: billingSubjectType === "company" ? normalizeItalianVatNumber(billingVatNumber) : null,
+      company_fiscal_code: billingSubjectType === "company" ? normalizeFiscalCode(billingCompanyFiscalCode) || null : null,
+      address_line: billingAddressLine.trim(),
+      postal_code: billingPostalCode.trim(),
+      city: billingCity.trim(),
+      province: normalizedProvince,
+      country: billingCountry,
+      sdi_code: billingSubjectType === "company" ? normalizedSdiCode || null : null,
+      pec: billingSubjectType === "company" ? normalizedPec || null : null,
+      invoice_email: billingInvoiceEmail.trim().toLowerCase() || profile.email,
+    };
+    const validation = getBillingProfileCompleteness(billingValues);
+    setBillingIssues(validation.missingFields);
+    if (!validation.complete) {
+      requestAnimationFrame(() => document.getElementById("billing-validation-errors")?.scrollIntoView({ block: "center" }));
       return;
-    }
-
-    if (billingSubjectType === "individual") {
-      if (
-        !billingFirstName.trim() ||
-        !billingLastName.trim() ||
-        !billingFiscalCode.trim() ||
-        !billingAddressLine.trim() ||
-        !billingPostalCode.trim() ||
-        !billingCity.trim() ||
-        !billingProvince.trim()
-      ) {
-        setError("Per una persona fisica compila nome, cognome, codice fiscale e indirizzo.");
-        return;
-      }
-    }
-
-    if (billingSubjectType === "company") {
-      if (
-        !billingCompanyName.trim() ||
-        !billingVatNumber.trim() ||
-        !billingAddressLine.trim() ||
-        !billingPostalCode.trim() ||
-        !billingCity.trim() ||
-        !billingProvince.trim()
-      ) {
-        setError("Per una societa compila ragione sociale, partita IVA e sede legale.");
-        return;
-      }
-
-      if (!normalizedSdiCode && !normalizedPec) {
-        setError("Per una societa inserisci almeno Codice SDI o PEC.");
-        return;
-      }
     }
 
     setIsSavingBilling(true);
 
     const { error: billingError } = await supabase.from("billing_profiles").upsert(
-      {
-        profile_id: profile.id,
-        subject_type: billingSubjectType,
-        first_name: billingSubjectType === "individual" ? billingFirstName.trim() : null,
-        last_name: billingSubjectType === "individual" ? billingLastName.trim() : null,
-        fiscal_code:
-          billingSubjectType === "individual"
-            ? billingFiscalCode.trim().toUpperCase()
-            : null,
-        company_name: billingSubjectType === "company" ? billingCompanyName.trim() : null,
-        vat_number:
-          billingSubjectType === "company" ? billingVatNumber.trim().toUpperCase() : null,
-        company_fiscal_code:
-          billingSubjectType === "company"
-            ? billingCompanyFiscalCode.trim().toUpperCase() || null
-            : null,
-        address_line: billingAddressLine.trim(),
-        postal_code: billingPostalCode.trim(),
-        city: billingCity.trim(),
-        province: normalizedProvince,
-        country: billingCountry.trim().toUpperCase() || "IT",
-        sdi_code: billingSubjectType === "company" ? normalizedSdiCode || null : null,
-        pec: billingSubjectType === "company" ? normalizedPec || null : null,
-        invoice_email: billingInvoiceEmail.trim().toLowerCase() || profile.email,
-      },
+      { profile_id: profile.id, ...billingValues },
       { onConflict: "profile_id" },
     );
 
     setIsSavingBilling(false);
 
     if (billingError) {
-      setError("Non sono riuscito a salvare i dati di fatturazione.");
+      setBillingSaveError("Non sono riuscito a salvare i dati di fatturazione. Riprova tra poco.");
       return;
     }
 
@@ -531,6 +516,9 @@ export function ProfileCenter() {
   }
 
   const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
+  const billingFieldError = (field: string) => billingIssues
+    .map((issue) => billingIssueMessages[issue])
+    .find((detail) => detail?.field === field)?.message;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
@@ -790,7 +778,12 @@ export function ProfileCenter() {
             </span>
           </div>
 
-          <form className="mt-6 grid gap-4" onSubmit={handleBillingSubmit}>
+          <form
+            className="mt-6 grid gap-4"
+            noValidate
+            onSubmit={handleBillingSubmit}
+            onChangeCapture={() => { setBillingIssues([]); setBillingSaveError(""); }}
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold ${
@@ -799,7 +792,7 @@ export function ProfileCenter() {
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
                 type="button"
-                onClick={() => setBillingSubjectType("individual")}
+                onClick={() => { setBillingSubjectType("individual"); setBillingIssues([]); }}
               >
                 <UserCircle size={17} />
                 Persona Fisica
@@ -811,7 +804,7 @@ export function ProfileCenter() {
                     : "border-slate-200 bg-white text-slate-600"
                 }`}
                 type="button"
-                onClick={() => setBillingSubjectType("company")}
+                onClick={() => { setBillingSubjectType("company"); setBillingIssues([]); }}
               >
                 <Building2 size={17} />
                 Societa
@@ -824,12 +817,14 @@ export function ProfileCenter() {
                   label="Nome"
                   value={billingFirstName}
                   onChange={setBillingFirstName}
+                  error={billingFieldError("first_name")}
                   required
                 />
                 <TextField
                   label="Cognome"
                   value={billingLastName}
                   onChange={setBillingLastName}
+                  error={billingFieldError("last_name")}
                   required
                 />
                 <TextField
@@ -837,6 +832,7 @@ export function ProfileCenter() {
                   label="Codice fiscale"
                   value={billingFiscalCode}
                   onChange={setBillingFiscalCode}
+                  error={billingFieldError("fiscal_code")}
                   required
                 />
               </div>
@@ -847,18 +843,21 @@ export function ProfileCenter() {
                   label="Ragione sociale"
                   value={billingCompanyName}
                   onChange={setBillingCompanyName}
+                  error={billingFieldError("company_name")}
                   required
                 />
                 <TextField
                   label="Partita IVA"
                   value={billingVatNumber}
                   onChange={setBillingVatNumber}
+                  error={billingFieldError("vat_number")}
                   required
                 />
                 <TextField
                   label="Codice fiscale societa"
                   value={billingCompanyFiscalCode}
                   onChange={setBillingCompanyFiscalCode}
+                  error={billingFieldError("company_fiscal_code")}
                 />
               </div>
             )}
@@ -869,33 +868,45 @@ export function ProfileCenter() {
                 label={billingSubjectType === "company" ? "Sede legale" : "Indirizzo"}
                 value={billingAddressLine}
                 onChange={setBillingAddressLine}
+                error={billingFieldError("address_line")}
                 required
               />
               <TextField
                 label="CAP"
                 value={billingPostalCode}
                 onChange={setBillingPostalCode}
+                error={billingFieldError("postal_code")}
                 required
               />
               <TextField
                 label="Citta"
                 value={billingCity}
                 onChange={setBillingCity}
+                error={billingFieldError("city")}
                 required
               />
               <TextField
                 label="Provincia (sigla)"
                 value={billingProvince}
                 onChange={setBillingProvince}
+                error={billingFieldError("province")}
                 placeholder="RM"
                 required
               />
-              <TextField
-                label="Paese"
-                value={billingCountry}
-                onChange={setBillingCountry}
-                required
-              />
+              <label className="grid gap-2 text-sm font-semibold text-ink">
+                <span>Paese <span className="text-red-600">*</span></span>
+                <select
+                  className={`min-h-12 rounded-lg border bg-white px-4 outline-none focus:border-green ${billingFieldError("country") ? "border-red-400" : "border-ink/12"}`}
+                  value={billingCountry}
+                  onChange={(event) => setBillingCountry(event.target.value)}
+                  aria-invalid={Boolean(billingFieldError("country"))}
+                  required
+                >
+                  <option value="">Seleziona un paese</option>
+                  <option value="IT">Italia (IT)</option>
+                </select>
+                {billingFieldError("country") ? <span className="text-xs font-medium text-red-700">{billingFieldError("country")}</span> : null}
+              </label>
             </div>
 
             {billingSubjectType === "company" ? (
@@ -904,6 +915,7 @@ export function ProfileCenter() {
                   label="Codice SDI"
                   value={billingSdiCode}
                   onChange={setBillingSdiCode}
+                  error={billingFieldError("sdi_code")}
                   placeholder="7 caratteri"
                 />
                 <TextField
@@ -911,6 +923,7 @@ export function ProfileCenter() {
                   type="email"
                   value={billingPec}
                   onChange={setBillingPec}
+                  error={billingFieldError("pec")}
                 />
               </div>
             ) : null}
@@ -920,6 +933,7 @@ export function ProfileCenter() {
               type="email"
               value={billingInvoiceEmail}
               onChange={setBillingInvoiceEmail}
+              error={billingFieldError("invoice_email")}
             />
 
             {billingSubjectType === "company" ? (
@@ -927,6 +941,16 @@ export function ProfileCenter() {
                 Per le societa e richiesto almeno uno tra Codice SDI e PEC.
               </p>
             ) : null}
+
+            {billingIssues.length > 0 ? (
+              <div id="billing-validation-errors" role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                <p className="font-semibold">Controlla questi dati prima di salvare:</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {billingIssues.map((issue) => <li key={issue}>{billingIssueMessages[issue]?.message ?? issue}</li>)}
+                </ul>
+              </div>
+            ) : null}
+            {billingSaveError ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{billingSaveError}</p> : null}
 
             <button className="btn btn-primary" disabled={isSavingBilling} type="submit">
               {isSavingBilling ? "Salvataggio..." : "Salva dati fatturazione"}
@@ -1004,6 +1028,7 @@ function TextField({
   placeholder,
   required = false,
   type = "text",
+  error,
 }: {
   label: string;
   value: string;
@@ -1012,6 +1037,7 @@ function TextField({
   placeholder?: string;
   required?: boolean;
   type?: string;
+  error?: string;
 }) {
   return (
     <label className={`grid gap-2 text-sm font-semibold text-ink ${className}`}>
@@ -1020,13 +1046,15 @@ function TextField({
         {required ? <span className="text-red-600"> *</span> : null}
       </span>
       <input
-        className="min-h-12 rounded-lg border border-ink/12 px-4 outline-none focus:border-green"
+        className={`min-h-12 rounded-lg border px-4 outline-none focus:border-green ${error ? "border-red-400" : "border-ink/12"}`}
         placeholder={placeholder}
         required={required}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        aria-invalid={Boolean(error)}
       />
+      {error ? <span className="text-xs font-medium text-red-700">{error}</span> : null}
     </label>
   );
 }

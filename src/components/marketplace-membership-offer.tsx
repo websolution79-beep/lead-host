@@ -37,16 +37,24 @@ export function MarketplaceMembershipOffer({ amountCents, listPriceCents, trialD
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [billingProfileError, setBillingProfileError] = useState(false);
   async function checkout() {
     if (!enabled || !accepted || busy) return;
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setBillingProfileError(false);
     try {
       const { data } = await createPublicSupabaseClient().auth.getSession();
       const response = await fetch("/api/marketplace/checkout", { method: "POST",
         headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}`, "Content-Type": "application/json" },
         body: JSON.stringify({ termsAccepted: true }) });
       const result = await response.json();
-      if (!response.ok || !result.checkoutUrl) throw new Error(result.error ?? "Checkout non disponibile.");
+      if (!response.ok || !result.checkoutUrl) {
+        const needsBillingProfile = result.code === "BILLING_PROFILE_INCOMPLETE";
+        setBillingProfileError(needsBillingProfile);
+        const missing = needsBillingProfile && Array.isArray(result.missingLabels)
+          ? ` Controlla: ${result.missingLabels.join(", ")}.`
+          : "";
+        throw new Error(`${result.error ?? "Checkout non disponibile."}${missing}`);
+      }
       window.location.assign(result.checkoutUrl);
     } catch (e) { setError(e instanceof Error ? e.message : "Riprova tra poco."); setBusy(false); }
   }
@@ -86,7 +94,7 @@ export function MarketplaceMembershipOffer({ amountCents, listPriceCents, trialD
         <p role="status" className="text-muted">{access === "prime" ? "Marketplace incluso nel tuo PRIME" : access === "subscription" ? "Il tuo abbonamento e attivo" : access === "open" ? "Il Marketplace e attualmente aperto" : access === "staff" ? "Anteprima riservata al team: acquisto disabilitato" : "Attivazione abbonamenti non ancora disponibile"}</p>
         {access !== "required" && <Link className="inline-flex items-center gap-2 font-semibold text-green" href={access === "staff" ? "/admin/marketplace" : "/app/marketplace"}>Vai al Marketplace<ArrowRight size={16} /></Link>}
       </div>}
-    {error && <div role="alert" className="space-y-2 text-sm text-red-700"><p>{error}</p><Link href="/app/profilo" className="underline">Controlla il tuo profilo</Link></div>}
+    {error && <div role="alert" className="space-y-2 text-sm text-red-700"><p>{error}</p>{billingProfileError && <Link href="/app/profilo#fatturazione" className="underline">Controlla il tuo profilo</Link>}</div>}
     </div>
   </section>;
 }

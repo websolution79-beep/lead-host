@@ -2,18 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ChevronDown,
   CheckCircle2,
   Mail,
   Power,
   RefreshCw,
   Save,
+  Search,
   Send,
   ShieldCheck,
   Users,
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
-import type { TransactionalEmailTemplate } from "@/lib/config/transactional-email-settings";
+import type {
+  TransactionalEmailTemplate,
+  TransactionalEmailTemplateId,
+} from "@/lib/config/transactional-email-settings";
 import {
   isConfigurableRecipientTemplate,
   type TransactionalEmailRecipientConfig,
@@ -64,6 +69,33 @@ type EmailRecipientsResponse = {
   error?: string;
 };
 
+const templateGroups: { label: string; ids: TransactionalEmailTemplateId[] }[] = [
+  { label: "Account Property Manager", ids: ["pm.welcome", "pm.verified", "pm.account_deactivated"] },
+  { label: "Acquisizione proprietari", ids: ["admin.owner_request_pending", "owner.completion_requested"] },
+  { label: "Lead e Marketplace", ids: ["lead.new_available", "lead.digest", "lead.purchased", "admin.lead_purchased"] },
+  { label: "Wallet", ids: ["wallet.top_up"] },
+  { label: "Abbonamento Marketplace", ids: [
+    "marketplace.activated", "admin.marketplace_activated",
+    "marketplace.payment_received", "admin.marketplace_payment_received",
+    "marketplace.payment_action_required", "admin.marketplace_payment_action_required",
+    "marketplace.payment_failed", "admin.marketplace_payment_failed",
+    "marketplace.cancellation_scheduled", "admin.marketplace_cancellation_scheduled",
+  ] },
+  { label: "Lead Host PRIME", ids: [
+    "prime.subscription_activated", "admin.prime_subscription_activated",
+    "prime.subscription_renewed", "admin.prime_subscription_renewed",
+    "prime.lead_assigned",
+  ] },
+  { label: "Modulo Marketing", ids: ["addon.marketing_activated", "admin.addon_marketing_activated"] },
+  { label: "Assistenza", ids: ["admin.support_request_pending", "admin.support_request_reply", "support.reply"] },
+];
+
+function getTemplateAudience(id: TransactionalEmailTemplateId) {
+  if (id.startsWith("admin.")) return { label: "Team / Admin", className: "bg-amber-50 text-amber-800" };
+  if (id.startsWith("owner.")) return { label: "Proprietari", className: "bg-sky-50 text-sky-800" };
+  return { label: "Iscritti PM", className: "bg-emerald-50 text-emerald-800" };
+}
+
 export function AdminEmailTemplatesConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [templates, setTemplates] = useState<TransactionalEmailTemplate[]>([]);
@@ -84,12 +116,30 @@ export function AdminEmailTemplatesConsole() {
   const [configuredAdminEmails, setConfiguredAdminEmails] = useState<string[]>([]);
   const [canManageRecipients, setCanManageRecipients] = useState(false);
   const [recipientSaving, setRecipientSaving] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [openGroup, setOpenGroup] = useState<string | null>(templateGroups[0].label);
 
   const selectedTemplate =
     templates.find((template) => template.id === selectedId) ?? templates[0] ?? null;
   const selectedRecipientConfig = selectedTemplate
     ? recipientConfigs.find((config) => config.templateId === selectedTemplate.id) ?? null
     : null;
+  const groupedTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLocaleLowerCase("it");
+    const assignedIds = new Set(templateGroups.flatMap((group) => group.ids));
+    const groups = [
+      ...templateGroups,
+      { label: "Altre email", ids: templates.filter((template) => !assignedIds.has(template.id)).map((template) => template.id) },
+    ];
+
+    return groups.map((group) => ({
+      label: group.label,
+      items: group.ids
+        .map((id) => templates.find((template) => template.id === id))
+        .filter((template): template is TransactionalEmailTemplate => Boolean(template))
+        .filter((template) => !query || `${template.label} ${template.description} ${group.label} ${getTemplateAudience(template.id).label}`.toLocaleLowerCase("it").includes(query)),
+    })).filter((group) => group.items.length > 0);
+  }, [templates, templateSearch]);
 
   const getAccessToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -130,7 +180,7 @@ export function AdminEmailTemplatesConsole() {
     }
 
     setTemplates(payload.templates);
-    setSelectedId((current) => current || payload.templates[0]?.id || "");
+    setSelectedId((current) => current || payload.templates.find((template) => template.id === "pm.welcome")?.id || payload.templates[0]?.id || "");
     setLogs(payload.logs);
     setStorageReady(payload.storageReady);
     setLogsReady(payload.logsReady);
@@ -334,11 +384,38 @@ export function AdminEmailTemplatesConsole() {
             <div className="border-b border-slate-200 p-5">
               <p className="section-kicker">Template</p>
               <h2 className="mt-2 text-xl font-semibold text-ink">Flussi email</h2>
+              <label className="mt-4 flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 focus-within:border-green focus-within:ring-2 focus-within:ring-green/15">
+                <Search size={18} className="shrink-0 text-muted" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={templateSearch}
+                  onChange={(event) => setTemplateSearch(event.target.value)}
+                  placeholder="Cerca un'email"
+                  aria-label="Cerca un template email"
+                  className="min-w-0 w-full bg-transparent py-2.5 text-sm text-ink outline-none"
+                />
+              </label>
             </div>
-            <div className="divide-y divide-slate-100">
-              {templates.map((template) => (
+            <div className="divide-y divide-slate-200">
+              {groupedTemplates.map((group) => {
+                const expanded = Boolean(templateSearch.trim()) || openGroup === group.label;
+                return <div key={group.label}>
+                  <button
+                    type="button"
+                    aria-expanded={expanded}
+                    disabled={Boolean(templateSearch.trim())}
+                    onClick={() => setOpenGroup(expanded && !templateSearch.trim() ? null : group.label)}
+                    className="flex w-full items-center justify-between gap-3 bg-slate-50 px-4 py-3 text-left font-semibold text-ink hover:bg-slate-100"
+                  >
+                    <span>{group.label} <span className="ml-1 text-sm font-normal text-muted">({group.items.length})</span></span>
+                    <ChevronDown size={18} className={`shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                  </button>
+                  {expanded ? <div className="divide-y divide-slate-100">{group.items.map((template) => {
+                    const audience = getTemplateAudience(template.id);
+                    return (
                 <button
                   key={template.id}
+                  aria-current={selectedTemplate?.id === template.id ? "true" : undefined}
                   className={`grid w-full gap-2 p-4 text-left transition ${
                     selectedTemplate?.id === template.id
                       ? "bg-green/8"
@@ -351,11 +428,18 @@ export function AdminEmailTemplatesConsole() {
                     <span className="font-semibold text-ink">{template.label}</span>
                     <StatusPill enabled={template.enabled} />
                   </div>
+                  <span className={`w-fit rounded px-2 py-0.5 text-xs font-semibold ${audience.className}`}>
+                    {audience.label}
+                  </span>
                   <span className="text-xs leading-5 text-muted">
                     {template.description}
                   </span>
                 </button>
-              ))}
+                    );
+                  })}</div> : null}
+                </div>;
+              })}
+              {groupedTemplates.length === 0 ? <p className="p-5 text-sm text-muted">Nessun template trovato.</p> : null}
             </div>
           </section>
 

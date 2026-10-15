@@ -4,7 +4,7 @@
 
 1. Completed: additive schema, compatibility plan and isolated database tests. Migration 202610150003 was applied through the production project's Supabase SQL Editor after explicit user authorization on 2026-10-15.
 2. Completed: read-only SQL/API checks confirmed five RLS-protected tables, unchanged legacy/paused connection, one initial paused flow, empty mapping/discovery/extra/context tables and unchanged CRM contact/event counts.
-3. Completed locally: versioned per-flow configuration API, consistent snapshots, atomic contact/link/answers/context import, legacy guards and bounded discovery. Migration 202610150004 is prepared and isolated-tested, NOT applied online. Backend code is NOT deployed.
+3. Backend completed and isolated-tested. Migration 202610150004 was applied and verified in production on 2026-10-15; read-only snapshot/catalog RPCs also passed real API checks. Application backend code remains local and is NOT deployed; the connection remains legacy/paused with discovery off.
 4. Pending: flow editor, duplication, field discovery/mapping and CRM additional answers view.
 5. Pending: preview tests for Milan/Rome routing, distinct field schemas, duplicates, paused flows and tenant isolation.
 6. Pending: production deployment and client instructions. Do not publish before these additions are tested.
@@ -92,7 +92,7 @@ Evidence: output/systeme-integration-qa/flows-migration-applied.jpg and flows-mi
 
 ## Next handoff
 
-Migration 202610150003 is applied and verified; do not ask the user to run it again. Migration 202610150004 is now ready for controlled application (see below), but has NOT been run online. Next verify the production project's existing state/functions and apply only that migration, keeping all connection settings unchanged. Then build/deploy the flow editor/additional-fields UI to the protected preview and run the multi-flow tests before production publication. Do not run fixtures/tests against production or enable the pilot implicitly.
+Migrations 202610150003 and 202610150004 are applied and verified; do not ask the user to run them again. Next build the flow editor/additional-fields UI and deploy the combined application code to the protected preview. Then run the multi-flow tests before production publication. Do not run fixtures/tests against production or enable the pilot implicitly. The older preview is not flow-aware: keep the pilot in legacy/paused mode until the combined preview is deployed.
 
 ## Local routing/mapping core - 2026-10-15
 
@@ -149,3 +149,28 @@ Migration: supabase/migrations/202610150004_marketing_systeme_flows_backend.sql.
 Next application must preflight that production is still at migration 003, the pilot remains legacy/paused with discovery off, and the existing importer matches the expected version. Apply ONLY migration 004 as one transaction with its short lock/statement timeouts; it manages its own permissions and requires no new RLS setup. Read back revision=0, unchanged connection/flow/contact/event counts, service-only function grants, original legacy body and wrapper/guard definitions. Do not open a discovery window or switch the connection into flows while the old preview is still deployed: its webhook cannot process flows and will intentionally return retryable errors.
 
 After that, implement the editor/CRM extra-answer view and deploy the combined code to the protected preview. Keep production application at 661f41f until preview tests pass. For an application rollback, preserve the schema/guards and pause affected webhooks while restoring the flow-capable preview; do not silently switch flows connections back to legacy and bypass their page/stage mappings.
+
+## Authorized backend migration application - 2026-10-15
+
+After the user explicitly approved this rollout step, the agent used the authenticated Supabase SQL Editor in project gkksbudobesjmljkkjtr, main PRODUCTION. No application deployment or connection activation was included.
+
+Read-only preflight (docs/sql/systeme-flows-backend-preflight.sql) confirmed migration 004 was absent: zero configuration_revision columns and zero new backend functions. There was one connection in legacy/paused mode, discovery off, one paused flow, seven CRM contacts, one webhook event and zero bindings/discovery/extra-answer/context rows. The existing importer source, normalized for CRLF, matched the expected migration-002 body: e5971c951e9e9e294bf97ebfb30d811d. Five JSONB data fingerprints were captured without exposing contact contents or encrypted secrets.
+
+The agent copied the complete migration file into Monaco and copied it back via the editor's normal selection/clipboard actions. The pasted 30,703-character text matched the local file after CRLF normalization and retained BEGIN/COMMIT plus the existing lock/statement timeouts. Supabase's destructive-operation warning referred to replacing trigger/function definitions, not deleting application rows. The agent confirmed Run query; Supabase returned Success. No rows returned. No fixture/test/configuration/import function was run against production.
+
+Read-only postflight (docs/sql/systeme-flows-backend-verification.sql) returned:
+
+- Backend functions: 9/9, including the preserved legacy helper and guarded original RPC.
+- Anonymous execution denied: 9/9; authenticated/browser execution denied: 9/9; service_role execution allowed: 9/9.
+- Extension tables: RLS enabled 5/5; anonymous SELECT denied 5/5; authenticated INSERT/UPDATE/DELETE denied 5/5.
+- Three guard/parent-lock triggers enabled; initial connection revision 0.
+- Legacy helper source hash exactly matches the original importer before application.
+- Connection remains legacy and paused; discovery remains off; initial flow remains paused.
+- Seven CRM contacts, one webhook event and zero extension data rows remain.
+- All five pre/post fingerprints match: contacts d7bab20f12e983a7813a7c6b1064af70; connection (excluding the newly added default revision) 6eb8a1bcac1c4aaea326fd4709c3f91e; flows 547e6da112a8a21e5be1199d1af1f345; events 04087459c8e7f1a7e70ab95072f13724; encrypted secrets 4e939142f64453645a683b1ad306c17d. These hashes are evidence of unchanged rows, not backups.
+
+Independent PostgREST checks using scripts/verify-systeme-flows-backend.mjs confirmed the service-role snapshot and metadata catalog are available, the snapshot has revision "0" and one paused legacy flow, and the catalog is empty. Anonymous calls to both read-only RPCs returned HTTP 401 / PostgreSQL 42501. This script is a one-time initial-rollout assertion, not a health monitor to run after customers configure their flows. It uses local environment credentials only in memory and prints no credentials/contact values. No mutating RPC was called to test permissions.
+
+The SQL Editor now contains the saved READ-ONLY postflight query, not the migration, at https://supabase.com/dashboard/project/gkksbudobesjmljkkjtr/sql/7fc64322-aa92-466e-a17a-42e35ab40118. Evidence: output/systeme-integration-qa/backend-preflight.jpg, backend-migration-applied.jpg, backend-fingerprints-verified.jpg and backend-migration-verified.jpg.
+
+Isolated tests and both rollout queries were rerun successfully using node scripts/test-systeme-db.mjs before production application. Production application code, preview deployment/protection, signing/encryption secrets and the external Systeme.io webhook were not changed. Do not execute migration 004 again merely because the application editor is not yet visible. Next implement the UI and CRM additional-answer view, then deploy only the protected preview and perform real multi-flow/concurrency tests before enabling anything on the main site.

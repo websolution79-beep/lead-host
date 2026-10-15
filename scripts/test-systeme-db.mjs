@@ -34,9 +34,11 @@ async function run() {
     await db.exec(await load(flows));
     await db.exec(await load(flows));
     await db.exec(await load('supabase/tests/marketing_systeme_flows_foundation.sql'));
+    await db.exec(await load('docs/sql/systeme-flows-backend-preflight.sql'));
     console.log('Flow foundation and unchanged legacy state: PASS');
     await db.exec(await load(backend));
     await db.exec(await load(backend));
+    await db.exec(await load('docs/sql/systeme-flows-backend-verification.sql'));
     await db.exec(await load('supabase/tests/marketing_systeme_flows_backend.sql'));
     console.log('Atomic config/import, stale snapshots, rollback, discovery, tenant isolation and service-only functions: PASS');
   } finally { await db.close(); }

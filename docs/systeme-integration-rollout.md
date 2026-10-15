@@ -16,9 +16,9 @@
 ## Rollout status
 
 1. Completed: manual backups succeeded; user applied the foundation migration. Read-only production checks confirmed four empty tables, denied anonymous reads and the original six CRM contacts.
-2. Completed locally: user applied the atomic import migration; a read-only call against a nonexistent connection returned not_found with no side effects. Code is not deployed.
-3. Completed locally: Integrazioni menu/page with connection setup, stage selection and recent events. No new migration required for this phase.
-4. In progress: the dedicated server encryption key is configured as a Secret in Vercel Production and Preview. No redeployment was started. A preview deployment and controlled test with one client's Systeme.io opt-in form remain pending.
+2. Completed: user applied the atomic import migration; the server endpoint is deployed to Preview only. A real signed CONTACT_OPT_IN was imported successfully during the pilot.
+3. Completed in Preview: Integrazioni menu/page with connection setup, stage selection and recent events. Authenticated configuration, creation, enabling and pausing worked in the pilot. No new migration required for this phase.
+4. Completed: dedicated server encryption key configured in Vercel Production and Preview; preview commit 59397fb passed a real Systeme.io opt-in test. Both test connections were paused and the temporary Vercel domain exception removed. Production was not redeployed.
 5. Pending: production deployment and client configuration instructions.
 
 ## Baseline and manual backups
@@ -109,3 +109,40 @@ No other environment variables were changed and no redeploy was triggered. The l
 Next: deploy an isolated preview of the new code, verify server readiness without exposing the key, then connect a designated pilot PM's separate Systeme.io account and submit one controlled opt-in. Preview and production currently share the CRM database; do not create connections or import contacts for unrelated PMs during the pilot.
 
 Preview preparation: the webhook URL uses Vercel's trusted branch alias in Preview, falling back to the deployment hostname. Production keeps the existing canonical app origin; shared URL helpers and other integrations are unchanged. Missing or invalid preview host configuration fails closed. Four additional tests cover these cases (18 total passing); isolated database checks, focused ESLint and a fresh production build passed before publishing the preview branch `codex/systeme-crm-preview`.
+
+Preview deployed successfully on 2026-10-15 from commit 59397fb42ca62f9a46b8fcebe525de69ce62991c:
+
+- Deployment: https://vercel.com/websolution79-1327s-projects/lead-host/9d29jUQt29m9evurNmLN4saHfJ7C.
+- Stable preview: https://lead-host-git-codex-systeme-b740c3-websolution79-1327s-projects.vercel.app/app/marketing/integrazioni.
+- The page redirects an unauthenticated Lead Host visitor to login with the correct return path; the pilot login is open in the browser.
+- GitHub's Vercel check reports success and Vercel shows Preview / Ready. Production remains on main baseline 661f41f.
+- Eleven existing billing tests also passed. Read-only database checks still show six CRM contacts, zero integrations and zero webhook events.
+- An external unauthenticated request to the preview settings API returned HTTP 302, explicitly protected by Vercel Authentication. This is an edge protection response, not an application authorization result. No external webhook smoke test or real delivery has passed yet. Do not disable protection or create bypass credentials without explicit approval.
+- Next: identify and sign in as the designated Marketing-enabled pilot PM, verify the server-ready state, and resolve the preview ingress protection before a real Systeme.io delivery (or explicitly authorize a production rollout with connections initially disabled). No production publish occurred during this step.
+- Deployment screenshot: `output/systeme-integration-qa/vercel-preview-ready.jpg`.
+
+## Pilot connection creation
+
+The user signed in as businesspronto.it@gmail.com and explicitly confirmed that account for the pilot. The authenticated Integrazioni screen loaded without a server-availability warning and enabled connection creation. After confirmation, the normal UI created integration `983bf974-667a-4367-98da-2ce18a40883c`, with a preview-branch webhook URL and a one-time signing secret.
+
+Read-only database checks confirmed enabled=false, import_mode=all, default destination stage (null), one integration, zero events and the original six CRM contacts. The secret was not copied into this document, printed in conversation, or stored in local files. The Lead Host browser tab remains open so the user can use its one-time secret display.
+
+The Systeme.io login page is open for the user to access the intended test account. No Systeme.io webhook was created and no synchronization enabled. Vercel preview ingress protection still needs an explicitly approved resolution before real delivery. Production remains unchanged. Screenshot limited to the connection confirmation/header, excluding secret fields: `output/systeme-integration-qa/pilot-connection-paused.jpg`.
+
+## Completed end-to-end pilot
+
+On 2026-10-15, the user signed in to the separate Systeme.io subaccount named Test Integrazione, then explicitly authorized the temporary preview-domain exception, configuring its Opt-In webhook, enabling the test connection, sending one test contact, and restoring the paused/protected state afterward.
+
+- Temporarily exempted only `lead-host-git-codex-systeme-b740c3-websolution79-1327s-projects.vercel.app` from Vercel Deployment Protection. The general authentication setting stayed enabled; no automation bypass token was created.
+- Verified that the exposed preview still returned application HTTP 401 for an unauthenticated settings API request and for an unsigned webhook request.
+- Created the Systeme.io webhook Lead Host CRM - Test integrazione, with CONTACT_OPT_IN only, the existing personal webhook URL and signing secret. No other subaccount configuration was changed.
+- Confirmed that the test funnel had no additional automation rules. Submitted a synthetic contact named Test Integrazione Lead Host through `https://test-integrazione.systeme.io/e1501841`, using a unique plus-address alias of the pilot PM's email.
+- Real delivery was imported at 2026-10-15T09:42:17.93838Z. Event ID: `bb45dada-9d18-4276-ad02-05dcb57adf57`; CRM contact ID: `e7a58128-7bed-4a22-bf6e-eb6ff130529e`. Status imported, no rejection reason, correct source page. Both the Integrazioni event list and CRM Nuovo lead column displayed the new contact.
+- Final database checks: original six contacts plus exactly one test contact (seven total), one external contact link, one imported event, and enabled=false for the pilot integration. The test contact is retained as identifiable test evidence; no preexisting CRM contacts were edited or deleted.
+- Reopened the saved Systeme.io webhook and confirmed Attivo=false. Its edit form required the same signing secret even when only pausing; reused the secret previously observed during the authorized creation, without changing it or storing it in files.
+- Removed the temporary domain exception and verified that an external request again returned HTTP 302 protected by Vercel Authentication. The remote main branch still points to baseline 661f41f00e0cce4e9c0d0e59c350b8902aa92b92.
+- Cleared captured secret-bearing UI strings from the working browser session after configuration. No signing secret appears in documentation, screenshots or conversation output.
+
+Evidence: `output/systeme-integration-qa/pilot-import-verified.jpg`, `pilot-import-complete-paused.jpg`, and `pilot-crm-contact.jpg`.
+
+Next: controlled production deployment, smoke checks, and final client setup instructions. The test webhook must remain paused: it targets the protected preview, not production. In Systeme.io the URL of an existing webhook is disabled in the edit form; create a separate production webhook with the production URL instead of trying to reuse the preview endpoint. If the one-time signing secret is no longer available, rotate it in Lead Host while the connection is paused before configuring the new production webhook.

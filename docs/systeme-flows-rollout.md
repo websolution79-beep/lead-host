@@ -4,12 +4,12 @@
 
 1. Completed: additive schema, compatibility plan and isolated database tests. Migration 202610150003 was applied through the production project's Supabase SQL Editor after explicit user authorization on 2026-10-15.
 2. Completed: read-only SQL/API checks confirmed five RLS-protected tables, unchanged legacy/paused connection, one initial paused flow, empty mapping/discovery/extra/context tables and unchanged CRM contact/event counts.
-3. Backend completed and isolated-tested. Migration 202610150004 was applied and verified in production on 2026-10-15; read-only snapshot/catalog RPCs also passed real API checks. Application backend code remains local and is NOT deployed; the connection remains legacy/paused with discovery off.
-4. Pending: flow editor, duplication, field discovery/mapping and CRM additional answers view.
-5. Pending: preview tests for Milan/Rome routing, distinct field schemas, duplicates, paused flows and tenant isolation.
+3. Backend completed and isolated-tested. Migration 202610150004 was applied and verified in production on 2026-10-15; read-only snapshot/catalog RPCs also passed real API checks. Combined application backend/UI deployed ONLY to protected preview at 2c94c16; production application is unchanged.
+4. Completed: flow editor, duplication, field discovery/mapping and CRM additional answers view, with local responsive/browser verification.
+5. In progress: real preview configuration and two-tab stale-save checks passed. Milan/Rome signed delivery, distinct field schemas, duplicate delivery, paused routing and cross-PM authenticated checks still require completion. Pilot is in flows mode but parent import is paused, discovery off.
 6. Pending: production deployment and client instructions. Do not publish before these additions are tested.
 
-Existing production code remains at 661f41f. Preview 59397fb passed the basic Systeme.io pilot; both the Lead Host connection and Systeme.io webhook are paused, and Vercel protection has been restored. The pilot database contains seven private CRM contacts: six originals and one identifiable test contact.
+Existing production code remains at 661f41f. Preview 2c94c16 now includes the independent flow editor/backend; earlier preview 59397fb passed the basic Systeme.io pilot. The Lead Host connection and Systeme.io webhook remain paused, and Vercel protection remains enabled. The database still contains seven private CRM contacts in total: six originals and one identifiable test contact.
 
 ## User-facing behavior
 
@@ -203,3 +203,26 @@ Completed the local UI step. No new migration, production API write, signing-sec
 ### Next operation
 
 Deploy the combined flow-capable backend/UI code only to the protected preview, retaining deployment protection and keeping the main-site code unchanged. Then verify authenticated APIs, two-session stale configuration/import behavior, cross-PM denial, discovery and real signed Systeme.io submissions for two test pages and two private CRM stages. Confirm existing contact notes/stage/history and duplicate handling remain intact. Do not activate the real pilot or publish production until these preview checks pass. Current local fixtures are not proof of end-to-end integration readiness.
+
+## Protected preview deployed and test configuration prepared - 2026-10-15
+
+Pushed only codex/systeme-crm-preview to 2c94c16f0751f62527bb4ca7533852178e3ebbe1. Vercel deployment BE31TtmwJcEMRhPUjEsx5JHZPTBU reached Preview / Ready in 1m19s. The stable alias is unchanged. Remote main remains 661f41f00e0cce4e9c0d0e59c350b8902aa92b92; no production deployment or environment-variable change occurred.
+
+Before configuration, the read-only rollout script confirmed revision 0, one paused legacy flow, no discovery metadata and denied anonymous read-RPC execution. The authenticated preview loaded the new flow list/editor and all existing private CRM stages. An unauthenticated external request to the new flow API returned HTTP 302 to Vercel Authentication, confirming the edge protection was retained.
+
+The user then explicitly authorized a temporary exception for the single preview domain, two test landing/flow configurations and synthetic opt-ins into the previously designated pilot CRM, followed by restoring protection and paused states. This authorization was received, but NO exception or webhook activation has yet been applied: the Systeme.io edit form requires reentering the signing secret even when re-enabling the existing webhook. The stored secret is not displayed by Lead Host; no credential was extracted, regenerated, transmitted or changed. Asked the user to reenter the existing secret directly into Systeme.io and save while keeping Attivo off, or report that it was not retained. Do not ask the user to paste it in chat.
+
+Prepared through normal authenticated UI, only for businesspronto.it@gmail.com / Systeme.io Test Integrazione:
+
+- Added CRM stages TEST - Lead Milano (9d4bac0f-c60c-446f-a47f-37fd740a1cc8) and TEST - Lead Roma (42ebc9ed-650a-4569-888f-067f2dd520ab). Existing stages and contacts were not edited.
+- Saved the former initial flow as TEST - Proprietari Milano, with source https://test-integrazione.systeme.io/e1501841 and the Milano test stage. Confirmed first-save conversion to flows mode leaves the parent paused.
+- Duplicated the existing test opt-in step in Systeme.io without changing its original page content. Copy URL: https://test-integrazione.systeme.io/e1501841-6ab00d65; page editor /dashboard/page/45772646/edit; renamed copy TEST - Landing Roma (modulo). The copy follows the original opt-in in the test funnel. No submissions were made.
+- Before finding the existing step's hover-revealed duplicate menu, also created an empty step named TEST - Landing Roma. It remains an unconfigured draft without a chosen template; it is not the flow's source. It was not deleted because no irreversible cleanup was authorized. Keep it distinguishable from the functional copied step during follow-up.
+- Saved TEST - Proprietari Roma with the copied URL and Roma test stage. Both flows have nine initial explicit standard bindings. Custom schema/discovery has not yet been exercised against a real delivery.
+- Opened a draft of Roma in a second preview tab, then paused Roma from the first tab. Submitting the stale draft returned the real configuration-conflict error, disabled saving and preserved TEST - Roma bozza obsoleta in the editor. Explicit reload/discard removed that draft without overwriting the saved flow. This checks optimistic concurrency between two tabs sharing one authenticated account, NOT concurrent import/config database transactions or cross-PM authorization.
+
+Final read-only database snapshot: routingMode=flows, parent enabled=false, discoveryExpiresAt=null, configurationRevision="3", two flows (Milano enabled/ready, Roma paused), seven CRM contacts globally and one webhook event globally. No new contacts, answers or deliveries were created. The external Systeme.io modal showed Attivo=false and CONTACT_OPT_IN only. Vercel Authentication is still enabled; no temporary exception needs removing at this checkpoint.
+
+Evidence: output/systeme-integration-qa/flows-preview-deployment-ready.png, flows-protected-preview.png, flows-real-stale-conflict.png and flows-real-two-flows-paused.png. The last file shows actual preview data, not local fixtures.
+
+Next: after the user's secret-entry handoff, finish configuring distinct form fields and verify both test pages have no outbound automations. Reconfirm the time-limited preview exception with the user at action time if this work resumes in a later turn; then expose only the preview alias, verify application auth/signature denials, activate the test import/webhook, run the signed delivery/discovery/routing/dedup/CRM preservation checks, and restore pause/protection. If the user did not retain the secret, let the user perform credential regeneration/update directly rather than changing authentication credentials on their behalf. Do not publish production or label the multi-flow integration end-to-end verified yet.

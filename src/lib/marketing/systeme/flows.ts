@@ -119,6 +119,19 @@ export const systemeFlowSnapshotSchema = z.object({
 });
 
 export type SystemeFlowSnapshot = z.infer<typeof systemeFlowSnapshotSchema>;
+export type SystemeFlowCommand = z.infer<typeof systemeFlowCommandSchema>["command"];
+
+export const systemeKnownFieldSchema = z.object({
+  sourcePageUrl: z.string().max(2048), sourceSlug: z.string().min(1).max(160), fieldLabel: z.string().nullable(),
+  firstSeenAt: z.string().datetime({ offset: true }), lastSeenAt: z.string().datetime({ offset: true }),
+});
+export const systemeFlowsStateSchema = z.object({ snapshot: systemeFlowSnapshotSchema, knownFields: z.array(systemeKnownFieldSchema).max(1000) });
+export type SystemeKnownField = z.infer<typeof systemeKnownFieldSchema>;
+export type SystemeFlowsState = z.infer<typeof systemeFlowsStateSchema>;
+
+export const systemeContactFieldsSchema = z.object({ fields: z.array(z.object({
+  id: z.string().uuid(), flowName: z.string().nullable(), label: z.string(), value: z.string(),
+})).max(100), page: z.number().int().positive(), total: z.number().int().nonnegative() });
 
 export function selectSystemeFlow(flows: readonly SystemeFlow[], sourcePageUrl: string | null) {
   const page = normalizeSystemePageUrl(sourcePageUrl);

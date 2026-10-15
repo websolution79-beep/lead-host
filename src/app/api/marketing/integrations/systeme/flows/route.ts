@@ -5,7 +5,7 @@ import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { getEnv } from "@/lib/env";
 import { decryptSystemeSecret } from "@/lib/marketing/systeme/crypto";
-import { systemeFlowCommandSchema, systemeFlowSnapshotSchema } from "@/lib/marketing/systeme/flows";
+import { systemeFlowCommandSchema, systemeFlowSnapshotSchema, systemeKnownFieldSchema } from "@/lib/marketing/systeme/flows";
 
 function respond(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -37,8 +37,7 @@ export async function GET(request: NextRequest) {
     if (result.error) throw result.error;
     const catalog = await context.supabase.rpc("marketing_systeme_discovery_catalog", { p_integration_id: current.id, p_profile_id: context.profile.id });
     if (catalog.error) throw catalog.error;
-    const knownFields = z.array(z.object({ sourcePageUrl: z.string(), sourceSlug: z.string(), fieldLabel: z.string().nullable(),
-      firstSeenAt: z.string().datetime({ offset: true }), lastSeenAt: z.string().datetime({ offset: true }) })).max(1000).parse(catalog.data);
+    const knownFields = z.array(systemeKnownFieldSchema).max(1000).parse(catalog.data);
     return respond({ snapshot: systemeFlowSnapshotSchema.parse(result.data), knownFields });
   } catch (error) { return errorResponse(error); }
 }

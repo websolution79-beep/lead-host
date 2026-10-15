@@ -1239,6 +1239,18 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["marketing_systeme_webhook_events"]["Insert"]>;
         Relationships: [];
       };
+      marketing_systeme_contact_fields: {
+        Row: {
+          id: string; integration_id: string; profile_id: string; crm_contact_id: string; flow_id: string | null;
+          flow_name: string | null; field_key: string; label: string; value: string; created_at: string; updated_at: string;
+        };
+        Insert: {
+          id?: string; integration_id: string; profile_id: string; crm_contact_id: string; flow_id?: string | null;
+          flow_name?: string | null; field_key: string; label: string; value: string; created_at?: string; updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_systeme_contact_fields"]["Insert"]>;
+        Relationships: [];
+      };
       marketing_crm_pipelines: {
         Row: {
           id: string;

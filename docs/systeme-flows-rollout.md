@@ -2,8 +2,8 @@
 
 ## Status
 
-1. Completed locally: additive schema, compatibility plan and isolated database tests. Migration 202610150003 is ready for the user to apply; it has NOT been applied by the agent.
-2. Pending: verify the user-applied migration with read-only production checks.
+1. Completed: additive schema, compatibility plan and isolated database tests. Migration 202610150003 was applied through the production project's Supabase SQL Editor after explicit user authorization on 2026-10-15.
+2. Completed: read-only SQL/API checks confirmed five RLS-protected tables, unchanged legacy/paused connection, one initial paused flow, empty mapping/discovery/extra/context tables and unchanged CRM contact/event counts.
 3. Pending: versioned configuration API and atomic import extension for flows, field mapping and discovery.
 4. Pending: flow editor, duplication, field discovery/mapping and CRM additional answers view.
 5. Pending: preview tests for Milan/Rome routing, distinct field schemas, duplicates, paused flows and tenant isolation.
@@ -68,8 +68,28 @@ Run ONLY in an isolated database using the existing minimal CRM/access fixtures,
 
 Validation on 2026-10-15 passed in PGlite: backfill/rerun idempotency, unchanged importer source/configuration/contact notes/secrets, paused defaults, source-page conflicts, canonical URL input, target-stage ownership, allowlisted/unique field bindings, additional-answer labels, discovery metadata privacy, event-warning validation, cross-PM ownership, service-role writes, authenticated RLS, denied anonymous reads/browser writes, and retained answers/history after flow deletion. The real legacy importer still imported a synthetic isolated contact into its original destination after the extension.
 
-The original atomic-import and ownership tests also passed, followed by all 18 existing TypeScript integration tests. PGlite remains in tmp; no application dependencies were changed. No database writes, browser settings changes, deployment or production migration were performed for this phase.
+The original atomic-import and ownership tests also passed, followed by all 18 existing TypeScript integration tests. PGlite remains in tmp; no application dependencies were changed. Initial local preparation performed no production writes or deployments. The later, explicitly authorized production application is recorded below.
+
+## Authorized production application
+
+On 2026-10-15 the user reported applying the migration. Read-only API checks found no routing_mode column or new tables. After the user signed in to Supabase and explicitly requested autonomous migration execution if needed, a read-only SQL preflight in project gkksbudobesjmljkkjtr / main PRODUCTION confirmed the schema was still absent, with seven contacts, one webhook event and zero enabled connections.
+
+The complete, previously tested migration file was inserted into the SQL Editor and read back through the editor's normal copy action. Its text matched the local source after CRLF normalization before execution. The agent ran the original transaction using Run without RLS: the script itself enables RLS and installs grants/policies. Supabase returned Success. No rows returned. No fixtures, test scripts or other migrations were executed in production.
+
+Read-only SQL verification returned:
+
+- New tables: 5/5; RLS enabled: 5/5; owner-read policies: 5/5.
+- Anonymous SELECT denied: 5/5; authenticated INSERT/UPDATE/DELETE denied: 5/5.
+- Pilot connection routing_mode=legacy, enabled=false, discovery_expires_at=null.
+- Exactly one Flusso iniziale, disabled, all-pages mode and default destination, faithfully matching the prior pilot settings.
+- Zero rows in field bindings, discovered fields, contact extra fields and event context.
+- Seven existing CRM contacts and one prior webhook event, unchanged counts.
+- Separate real API checks confirmed anonymous requests to all five tables returned HTTP 401.
+
+No import was activated, no signing secret was changed and no application deployment occurred. The reason the earlier user-run attempt did not apply remains unconfirmed; do not infer a specific cause.
+
+Evidence: output/systeme-integration-qa/flows-migration-applied.jpg and flows-migration-verified.jpg. The SQL Editor verification remains available at https://supabase.com/dashboard/project/gkksbudobesjmljkkjtr/sql/7fc64322-aa92-466e-a17a-42e35ab40118 (the editor now contains the read-only verification query).
 
 ## Next handoff
 
-The user applies only migration 202610150003_marketing_systeme_flows_foundation.sql. Do not apply fixtures or tests in Supabase production. Then verify routing_mode=legacy, paused pilot state, one initial flow, empty mapping/discovery/extra/context tables and unchanged CRM contact/event counts before extending the engine.
+Migration 202610150003 is applied and verified; do not ask the user to run it again. Next implement the versioned configuration API and atomic flow/mapping import extension locally, preserving legacy behavior. Then build the editor/additional-fields UI and run the multi-flow preview tests before production publication. Any further migration must receive its own isolated validation and rollout step. Do not run fixtures/tests against production or enable the pilot implicitly.

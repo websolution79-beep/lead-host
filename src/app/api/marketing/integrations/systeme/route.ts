@@ -155,7 +155,7 @@ export async function PATCH(request: NextRequest) {
     const updated = await context.supabase.from("marketing_systeme_integrations").update({
       enabled: payload.enabled, import_mode: payload.importMode,
       allowed_page_urls: normalizeSystemeAllowedPages(payload.allowedPageUrls), destination_stage_id: payload.destinationStageId,
-    }).eq("id", currentState.connection.id).eq("profile_id", context.profile.id).eq("updated_at", payload.updatedAt)
+    }).eq("id", currentState.connection.id).eq("profile_id", context.profile.id).eq("updated_at", payload.updatedAt).eq("routing_mode", "legacy")
       .select("id").maybeSingle();
     if (updated.error) throw updated.error;
     if (!updated.data) throw new AdminApiError(409, "Le impostazioni sono cambiate in un'altra sessione. Ricarica la pagina prima di salvare.");

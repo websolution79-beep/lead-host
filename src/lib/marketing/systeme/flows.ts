@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { normalizeSystemePageUrl } from "./payload";
 
+export function isSystemeDatabaseText(value: string) {
+  return !/\u0000|[\uD800-\uDFFF]/u.test(value);
+}
+
 export const systemeFieldTargets = [
   "full_name", "first_name", "last_name", "email", "phone", "property_address",
   "city", "province", "region", "property_type", "bedrooms", "bathrooms", "area_sqm",
@@ -8,9 +12,9 @@ export const systemeFieldTargets = [
 ] as const;
 
 export const systemeFieldBindingSchema = z.object({
-  sourceSlug: z.string().trim().toLowerCase().min(1).max(160),
+  sourceSlug: z.string().trim().toLowerCase().min(1).max(160).refine(isSystemeDatabaseText, "Nome del campo non valido."),
   targetField: z.enum(systemeFieldTargets),
-  additionalLabel: z.string().trim().min(1).max(120).nullable(),
+  additionalLabel: z.string().trim().min(1).max(120).refine(isSystemeDatabaseText, "Etichetta non valida.").nullable(),
 }).strict().superRefine((binding, context) => {
   if ((binding.targetField === "additional") !== (binding.additionalLabel !== null)) {
     context.addIssue({ code: "custom", path: ["additionalLabel"], message: "Imposta un'etichetta solo per le risposte aggiuntive." });
@@ -24,15 +28,17 @@ const pageSchema = z.string().trim().max(8192).transform((value, context) => {
   return z.NEVER;
 });
 
-export const systemeFlowSchema = z.object({
+export const systemeFlowShapeSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100).refine(isSystemeDatabaseText, "Nome del flusso non valido."),
   enabled: z.boolean(),
   importMode: z.enum(["all", "selected_pages"]),
   allowedPageUrls: z.array(pageSchema).max(50),
   destinationStageId: z.string().uuid().nullable(),
   bindings: z.array(systemeFieldBindingSchema).max(200),
-}).strict().superRefine((flow, context) => {
+}).strict();
+
+export const systemeFlowSchema = systemeFlowShapeSchema.superRefine((flow, context) => {
   const issue = (path: (string | number)[], message: string) => context.addIssue({ code: "custom", path, message });
   if (flow.importMode === "all" && flow.allowedPageUrls.length) issue(["allowedPageUrls"], "Il flusso generale non deve indicare pagine specifiche.");
   if (flow.importMode === "selected_pages" && !flow.allowedPageUrls.length) issue(["allowedPageUrls"], "Aggiungi almeno una pagina al flusso.");
@@ -86,19 +92,33 @@ export const systemeFlowListSchema = z.array(systemeFlowSchema).max(20).superRef
   });
 });
 
-export const systemeFlowsSettingsSchema = z.object({
-  version: z.literal(2),
-  updatedAt: z.string().datetime({ offset: true }),
-  enabled: z.boolean(),
-  flows: systemeFlowListSchema,
-}).strict().superRefine((settings, context) => {
-  if (settings.enabled && !settings.flows.some((flow) => flow.enabled)) {
-    context.addIssue({ code: "custom", path: ["flows"], message: "Attiva almeno un flusso prima di avviare l'importazione." });
-  }
-});
-
 export type SystemeFieldBinding = z.infer<typeof systemeFieldBindingSchema>;
 export type SystemeFlow = z.infer<typeof systemeFlowSchema>;
+
+export const systemeFlowCommandSchema = z.object({
+  version: z.literal(2),
+  configurationToken: z.string().regex(/^[a-f0-9]{32}$/),
+  command: z.discriminatedUnion("action", [
+    z.object({ action: z.literal("save_flow"), flow: systemeFlowSchema }).strict(),
+    z.object({ action: z.literal("delete_flow"), flowId: z.string().uuid() }).strict(),
+    z.object({ action: z.literal("set_enabled"), enabled: z.boolean() }).strict(),
+    z.object({ action: z.literal("start_discovery"), minutes: z.number().int().min(1).max(30).default(15) }).strict(),
+    z.object({ action: z.literal("stop_discovery") }).strict(),
+  ]),
+}).strict();
+
+export const systemeFlowSnapshotSchema = z.object({
+  routingMode: z.enum(["legacy", "flows"]),
+  enabled: z.boolean(),
+  updatedAt: z.string().datetime({ offset: true }),
+  configurationRevision: z.string().regex(/^\d+$/),
+  configurationToken: z.string().regex(/^[a-f0-9]{32}$/),
+  discoveryExpiresAt: z.string().datetime({ offset: true }).nullable(),
+  // Backfilled legacy flows may not yet have mappings: the editor must be able to display them.
+  flows: z.array(systemeFlowShapeSchema).max(20),
+});
+
+export type SystemeFlowSnapshot = z.infer<typeof systemeFlowSnapshotSchema>;
 
 export function selectSystemeFlow(flows: readonly SystemeFlow[], sourcePageUrl: string | null) {
   const page = normalizeSystemePageUrl(sourcePageUrl);

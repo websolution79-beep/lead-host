@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mapSystemeFlowContact, parseSystemeFlowEnvelope, planSystemeFlowImport, suggestSystemeFieldBindings, systemeDiscoveryMetadata } from "./flow-payload";
-import { selectSystemeFlow, systemeFlowListSchema, systemeFlowSchema, systemeFlowsSettingsSchema, type SystemeFieldBinding, type SystemeFlow } from "./flows";
+import { selectSystemeFlow, systemeFlowListSchema, systemeFlowSchema, type SystemeFieldBinding, type SystemeFlow } from "./flows";
 import { parseSystemeOptIn } from "./payload";
 
 const milanId = "10000000-0000-4000-8000-000000000001";
@@ -54,15 +54,9 @@ test("configuration rejects duplicate flow IDs, names and fallback even when pau
   assert.equal(systemeFlowListSchema.safeParse([first, fallback]).success, true);
 });
 
-test("versioned settings cannot set ownership, webhook secrets or unbounded flows", () => {
-  const settings = { version: 2, updatedAt: "2026-10-15T10:00:00Z", enabled: true, flows: [flow()] };
-  assert.equal(systemeFlowsSettingsSchema.safeParse(settings).success, true);
-  for (const extra of [{ profileId: milanId }, { secret: "not-allowed" }, { routingMode: "flows" }, { version: 1 }]) {
-    assert.equal(systemeFlowsSettingsSchema.safeParse({ ...settings, ...extra }).success, false);
-  }
-  assert.equal(systemeFlowsSettingsSchema.safeParse({ ...settings, flows: [] }).success, false);
-  assert.equal(systemeFlowsSettingsSchema.safeParse({ ...settings, flows: [{ ...flow(), enabled: false }] }).success, false);
-  assert.equal(systemeFlowsSettingsSchema.safeParse({ ...settings, enabled: false, flows: [] }).success, true);
+test("flow lists have a bounded size and may be empty while imports are paused", () => {
+  assert.equal(systemeFlowListSchema.safeParse([flow()]).success, true);
+  assert.equal(systemeFlowListSchema.safeParse([]).success, true);
   assert.equal(systemeFlowListSchema.safeParse(Array.from({ length: 21 }, (_, index) => flow({
     id: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}`, name: `Flusso ${index}`, allowedPageUrls: [`https://example.test/${index}`],
   }))).success, false);
@@ -139,7 +133,7 @@ test("the envelope rejects malformed, oversized and duplicate fields without thr
   }
   assert.equal(parseSystemeFlowEnvelope(" ".repeat(256 * 1024 + 1)), null);
   assert.equal(parseSystemeFlowEnvelope(JSON.stringify({ contact: { id: 1, fields: Array.from({ length: 201 }, (_, index) => ({ slug: `f${index}` })) } })), null);
-  assert.equal(parseSystemeFlowEnvelope(JSON.stringify({ contact: { id: 1, fields: [{ slug: "x", value: "x".repeat(5001) }] } })), null);
+  assert.ok(parseSystemeFlowEnvelope(JSON.stringify({ contact: { id: 1, fields: [{ slug: "x", value: "x".repeat(5001) }] } })));
   assert.equal(parseSystemeFlowEnvelope(JSON.stringify({ contact: { id: 1, fields: [{ slug: "x", value: { nested: "no" } }] } })), null);
 });
 
@@ -272,6 +266,19 @@ test("additional answers use stable flow/source keys, stay out of notes and cann
   const longSlug = "q".repeat(160);
   const long = mapSystemeFlowContact(envelope([{ slug: longSlug, value: "yes" }]), flow({ bindings: [...flow().bindings, binding(longSlug, "additional", "Domanda")] }));
   assert.ok(long.additionalAnswers[0].fieldKey.length <= 200);
+});
+
+test("oversized optional answers are truncated and invalid database characters cannot break valid contacts", () => {
+  const configured = flow({ bindings: [...flow().bindings, binding("city", "city"), binding("question", "additional", "Informazioni")] });
+  const mapped = mapSystemeFlowContact(envelope([{ slug: "city", value: "Ro\u0000ma\uD800" }, { slug: "question", value: "x".repeat(6000) }]), configured);
+  assert.equal(mapped.rejectionReason, null);
+  assert.equal(mapped.contact?.city, "Roma");
+  assert.equal(mapped.additionalAnswers[0]?.value.length, 5000);
+  assert.ok(mapped.warnings.some((warning) => warning.field === "city" && warning.code === "invalid_value"));
+  assert.ok(mapped.warnings.some((warning) => warning.field === "question" && warning.code === "value_truncated"));
+  assert.equal(systemeFlowSchema.safeParse({ ...configured, name: "Invalid\u0000name" }).success, false);
+  assert.equal(systemeFlowSchema.safeParse({ ...configured, bindings: [...configured.bindings, binding("invalid\u0000source", "ignore")] }).success, false);
+  assert.equal(parseSystemeFlowEnvelope(JSON.stringify({ contact: { id: 1, fields: [{ slug: "invalid\u0000source", value: "x" }] } })), null);
 });
 
 test("warnings are bounded, deduplicated and required-field diagnostics precede unknown fields", () => {

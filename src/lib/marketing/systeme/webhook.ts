@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { systemePayloadHash, verifySystemeSignature } from "./crypto";
 import { parseSystemeOptIn, type SystemeContactInput } from "./payload";
+import { parseSystemeFlowEnvelope, type SystemeFlowEnvelope } from "./flow-payload";
 
 const maxBodyBytes = 256 * 1024;
 const messageIdSchema = z.string().regex(/^[A-Za-z0-9._:-]{1,160}$/);
@@ -16,6 +17,8 @@ export type SystemeImportEvent = {
   sourcePageUrl: string | null;
   contact: SystemeContactInput | null;
   rejectionReason: string | null;
+  flowEnvelope: SystemeFlowEnvelope | null;
+  protocolRejectionReason: "unsupported_schema" | "unsupported_event" | null;
 };
 
 export type SystemeImportResult = {
@@ -93,6 +96,8 @@ export async function handleSystemeWebhook(
       eventOccurredAt: timestamp,
       sourcePageUrl: parsed.sourcePageUrl,
       contact: parsed.contact,
+      flowEnvelope: parseSystemeFlowEnvelope(rawBody),
+      protocolRejectionReason: schemaVersion !== "1" ? "unsupported_schema" : eventType.data !== "CONTACT_OPT_IN" ? "unsupported_event" : null,
       rejectionReason: schemaVersion !== "1" ? "unsupported_schema"
         : eventType.data !== "CONTACT_OPT_IN" ? "unsupported_event" : parsed.rejectionReason,
     });

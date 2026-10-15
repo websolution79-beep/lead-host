@@ -1,15 +1,16 @@
 import { z } from "zod";
 import { normalizeSystemePageUrl } from "./payload";
-import { selectSystemeFlow, type SystemeFieldBinding, type SystemeFlow } from "./flows";
+import { isSystemeDatabaseText, selectSystemeFlow, type SystemeFieldBinding, type SystemeFlow } from "./flows";
 
 const envelopeSchema = z.object({ contact: z.object({
   id: z.union([z.number().int().positive().safe(), z.string().regex(/^\d{1,160}$/)]),
   email: z.string().max(5000).nullish(),
   sourceURL: z.string().max(8192).nullish(),
   fields: z.array(z.object({
-    slug: z.string().trim().toLowerCase().min(1).max(160),
-    fieldName: z.string().max(160).nullish(),
-    value: z.string().max(5000).nullish(),
+    slug: z.string().trim().toLowerCase().min(1).max(160).refine(isSystemeDatabaseText),
+    fieldName: z.string().max(160).refine(isSystemeDatabaseText).nullish(),
+    // The signed body already has a byte limit; individual optional answers are bounded after mapping.
+    value: z.string().nullish(),
   })).max(200).default([]),
 }) });
 
@@ -105,13 +106,19 @@ export function mapSystemeFlowContact(envelope: SystemeFlowEnvelope, flow: Syste
   };
   const warnTarget = (target: SystemeFieldBinding["targetField"], code: SystemeMappingWarning["code"]) => warn(bindings.get(target)?.sourceSlug ?? target, code);
   const truncate = (value: string, max: number, field: string) => {
+    if (!isSystemeDatabaseText(value)) {
+      warn(field, "invalid_value");
+      value = value.replace(/\u0000|[\uD800-\uDFFF]/gu, "").trim();
+    }
     if (value.length <= max) return value;
+    const characters = Array.from(value);
+    if (characters.length <= max) return value;
     warn(field, "value_truncated");
-    return Array.from(value).slice(0, max).join("");
+    return characters.slice(0, max).join("");
   };
   const text = (target: SystemeFieldBinding["targetField"], max: number) => {
     const value = read(target);
-    return value ? truncate(value, max, bindings.get(target)!.sourceSlug) : null;
+    return value ? truncate(value, max, bindings.get(target)!.sourceSlug) || null : null;
   };
   const integer = (target: "bedrooms" | "bathrooms" | "area_sqm", min: number, max: number) => {
     const value = read(target);
@@ -141,7 +148,7 @@ export function mapSystemeFlowContact(envelope: SystemeFlowEnvelope, flow: Syste
     else {
       const entries = [...new Set((parsed as string[]).map((value) => value.trim()).filter(Boolean))];
       if (entries.length > 20) warnTarget("requested_services", "value_truncated");
-      requestedServices = entries.slice(0, 20).map((value) => truncate(value, 120, bindings.get("requested_services")!.sourceSlug));
+      requestedServices = entries.slice(0, 20).map((value) => truncate(value, 120, bindings.get("requested_services")!.sourceSlug)).filter(Boolean);
     }
   }
 
@@ -165,8 +172,9 @@ export function mapSystemeFlowContact(envelope: SystemeFlowEnvelope, flow: Syste
   };
   const additionalAnswers = flow.bindings.flatMap((binding) => {
     const value = values.get(binding.sourceSlug);
-    return binding.targetField === "additional" && binding.additionalLabel && value
-      ? [{ fieldKey: `${flow.id}:${binding.sourceSlug}`, label: binding.additionalLabel, value }] : [];
+    if (binding.targetField !== "additional" || !binding.additionalLabel || !value) return [];
+    const safeValue = truncate(value, 5000, binding.sourceSlug);
+    return safeValue ? [{ fieldKey: `${flow.id}:${binding.sourceSlug}`, label: binding.additionalLabel, value: safeValue }] : [];
   });
   const mappedSources = new Set(flow.bindings.map((binding) => binding.sourceSlug));
   for (const field of envelope.fields) if (field.value && !mappedSources.has(field.slug)) warn(field.slug, "unmapped_field");

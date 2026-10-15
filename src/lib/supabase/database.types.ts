@@ -1140,6 +1140,9 @@ export type Database = {
           id: string;
           profile_id: string;
           enabled: boolean;
+          routing_mode: "legacy" | "flows";
+          discovery_expires_at: string | null;
+          configuration_revision: number;
           import_mode: "all" | "selected_pages";
           allowed_page_urls: string[];
           destination_stage_id: string | null;
@@ -1150,6 +1153,9 @@ export type Database = {
           id?: string;
           profile_id: string;
           enabled?: boolean;
+          routing_mode?: "legacy" | "flows";
+          discovery_expires_at?: string | null;
+          configuration_revision?: number;
           import_mode?: "all" | "selected_pages";
           allowed_page_urls?: string[];
           destination_stage_id?: string | null;
@@ -3188,6 +3194,37 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      marketing_systeme_flow_snapshot: {
+        Args: { p_integration_id: string; p_profile_id: string };
+        Returns: Json;
+      };
+      marketing_systeme_discovery_catalog: {
+        Args: { p_integration_id: string; p_profile_id: string };
+        Returns: Json;
+      };
+      configure_marketing_systeme_flows: {
+        Args: { p_integration_id: string; p_profile_id: string; p_expected_token: string; p_command: Json };
+        Returns: Json;
+      };
+      import_marketing_systeme_flow_opt_in: {
+        Args: {
+          p_integration_id: string;
+          p_secret_rotated_at: string;
+          p_configuration_token: string;
+          p_message_id: string;
+          p_event_type: string;
+          p_payload_sha256: string;
+          p_event_occurred_at?: string | null;
+          p_source_page_url?: string | null;
+          p_flow_id?: string | null;
+          p_contact?: Json;
+          p_additional_answers?: Json;
+          p_warnings?: Json;
+          p_discovered_fields?: Json;
+          p_rejection_reason?: string | null;
+        };
+        Returns: Json;
+      };
       import_marketing_systeme_opt_in: {
         Args: {
           p_integration_id: string;

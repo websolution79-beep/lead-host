@@ -6,10 +6,10 @@
 2. Completed: read-only SQL/API checks confirmed five RLS-protected tables, unchanged legacy/paused connection, one initial paused flow, empty mapping/discovery/extra/context tables and unchanged CRM contact/event counts.
 3. Backend completed and isolated-tested. Migration 202610150004 was applied and verified in production on 2026-10-15; read-only snapshot/catalog RPCs also passed real API checks. Combined application backend/UI deployed ONLY to protected preview at 2c94c16; production application is unchanged.
 4. Completed: flow editor, duplication, field discovery/mapping and CRM additional answers view, with local responsive/browser verification.
-5. In progress: real preview configuration and two-tab stale-save checks passed. Milan/Rome signed delivery, distinct field schemas, duplicate delivery, paused routing and cross-PM authenticated checks still require completion. Pilot is in flows mode but parent import is paused, discovery off.
+5. In progress: real configuration/two-tab stale saves, signed Milan/Rome imports, distinct mappings/additional answers, repeat opt-in identity/preservation, paused routing and bounded discovery passed. See the first-origin provider limitation below. Final authenticated CRM answer rendering, second-PM API checks and real import/config transaction concurrency remain unverified. Parent import is paused and discovery is off.
 6. Pending: production deployment and client instructions. Do not publish before these additions are tested.
 
-Existing production code remains at 661f41f. Preview 2c94c16 now includes the independent flow editor/backend; earlier preview 59397fb passed the basic Systeme.io pilot. The Lead Host connection and Systeme.io webhook remain paused, and Vercel protection remains enabled. The database still contains seven private CRM contacts in total: six originals and one identifiable test contact.
+Existing production code remains at 661f41f. Preview 2c94c16 now includes the independent flow editor/backend; earlier preview 59397fb passed the basic Systeme.io pilot. The Lead Host connection and Systeme.io webhook are paused, and Vercel protection is restored. The database now contains nine private CRM contacts: the seven prior rows remain unchanged and two new identifiable TEST FLOWS contacts are retained as evidence.
 
 ## User-facing behavior
 
@@ -245,3 +245,46 @@ Additional preparation/checks:
 At this checkpoint no protection exception, import activation, discovery window, live submission, new deployment or production code change occurred. The prepared Vercel Add Domain dialog was cancelled without saving. Systeme.io secret-entry and unsaved Roma editor tabs remain open as handoffs. Evidence: output/systeme-integration-qa/systeme-roma-unsaved-fields.png (draft only).
 
 Next prerequisite is the user's acknowledgement that the existing secret has been reentered into the open webhook modal WITHOUT saving. Then resolve/verify the public form save, conduct the already authorized temporary preview test, and restore all protections/paused states. Do not publish production or call end-to-end validation complete while these checks are pending.
+
+## Real signed flow delivery and restored safe state
+
+After the user reported ready, the agent verified the existing signing secret was present in the intended webhook modal. It was held only in browser-session memory to enable and later pause that same webhook; no regeneration, local file, log output or environment-variable change was made. The value was cleared from memory after pausing. A final modal check showed Attivo=false and an empty secret field.
+
+Temporarily exempted ONLY the stable preview alias from Vercel Authentication, with the user's explicit approval. General Require Log In stayed checked, and no automation bypass token was created. External requests reached the app but unauthenticated GET /api/marketing/integrations/systeme/flows and unsigned POST to the pilot webhook both returned HTTP 401.
+
+Systeme.io context checks found a newly opened funnel tab in the main Mattia Papale account, where the test funnel returned 403; a webhook save in the stale tab navigated to not-found. Selected the authorized Test Integrazione subaccount and reloaded the correct webhook/funnel routes before testing. Both selected-page opt-in steps had no automation rules. Retrying the copied Roma editor in the correct context ultimately published its four inputs: neighborhood, city, first_name, email. The original Milano form still has first_name/email. The earlier warning is no longer an unresolved form-save blocker; do not infer a general provider outage from it.
+
+The preview's native accessibility tree also exposed an Iubenda overlay that the DOM snapshot had omitted. Dismissed it before executing settings changes. Native browser-tab AX actions, followed by UI/API state checks, confirmed discovery actually started. Do not treat an unverified locator click as a successful configuration command.
+
+### Verified deliveries
+
+Eight new signed provider events were received (in addition to the earlier basic pilot event):
+
+- Two events while parent import was paused: ignored / connection_disabled, no contact writes. One was before discovery was actually started; the later one collected metadata during the explicit window.
+- New Milano contact imported into 9d4bac0f-c60c-446f-a47f-37fd740a1cc8. Event fef3c228-bf4f-478b-8ff8-2bc5fa54cac8; contact c731d5aa-d347-4a71-9ed8-eaaca3a131b3, named TEST FLOWS Milano. Ten bindings include explicit country -> additional answer Nazione rilevata (test), stored as IT.
+- Roma submitted while that specific flow was paused: ignored / flow_paused, no contact write. Metadata still collected during the authorized discovery window. Event 886d3e9b-1206-454c-b180-e00e2be40053.
+- Added the actually discovered neighborhood source to the Roma mapping as additional answer Zona preferita; city remained a built-in CRM mapping. After explicitly enabling Roma, event f9127304-f2fe-4161-9193-2da87e753317 imported contact 99e32400-1e99-4277-b899-5ceb445e61b3 (TEST FLOWS Roma) into 42ebc9ed-650a-4569-888f-067f2dd520ab, with city=Roma and extra answer EUR, Garbatella. Roma has eleven bindings, with country explicitly ignored.
+- Three repeated opt-ins updated existing contact identities without adding CRM rows. The preexisting name, nonempty city and additional answer were retained despite changed incoming values. For the NEW synthetic Milano record only, a narrowly scoped service update set a QA note and moved it temporarily to the Roma test stage; the following Milano opt-in preserved both the manual stage and note. That record was restored to the Milano stage after verification. No preexisting customer contact was edited.
+
+The CRM browser navigation asked for login again, so the live imported-answer rendering could not be inspected after these deliveries. Session expiry was suspected but not independently proven. Read-only DB checks verified the actual records/answer rows. Earlier local UI tests are NOT a substitute for this pending authenticated view. The maintenance writes above and final pause used narrowly scoped service-side operations because the browser session no longer reached the CRM, not impersonation or copied browser tokens.
+
+### Important provider limitation: sourceURL is first origin
+
+The repeated Milano contact was intentionally submitted through the Roma form. Systeme.io's own rendered message log showed ONLY a contact object; its sourceURL still pointed to the ORIGINAL Milano acquisition URL, while fields contained the newly submitted Roma city/neighborhood. Lead Host therefore correctly selected the Milano flow. No current opt-in page/funnel field was present in that payload. Do not invent or infer the latest page from city/answers.
+
+An initial QA assertion expected a second, Roma-scoped extra answer on the Milano contact. It failed (one answer remained instead of two). Investigation confirmed the provider first-origin behavior, not a failed transaction: the event used Milano bindings, whose neighborhood source was unconfigured. This was not fixed by changing SQL, parser routing or customer data. The assertion was not counted as a passing cross-flow-routing test.
+
+New contacts routed to their true initial landing/stage. Existing contacts remained single CRM records and retained manual work, but per-page filtering follows the sourceURL reported by Systeme.io, NOT necessarily the last form submitted. Discovery likewise observes a contact snapshot associated with that sourceURL; it is not a guaranteed inventory of inputs present on that physical form. The latest catalog consequently has five observed slugs for each source, although Milano's visible form still has only name/email. Unknown fields stay ignored unless explicitly mapped.
+
+Added a synthetic regression case in flows.test.ts asserting routing follows the provider URL and never guesses a newer page from contact fields. All 54 Systeme.io TypeScript tests, targeted ESLint and the full TypeScript no-emit check passed. This documents the current contract; it does not overcome the external limitation. Confirm this first-origin behavior is acceptable before client publication, or design an explicit per-form signal/automation in a separate scoped step. Do not silently promise latest-page routing or broaden to tag events without design/security review.
+
+### Final restoration and remaining handoff
+
+- Parent import disabled and discovery stopped through the existing versioned server-only configure RPC, with fresh snapshot tokens and the pilot owner's profile, yielding revision 9. The two flows remain configured/enabled but cannot import while the parent is paused.
+- External test webhook saved paused, then reopened to confirm Attivo=false. Reused only the existing user-provided secret, without rotating it, and cleared it from working memory afterward.
+- Removed the single temporary Vercel exception using Restore Protection. Require Log In=true; zero Unprotected Domains tables; external preview GET again returns HTTP 302 to Vercel Authentication. Temporary public exposure lasted approximately seven minutes.
+- Final CRM count: nine total; all seven original row fingerprints match the baseline. Exactly two new synthetic contacts remain. Additional-answer rows: two (Milano nation and Roma zone). Event totals: nine including the prior event, with two new imported, three updated, three ignored and zero failed. Catalogue metadata rows: ten, without submitted values.
+- Remote main remains 661f41f00e0cce4e9c0d0e59c350b8902aa92b92; remote preview remains 2c94c16f0751f62527bb4ca7533852178e3ebbe1. No production application deployment, migration, new dependency or environment-variable change occurred during testing.
+- Evidence: output/systeme-integration-qa/flows-webhook-final-paused.png. The generated untracked fingerprints/check helper remain local; do not stage tmp/output or secret-bearing state. The sourceURL finding is based on actual rendered provider logs, not inferred private browser state.
+
+Next: the user must sign in again as businesspronto.it@gmail.com in the existing protected preview /app/marketing/crm tab. Inspect both TEST FLOWS contact details, read-only answers and notes, then complete the remaining authenticated authorization checks and agree the first-origin semantics before any production publication. Live identical-message redelivery and a real concurrent import/config lock race were not exercised; isolated tests cover them, and the earlier two-tab conflict only covers optimistic configuration saves. Do not call all end-to-end/authorization/concurrency checks complete.

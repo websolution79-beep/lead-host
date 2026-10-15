@@ -301,6 +301,19 @@ test("planning is deterministic and does not mutate configuration or submitted f
   assert.equal(first.mapped?.contact?.external_id, "123");
 });
 
+test("routing follows the provider sourceURL and does not infer a newer page from contact fields", () => {
+  const milan = flow({ bindings: [...flow().bindings, binding("city", "city")] });
+  const rome = flow({ id: romeId, name: "Lead Roma", allowedPageUrls: [romeUrl], destinationStageId: romeStage,
+    bindings: [...flow().bindings, binding("neighborhood", "additional", "Zona preferita")] });
+  // Real repeat opt-ins may contain fields from another form while retaining the original sourceURL.
+  const parsed = envelope([{ slug: "city", value: "Roma" }, { slug: "neighborhood", value: "Centro" }]);
+  const plan = planSystemeFlowImport(true, [milan, rome], parsed);
+  assert.equal(plan.flow?.id, milanId);
+  assert.equal(plan.mapped?.contact?.city, "Roma");
+  assert.deepEqual(plan.mapped?.additionalAnswers, []);
+  assert.ok(plan.mapped?.warnings.some((warning) => warning.field === "neighborhood" && warning.code === "unmapped_field"));
+});
+
 test("the legacy parser retains its existing behavior independently of flow mapping", () => {
   const custom = JSON.stringify({ contact: { id: 1, email: "a@example.test", fields: [{ slug: "nome_proprietario", value: "Anna Rossi" }] } });
   assert.equal(parseSystemeOptIn(custom).rejectionReason, "missing_name");

@@ -4,7 +4,7 @@
 
 1. Completed: additive schema, compatibility plan and isolated database tests. Migration 202610150003 was applied through the production project's Supabase SQL Editor after explicit user authorization on 2026-10-15.
 2. Completed: read-only SQL/API checks confirmed five RLS-protected tables, unchanged legacy/paused connection, one initial paused flow, empty mapping/discovery/extra/context tables and unchanged CRM contact/event counts.
-3. Pending: versioned configuration API and atomic import extension for flows, field mapping and discovery.
+3. In progress: pure flow/configuration validation, routing and field-mapping core completed and tested locally. Versioned configuration API, atomic persistence/import extension and bounded discovery storage remain pending.
 4. Pending: flow editor, duplication, field discovery/mapping and CRM additional answers view.
 5. Pending: preview tests for Milan/Rome routing, distinct field schemas, duplicates, paused flows and tenant isolation.
 6. Pending: production deployment and client instructions. Do not publish before these additions are tested.
@@ -92,4 +92,18 @@ Evidence: output/systeme-integration-qa/flows-migration-applied.jpg and flows-mi
 
 ## Next handoff
 
-Migration 202610150003 is applied and verified; do not ask the user to run it again. Next implement the versioned configuration API and atomic flow/mapping import extension locally, preserving legacy behavior. Then build the editor/additional-fields UI and run the multi-flow preview tests before production publication. Any further migration must receive its own isolated validation and rollout step. Do not run fixtures/tests against production or enable the pilot implicitly.
+Migration 202610150003 is applied and verified; do not ask the user to run it again. The local pure routing/mapping core below is ready for use with a validated, transactionally consistent configuration snapshot. Next implement the versioned configuration API and atomic flow/mapping import extension locally, preserving legacy behavior. Then build the editor/additional-fields UI and run the multi-flow preview tests before production publication. Any further migration must receive its own isolated validation and rollout step. Do not run fixtures/tests against production or enable the pilot implicitly.
+
+## Local routing/mapping core - 2026-10-15
+
+Added three independent files without modifying existing endpoints, the legacy parser/importer, the database or the deployed application:
+
+- src/lib/marketing/systeme/flows.ts: version-2 strict configuration contract, max 20 flows / 50 pages per flow / 200 bindings per flow, URL normalization, unique IDs/names/pages/fallback, allowlisted destinations and required name/email mappings before enabling a flow. A paused specific flow reserves its pages. Full-name mapping is mutually exclusive with first/last-name mapping; both separate name parts may be combined.
+- src/lib/marketing/systeme/flow-payload.ts: bounded envelope parsing before name/email mapping, value-free discovery metadata, standard-alias suggestions, explicit per-flow mapping, optional-field warnings, additional-answer keys scoped by flow/source, and deterministic import planning. Suggestions never silently import unknown fields; the saved mapping is authoritative. The canonical top-level Systeme.io email takes precedence over a custom same-slug field, while a different explicitly mapped source can be used instead.
+- src/lib/marketing/systeme/flows.test.ts: 22 new tests for configuration, Milan/Rome routing, paused/fallback behavior, per-flow custom fields, required-field diagnostics, integer bounds, text/list limits, metadata privacy, warning bounds and unchanged legacy parsing.
+
+Validation: all 40 Systeme.io TypeScript tests passed; targeted ESLint passed; full npm run build passed; all existing isolated PGlite ownership/RLS/atomic-import/flow-foundation regression tests passed. Build emitted existing Node localStorage experimental warnings; tests emitted a Node module.register deprecation warning; neither caused a failure.
+
+These modules are deliberately not wired into the active handler. They have no network/database writes, do not activate discovery and do not replace access/signature checks. Only call planning/mapping with the validated configuration loaded for that PM. The future atomic RPC must still enforce current ownership, entitlement, connection/flow state and configuration version under a parent-row lock. It must preserve CRM stage/name/notes/follow-up and nonempty fields/additional answers on repeat opt-ins, and commit contact/link/answers/event context together. Those persistence/concurrency guarantees have not been implemented or tested by this pure-core step.
+
+No migration or deployment is required for this step. Production and the paused pilot remain unchanged. The immediate next operation is the atomic configuration/import backend, followed by the flow/mapping editor and real preview tests.

@@ -1135,6 +1135,104 @@ export type Database = {
         >;
         Relationships: [];
       };
+      marketing_systeme_integrations: {
+        Row: {
+          id: string;
+          profile_id: string;
+          enabled: boolean;
+          import_mode: "all" | "selected_pages";
+          allowed_page_urls: string[];
+          destination_stage_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          enabled?: boolean;
+          import_mode?: "all" | "selected_pages";
+          allowed_page_urls?: string[];
+          destination_stage_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_systeme_integrations"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_systeme_webhook_secrets: {
+        Row: {
+          integration_id: string;
+          encrypted_secret: string;
+          rotated_at: string;
+        };
+        Insert: {
+          integration_id: string;
+          encrypted_secret: string;
+          rotated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_systeme_webhook_secrets"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_systeme_contact_links: {
+        Row: {
+          id: string;
+          integration_id: string;
+          profile_id: string;
+          external_contact_id: string;
+          crm_contact_id: string;
+          last_opt_in_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          integration_id: string;
+          profile_id: string;
+          external_contact_id: string;
+          crm_contact_id: string;
+          last_opt_in_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_systeme_contact_links"]["Insert"]>;
+        Relationships: [];
+      };
+      marketing_systeme_webhook_events: {
+        Row: {
+          id: string;
+          integration_id: string;
+          profile_id: string;
+          message_id: string;
+          event_type: string;
+          payload_sha256: string;
+          status: "received" | "imported" | "updated" | "ignored" | "failed";
+          reason_code: string | null;
+          external_contact_id: string | null;
+          source_page_url: string | null;
+          crm_contact_id: string | null;
+          event_occurred_at: string | null;
+          received_at: string;
+          processed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          integration_id: string;
+          profile_id: string;
+          message_id: string;
+          event_type: string;
+          payload_sha256: string;
+          status?: "received" | "imported" | "updated" | "ignored" | "failed";
+          reason_code?: string | null;
+          external_contact_id?: string | null;
+          source_page_url?: string | null;
+          crm_contact_id?: string | null;
+          event_occurred_at?: string | null;
+          received_at?: string;
+          processed_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["marketing_systeme_webhook_events"]["Insert"]>;
+        Relationships: [];
+      };
       marketing_crm_pipelines: {
         Row: {
           id: string;
@@ -3090,6 +3188,20 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      import_marketing_systeme_opt_in: {
+        Args: {
+          p_integration_id: string;
+          p_secret_rotated_at: string;
+          p_message_id: string;
+          p_event_type: string;
+          p_payload_sha256: string;
+          p_event_occurred_at?: string | null;
+          p_source_page_url?: string | null;
+          p_contact?: Json;
+          p_rejection_reason?: string | null;
+        };
+        Returns: Json;
+      };
       admin_assign_prime_manager: {
         Args: {
           p_profile_id: string;

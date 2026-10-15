@@ -50,6 +50,18 @@ const marketingToolLinks = [
     label: "Rendita Stimata",
     href: "/app/marketing/rendita-stimata",
     subitem: true,
+    groupId: "marketing",
+  },
+  {
+    label: "Gestione Immobili",
+    href: "/app/marketing/immobili",
+    subitem: true,
+    groupId: "marketing",
+  },
+  {
+    label: "Integrazioni",
+    href: "/app/marketing/integrazioni",
+    subitem: true,
     subitemLast: true,
     groupId: "marketing",
   },

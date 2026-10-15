@@ -9,6 +9,7 @@ export default function MarketingCrmPage() {
         <Link className="shrink-0 rounded-lg bg-green px-4 py-2.5 text-sm font-bold text-white" href="/app/marketing/crm">CRM</Link>
         <Link className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-ink" href="/app/marketing/rendita-stimata">Rendita Stimata</Link>
         <Link className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-ink" href="/app/marketing/immobili">Gestione Immobili</Link>
+        <Link className="shrink-0 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-ink" href="/app/marketing/integrazioni">Integrazioni</Link>
       </div>
       <MarketingCrmBoard />
     </AppShell>

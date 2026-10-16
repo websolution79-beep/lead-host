@@ -2,11 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
-  isReportableMarketplaceSubscription,
   readAllReportRows,
   subscriptionReportingPrice,
 } from "@/lib/marketplace-membership/reporting";
 import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
+import { selectReportableSubscriptions, subscriptionLifecycle, summarizeSubscriptions } from "@/lib/admin/subscription-reporting";
 
 const productFilterSchema = z.enum(["all", "lead-host-prime", "marketing", "marketplace"]);
 const statusFilterSchema = z.enum([
@@ -103,15 +103,8 @@ export async function GET(request: NextRequest) {
       .in("addon_product_id", productIds)
       .order("updated_at", { ascending: false })
       .range(from, to));
-    const latestSubscriptions = latestByProfileAndProduct(
-      (subscriptionsResult.data as SubscriptionRow[]).filter((row) => {
-        const product = productsById.get(row.addon_product_id);
-        return Boolean(product) && (
-          product?.slug !== "marketplace" || isReportableMarketplaceSubscription(row)
-        );
-      }),
-    );
-    const profileIds = [...new Set(latestSubscriptions.map((row) => row.profile_id))];
+    const subscriptions = subscriptionsResult.data as SubscriptionRow[];
+    const profileIds = [...new Set(subscriptions.map((row) => row.profile_id))];
     const [profiles, cities, accounts] = await Promise.all([
       readRowsInIdBatches<ProfileRow>(profileIds, (batch) => supabase
         .from("profiles").select("id,email,first_name,last_name,status").in("id", batch)),
@@ -122,6 +115,7 @@ export async function GET(request: NextRequest) {
         .select("profile_id,addon_subscription_id,access_source,status,account_manager_member_id,prime_started_at,prime_expires_at,grace_ends_at")
         .in("profile_id", batch)),
     ]);
+    const latestSubscriptions = selectReportableSubscriptions(subscriptions, products, accounts);
     const managerIds = [...new Set(accounts.map((row) => row.account_manager_member_id).filter(Boolean))] as string[];
     const membersResult = managerIds.length
       ? await supabase.from("team_members").select("id,profile_id").in("id", managerIds)
@@ -136,12 +130,6 @@ export async function GET(request: NextRequest) {
     const primeBySubscriptionId = new Map(accounts.filter((row) => row.addon_subscription_id).map((row) => [row.addon_subscription_id!, row]));
     const memberById = new Map(((membersResult.data ?? []) as TeamMemberRow[]).map((member) => [member.id, member]));
     const managerByProfileId = new Map(managerProfiles.map((profile) => [profile.id, profile]));
-    // PRIME is counted only after the linked PRIME account has actually been activated.
-    // This matches the Dashboard snapshot and excludes abandoned technical Stripe records.
-    const activePrimeSubscriptionIds = new Set(accounts
-      .filter((account) => account.access_source !== "none" && account.prime_started_at && account.addon_subscription_id)
-      .map((account) => account.addon_subscription_id!));
-
     const now = new Date();
     const allRows = latestSubscriptions
       .map((subscription) => {
@@ -168,6 +156,7 @@ export async function GET(request: NextRequest) {
           },
           product: { slug: product.slug, name: product.name },
           status: state,
+          lifecycle: subscriptionLifecycle(subscription, now.getTime()),
           source: subscription.source,
           priceCents: subscriptionReportingPrice(product.slug, subscription.metadata, product.sale_price_cents),
           currency: product.currency,
@@ -187,10 +176,13 @@ export async function GET(request: NextRequest) {
       })
       .filter((row): row is NonNullable<typeof row> => Boolean(row));
 
-    const stats = summarize(allRows, activePrimeSubscriptionIds);
+    const metrics = (slug: ProductSlug) => summarizeSubscriptions(latestSubscriptions.filter((row) =>
+      productsById.get(row.addon_product_id)?.slug === slug), now.getTime());
+    const stats = { prime: metrics("lead-host-prime"), marketing: metrics("marketing"), marketplace: metrics("marketplace") };
     const rows = allRows
       .filter((row) => productFilter === "all" || row.product.slug === productFilter)
-      .filter((row) => statusFilter === "all" || row.status.key === statusFilter)
+      .filter((row) => statusFilter === "all" || (statusFilter === "cancel_at_period_end"
+        ? row.cancelAtPeriodEnd && row.lifecycle !== "canceled" : row.lifecycle === statusFilter))
       .filter((row) => !search || [row.propertyManager.name, row.propertyManager.email, row.propertyManager.city ?? "", row.accountManager?.name ?? ""]
         .some((value) => value.toLocaleLowerCase("it-IT").includes(search)))
       .filter((row) => matchesDateRange(row.nextDate, dateFrom, dateTo))
@@ -209,46 +201,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function latestByProfileAndProduct(rows: SubscriptionRow[]) {
-  const seen = new Set<string>();
-  return rows.filter((row) => {
-    const key = `${row.profile_id}:${row.addon_product_id}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 function resolveState(row: SubscriptionRow, now: Date) {
-  if (row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)) {
-    return { key: "cancel_at_period_end", label: "Rinnovi disattivati", tone: "amber" };
+  const lifecycle = subscriptionLifecycle(row, now.getTime());
+  if (row.cancel_at_period_end && lifecycle !== "canceled") {
+    const label = lifecycle === "active" ? "Attivo" : lifecycle === "trialing" ? "In prova" : "Pagamento da regolarizzare";
+    return { key: "cancel_at_period_end", label: `${label} · rinnovi disattivati`, tone: "amber" };
   }
-  if (row.status === "trialing" && row.trial_ends_at && Date.parse(row.trial_ends_at) > now.getTime()) {
+  if (lifecycle === "trialing") {
     return { key: "trialing", label: "In prova", tone: "blue" };
   }
-  if (row.status === "active") return { key: "active", label: "Attivo", tone: "green" };
-  if (["past_due", "unpaid"].includes(row.status)) return { key: "past_due", label: "Pagamento da regolarizzare", tone: "red" };
+  if (lifecycle === "active") return { key: "active", label: "Attivo", tone: "green" };
+  if (lifecycle === "past_due") return { key: "past_due", label: "Pagamento da regolarizzare", tone: "red" };
   return { key: "canceled", label: "Scaduto o disdetto", tone: "slate" };
-}
-
-function summarize(
-  rows: Array<{ id: string; product: { slug: ProductSlug }; status: { key: string } }>,
-  activePrimeSubscriptionIds: Set<string>,
-) {
-  const byProduct = (slug: ProductSlug) => rows.filter((row) =>
-    row.product.slug === slug
-    && (slug !== "lead-host-prime" || activePrimeSubscriptionIds.has(row.id)));
-  const metrics = (slug: ProductSlug) => {
-    const productRows = byProduct(slug);
-    return {
-      total: productRows.length,
-      active: productRows.filter((row) => row.status.key === "active").length,
-      trialing: productRows.filter((row) => row.status.key === "trialing").length,
-      cancelAtPeriodEnd: productRows.filter((row) => row.status.key === "cancel_at_period_end").length,
-      pastDue: productRows.filter((row) => row.status.key === "past_due").length,
-    };
-  };
-  return { prime: metrics("lead-host-prime"), marketing: metrics("marketing"), marketplace: metrics("marketplace") };
 }
 
 function matchesDateRange(value: string | null, from: string | null, to: string | null) {

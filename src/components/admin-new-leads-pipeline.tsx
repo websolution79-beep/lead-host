@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Columns3, GripVertical, History, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { LeadAssignmentControl } from "@/components/lead-assignment-control";
 import { useLeadAssignments } from "@/components/use-lead-assignments";
-import { leadAssigneeColors } from "@/lib/admin/lead-assignment-types";
 
 type PipelineStage = { id: string; name: string; color: string; position: number };
 type PipelineResponse = { stages?: PipelineStage[]; error?: string };
@@ -177,11 +176,8 @@ function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
   if (!worker) return null;
   const name = `${worker.firstName ?? ""} ${worker.lastName?.trim().slice(0, 1) ?? ""}`.trim();
   if (!name) return null;
-  const colors = leadAssigneeColors(worker.badgeColor);
-  return <span className="grid max-w-[130px] shrink-0 gap-1 text-right" title={`Prima lavorazione: ${worker.firstName ?? ""} ${worker.lastName ?? ""}`}>
-    <span className="text-[9px] font-medium text-slate-500">Prima lavorazione</span>
-    <span className="inline-flex items-center justify-end gap-1 truncate text-[10px] font-semibold" style={{ color: colors.text }}><History size={11} aria-hidden="true" />{name}{worker.lastName ? "." : ""}</span>
-  </span>;
+  const color = worker.badgeColor ?? "#2563EB";
+  return <span className="max-w-[120px] truncate rounded-full border px-2 py-0.5 text-[10px] font-bold" title={`Prima lavorazione: ${worker.firstName ?? ""} ${worker.lastName ?? ""}`} style={{ borderColor: color, color, backgroundColor: `${color}14` }}>{name}{worker.lastName ? "." : ""}</span>;
 }
 function formatOwnerName(record: AdminLeadRecord) { return `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim() || "Non indicato"; }
 function defaultTitle(record: AdminLeadRecord) { const type = record.property?.propertyType?.trim() || "Immobile"; const city = record.property?.city?.trim(); return city ? `${type} a ${city}` : type; }

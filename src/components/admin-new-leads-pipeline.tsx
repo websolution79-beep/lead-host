@@ -85,6 +85,9 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
       setStages(payload.stages ?? []);
       await onChanged();
       return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Aggiornamento pipeline non riuscito. Riprova.");
+      return false;
     } finally { setSaving(false); }
   }
 
@@ -175,9 +178,9 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
 function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOpen, children }: { record: AdminLeadRecord; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void; children: ReactNode }) {
   const internalNotes = record.qualificationNotes?.trim();
   return <article className={`group w-full rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`}>
-    <button className="w-full p-4 text-left" type="button" onClick={onOpen}>
+    <button className={`w-full p-4 text-left ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`} draggable={draggable} onDragStart={onDragStart} onDragEnd={onDragEnd} type="button" onClick={onOpen}>
     <div className="flex items-start gap-2">
-      {draggable ? <span draggable onDragEnd={onDragEnd} onDragStart={onDragStart} title="Trascina il lead" className="mt-0.5 shrink-0 cursor-grab text-slate-400 group-hover:text-green"><GripVertical size={17} /></span> : null}
+      {draggable ? <span title="Trascina il lead" className="mt-0.5 shrink-0 text-slate-400 group-hover:text-green"><GripVertical size={17} /></span> : null}
       <div className="min-w-0 flex-1 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Home size={12} />Immobile</p>

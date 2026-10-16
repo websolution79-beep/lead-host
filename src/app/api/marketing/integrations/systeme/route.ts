@@ -8,6 +8,7 @@ import { getEnv, getRequestAppUrl } from "@/lib/env";
 import { decryptSystemeSecret, encryptSystemeSecret, generateSystemeSigningSecret } from "@/lib/marketing/systeme/crypto";
 import { systemeWebhookOrigin } from "@/lib/marketing/systeme/origin";
 import { normalizeSystemeAllowedPages, systemeSettingsSchema, type SystemeSettingsState } from "@/lib/marketing/systeme/settings";
+import { leadHostProBrand } from "@/lib/marketing/leadhostpro";
 
 type Context = Awaited<ReturnType<typeof requireMarketingAddonAccess>>;
 const actionSchema = z.discriminatedUnion("action", [
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
         current = inserted.data ?? await connection(context);
       }
     }
-    if (!current) throw new AdminApiError(404, "Crea prima il collegamento Systeme.io.");
+    if (!current) throw new AdminApiError(404, `Crea prima il collegamento ${leadHostProBrand.name}.`);
     const secret = generateSystemeSigningSecret();
     const encrypted = encryptSystemeSecret(secret, current.id, key);
     if (payload.action === "create") {
@@ -145,7 +146,7 @@ export async function PATCH(request: NextRequest) {
     const context = await requireMarketingAddonAccess(request);
     const payload = systemeSettingsSchema.parse(await request.json());
     const currentState = await state(request, context);
-    if (!currentState.connection) throw new AdminApiError(404, "Crea prima il collegamento Systeme.io.");
+    if (!currentState.connection) throw new AdminApiError(404, `Crea prima il collegamento ${leadHostProBrand.name}.`);
     if (payload.enabled && (!currentState.serverReady || !currentState.connection.hasSecret)) {
       throw new AdminApiError(422, "Completa la configurazione del collegamento prima di attivarlo.");
     }

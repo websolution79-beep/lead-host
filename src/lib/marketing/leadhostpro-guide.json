@@ -1,0 +1,72 @@
+{
+  "title": "Collegare LeadHostPro al CRM di Lead Host",
+  "description": "Configurazione del collegamento, flussi per landing, associazioni dei campi e verifica dei contatti importati.",
+  "sections": [
+    {
+      "id": "requisiti",
+      "title": "Cosa serve",
+      "paragraphs": ["Il collegamento importa i nuovi invii Opt-In nel tuo CRM privato. Non trasferisce automaticamente i contatti storici e non sincronizza le fasi delle pipeline nei due servizi."],
+      "bullets": ["Un account Lead Host con Modulo Marketing attivo.", "Il tuo account LeadHostPro su leadhostpro.it, distinto da quello degli altri clienti.", "Una landing con un modulo che raccolga almeno nome ed email.", "Accesso alla sezione Impostazioni > Webhook di LeadHostPro."]
+    },
+    {
+      "id": "crm",
+      "title": "1. Prepara il CRM",
+      "paragraphs": ["Apri Marketing > CRM e prepara le fasi di destinazione, per esempio Lead Milano e Lead Roma. Ogni collegamento usa esclusivamente la pipeline del tuo account."]
+    },
+    {
+      "id": "collegamento",
+      "title": "2. Crea il collegamento personale",
+      "paragraphs": ["Apri Marketing > Integrazioni e seleziona Crea collegamento. Il collegamento nasce in pausa.", "In Configurazione webhook trovi il tuo URL e il segreto, mostrato una sola volta. Copiali direttamente nei campi corrispondenti di LeadHostPro. Non condividere il segreto con altri clienti, non inserirlo nelle landing e non inviarlo per email.", "Per il collegamento definitivo usa https://www.leadhost.it/app/marketing/integrazioni. Non usare un URL di preview o localhost."]
+    },
+    {
+      "id": "webhook",
+      "title": "3. Configura LeadHostPro",
+      "paragraphs": ["Nel tuo account su leadhostpro.it apri Impostazioni > Webhook > Crea e compila i seguenti campi.", "Salva il webhook come attivo. Durante la preparazione mantieni invece l'importazione generale di Lead Host in pausa: i due interruttori sono indipendenti.", "Seleziona solo Opt-In, non Contatto creato, tag, vendite o altri eventi. Usa il servizio webhook firmato delle Impostazioni, non una semplice chiamata URL da una regola di automazione."],
+      "table": { "headers": ["Campo", "Valore"], "rows": [["Nome", "Lead Host CRM"], ["URL", "Il tuo URL webhook copiato da Lead Host"], ["Segreto", "Il segreto mostrato da Lead Host"], ["Evento", "Solo Opt-In"]] }
+    },
+    {
+      "id": "flussi",
+      "title": "4. Crea i flussi",
+      "paragraphs": ["Apri Nuovo flusso oppure modifica il Flusso iniziale, se presente.", "Una pagina appartiene a un solo flusso dello stesso account. Tutte le altre pagine raccoglie le pagine non assegnate agli altri flussi. Una pagina assegnata a un flusso in pausa non passa automaticamente al flusso generale.", "Il primo salvataggio della configurazione precedente richiede conferma e mantiene l'importazione generale in pausa. La duplicazione crea una bozza in pausa: cambia nome e pagine prima di salvarla.", "Gli URL vengono confrontati senza parametri UTM, frammenti e barra finale. Non occorre un flusso diverso per ogni campagna Meta che porta alla stessa landing."],
+      "bullets": ["Nome riconoscibile, per esempio Proprietari Milano.", "Fase di destinazione del tuo CRM.", "Pagine selezionate con l'URL completo, oppure Tutte le altre pagine per il flusso generale.", "Associazioni dei campi indipendenti per ciascun flusso."]
+    },
+    {
+      "id": "campi",
+      "title": "5. Associa i campi",
+      "paragraphs": ["Il nome tecnico di un campo LeadHostPro può essere diverso dal testo visibile sul modulo. Gli esempi sotto non sostituiscono i nomi effettivamente inviati dal tuo modulo.", "Associa Nome e Cognome oppure un unico Nome e cognome, senza sovrapporre le due alternative. Nome finale ed email devono essere validi per importare il contatto."],
+      "table": { "headers": ["Origine, come esempio", "Destinazione"], "rows": [["first_name", "Nome"], ["last_name", "Cognome"], ["email", "Email"], ["city", "Città"], ["property_type", "Tipologia immobile"], ["Una domanda personalizzata", "Risposta aggiuntiva, con una tua etichetta"], ["Un campo che non serve", "Non importare"]] }
+    },
+    {
+      "id": "rilevamento",
+      "title": "Rileva i campi personalizzati",
+      "paragraphs": ["Il rilevamento conserva nomi tecnici, etichette e pagina di origine, non copie dei valori compilati. LeadHostPro può includere altri campi del profilo del contatto: la lista rilevata non garantisce che ogni campo sia un input presente su quella specifica landing."],
+      "steps": ["Salva almeno un flusso, anche in pausa. Mantieni in pausa l'importazione generale.", "Seleziona Rileva per 15 minuti.", "Compila il modulo pubblico con un contatto di prova nuovo, usando dati non sensibili.", "Torna in Lead Host e seleziona Aggiorna campi.", "Apri il flusso, aggiungi i campi rilevati e controlla ogni associazione. I campi non riconosciuti restano Non importare finché non li configuri.", "Salva il flusso e interrompi il rilevamento quando hai finito."]
+    },
+    {
+      "id": "risposte",
+      "title": "Dove trovare le risposte aggiuntive",
+      "paragraphs": ["Le Risposte aggiuntive compaiono nel dettaglio del proprietario, nella sezione Risposte da LeadHostPro, in sola lettura. Non vengono mescolate alle note manuali del PM."]
+    },
+    {
+      "id": "verifica",
+      "title": "6. Attiva e verifica",
+      "paragraphs": ["Usa contatti nuovi e distinti per provare le diverse landing. Inviare la stessa persona prima da Milano e poi da Roma non verifica due acquisizioni indipendenti."],
+      "steps": ["Abilita i flussi pronti e salva.", "Attiva l'importazione generale e conferma. Un flusso Pronto non importa se l'interruttore generale resta in pausa.", "Invia un nuovo contatto di prova dal modulo della landing.", "In Ultimi invii seleziona Controlla ricezione: verifica Importato o Collegato al CRM.", "Apri il CRM e controlla fase, campi standard e risposte aggiuntive.", "Ripeti sulle altre landing usando altri contatti di prova nuovi."]
+    },
+    {
+      "id": "contatti-ripetuti",
+      "title": "Contatti ripetuti e prima provenienza",
+      "paragraphs": ["La versione attuale mantiene una scheda per contatto riconosciuto. Un nuovo invio della stessa persona non crea automaticamente una seconda scheda immobile.", "Le informazioni già compilate, la fase di lavorazione, le note e i promemoria non vengono sovrascritti automaticamente. L'importazione completa soltanto i campi vuoti compatibili. Anche le risposte aggiuntive già presenti vengono conservate.", "Per un contatto esistente, LeadHostPro può comunicare la prima pagina di acquisizione anche quando compila un altro modulo in seguito. Il filtro segue quella provenienza, non deduce l'ultima landing da città o risposte. Un contatto acquisito prima a Milano può restare associato al flusso Milano dopo un nuovo invio da Roma.", "Se un proprietario propone un secondo immobile, verifica manualmente la scheda: il riconoscimento automatico di più immobili dello stesso proprietario non fa parte di questa versione."]
+    },
+    {
+      "id": "pausa-errori",
+      "title": "Pausa e problemi di ricezione",
+      "bullets": ["Per fermare tutte le importazioni usa l'interruttore generale. Per una sola pagina metti in pausa il relativo flusso.", "Controlla Ultimi invii per gli eventi esclusi o da verificare. Un evento escluso mentre l'importazione era in pausa non viene importato automaticamente riattivando l'interruttore.", "Se mancano campi, verifica nomi tecnici e associazioni. I campi non associati non vengono importati.", "Se compare un conflitto di salvataggio, conserva o annota le modifiche della bozza, ricarica la configurazione e riapplicale senza sovrascrivere modifiche di un'altra scheda.", "Se termina l'accesso al Modulo Marketing o l'account viene sospeso, l'importazione non può proseguire."]
+    },
+    {
+      "id": "segreto",
+      "title": "Segreto smarrito e assistenza",
+      "paragraphs": ["Se non hai conservato il segreto, metti in pausa l'importazione e usa Rigenera segreto. Aggiorna subito il webhook nel tuo account LeadHostPro. Il vecchio segreto smette di funzionare: la rigenerazione non mostra quello precedente.", "Non inviare password o segreti all'assistenza. Sono sufficienti data e ora del test, pagina di origine ed esito mostrato nella cronologia; non condividere dati personali non necessari."]
+    }
+  ]
+}

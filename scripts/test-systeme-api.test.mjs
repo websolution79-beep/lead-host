@@ -100,6 +100,7 @@ async function harness() {
     modules.set(path, compiled);
     await compiled.link(async specifier => {
       if (specifier === '@/lib/addons/access') return load('src/lib/addons/access.ts');
+      if (specifier === '@/lib/marketing/leadhostpro') return load('src/lib/marketing/leadhostpro.ts');
       if (specifier === '@/lib/marketing/systeme/flows') return load('src/lib/marketing/systeme/flows.ts');
       if (specifier === './payload') return load('src/lib/marketing/systeme/payload.ts');
       const exports = {

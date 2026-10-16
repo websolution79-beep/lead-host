@@ -6,6 +6,7 @@ import { requireMarketingAddonAccess } from "@/lib/addons/access";
 import { getEnv } from "@/lib/env";
 import { decryptSystemeSecret } from "@/lib/marketing/systeme/crypto";
 import { systemeFlowCommandSchema, systemeFlowSnapshotSchema, systemeKnownFieldSchema } from "@/lib/marketing/systeme/flows";
+import { leadHostProBrand } from "@/lib/marketing/leadhostpro";
 
 function respond(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -25,7 +26,7 @@ async function connection(context: Awaited<ReturnType<typeof requireMarketingAdd
   const result = await context.supabase.from("marketing_systeme_integrations").select("id")
     .eq("profile_id", context.profile.id).maybeSingle();
   if (result.error) throw result.error;
-  if (!result.data) throw new AdminApiError(404, "Crea prima il collegamento Systeme.io.");
+  if (!result.data) throw new AdminApiError(404, `Crea prima il collegamento ${leadHostProBrand.name}.`);
   return result.data;
 }
 

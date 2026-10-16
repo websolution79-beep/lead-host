@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeSystemePageUrl } from "./payload";
+import { leadHostProBrand } from "../leadhostpro";
 
 export const systemeSettingsSchema = z.object({
   enabled: z.boolean(),
@@ -54,12 +55,12 @@ export const systemeReasonLabels: Record<string, string> = {
   unsupported_event: "Evento diverso da Opt-In",
   unsupported_schema: "Formato webhook non supportato",
   invalid_payload: "Dati del contatto non validi",
-  missing_name: "Nome mancante nel form Systeme.io",
+  missing_name: `Nome mancante nel form ${leadHostProBrand.name}`,
   missing_email: "Email mancante nel campo associato",
   invalid_email: "Email del contatto non valida",
   source_page_missing: "Pagina di provenienza assente: filtro non verificabile",
   page_filtered: "Pagina esclusa dal filtro",
   crm_not_ready: "Pipeline CRM da configurare",
   ambiguous_contact: "Più contatti CRM con la stessa email: verifica i duplicati",
-  import_failed: "Errore temporaneo: Systeme.io potrà ritentare l'invio",
+  import_failed: `Errore temporaneo: ${leadHostProBrand.name} potrà ritentare l'invio`,
 };

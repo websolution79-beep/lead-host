@@ -5,6 +5,7 @@ import { ArrowRight, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2 } from "lu
 import { SystemeIntegrationDialog } from "@/components/systeme-integration-dialog";
 import { addDiscoveredBindings, knownFieldsForFlow, systemeTargetLabels } from "@/lib/marketing/systeme/editor";
 import { systemeFieldTargets, type SystemeFieldBinding, type SystemeFlow, type SystemeKnownField } from "@/lib/marketing/systeme/flows";
+import { leadHostProBrand } from "@/lib/marketing/leadhostpro";
 
 export function SystemeFlowEditor({ draft, flows, stages, knownFields, busy, error, conflict, onChange, onClose, onSave, onRefresh, onReload }: {
   draft: SystemeFlow; flows: SystemeFlow[]; stages: { id: string; name: string }[]; knownFields: SystemeKnownField[];
@@ -80,7 +81,7 @@ export function SystemeFlowEditor({ draft, flows, stages, knownFields, busy, err
           <datalist id={sourcesId}>{fields.map((field) => <option key={field.sourceSlug} value={field.sourceSlug}>{field.fieldLabel ?? field.sourceSlug}</option>)}</datalist>
           <div className="divide-y divide-slate-200 border-y border-slate-200">
             {draft.bindings.map((binding, index) => <div key={index} className="grid min-w-0 grid-cols-[minmax(0,1fr)_44px] gap-x-2 gap-y-3 py-4 sm:grid-cols-[minmax(0,1fr)_20px_minmax(0,1fr)_44px]">
-              <label className="grid min-w-0 gap-2 text-xs font-semibold text-muted">Campo Systeme.io {index + 1}
+              <label className="grid min-w-0 gap-2 text-xs font-semibold text-muted">Campo {leadHostProBrand.name} {index + 1}
                 <input className="form-input font-mono" list={sourcesId} autoComplete="off" required maxLength={160} disabled={controlDisabled} value={binding.sourceSlug} placeholder="nome_campo"
                   onChange={(event) => bindingChange(index, { sourceSlug: event.target.value })} />
                 {fields.find((field) => field.sourceSlug === binding.sourceSlug)?.fieldLabel ? <span className="break-words font-normal">{fields.find((field) => field.sourceSlug === binding.sourceSlug)?.fieldLabel}</span> : null}

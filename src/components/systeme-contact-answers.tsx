@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileInput, Loader2, Plus, RefreshCw } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { systemeContactFieldsSchema } from "@/lib/marketing/systeme/flows";
+import { leadHostProBrand } from "@/lib/marketing/leadhostpro";
 import type { z } from "zod";
 
 export function SystemeContactAnswers({ contactId }: { contactId: string }) {
@@ -36,8 +37,8 @@ export function SystemeContactAnswers({ contactId }: { contactId: string }) {
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [load, retry]);
   if (fields?.length === 0 && !error && !loading) return null;
-  return <section className="min-w-0 border-y border-slate-200 py-4" aria-label="Risposte da Systeme.io">
-    <h3 className="flex items-center gap-2 font-semibold text-ink"><FileInput size={18} className="text-green" />Risposte da Systeme.io</h3>
+  return <section className="min-w-0 border-y border-slate-200 py-4" aria-label={`Risposte da ${leadHostProBrand.name}`}>
+    <h3 className="flex items-center gap-2 font-semibold text-ink"><FileInput size={18} className="text-green" />Risposte da {leadHostProBrand.name}</h3>
     {error ? <div className="mt-3 space-y-2"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-green" disabled={loading} onClick={() => { setLoading(true); setRetry((value) => value + 1); }}><RefreshCw size={16} />Riprova</button></div> : null}
     {fields ? <dl className="mt-4 min-w-0 space-y-4">{fields.map((field) => <div key={field.id} className="min-w-0">
         <dt className="break-words text-sm font-semibold text-ink [overflow-wrap:anywhere]">{field.label}{field.flowName ? <span className="ml-2 font-normal text-muted">({field.flowName})</span> : null}</dt>

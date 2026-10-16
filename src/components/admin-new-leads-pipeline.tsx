@@ -28,6 +28,8 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   const [stageEditor, setStageEditor] = useState<StageDraft | null>(null);
   const [stageToDelete, setStageToDelete] = useState<PipelineStage | null>(null);
   const [deleteDestinationId, setDeleteDestinationId] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState("");
 
   const getToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -38,6 +40,22 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   const assignmentsByRequest = useMemo(() => new Map(
     assignments.snapshot?.assignments.map((assignment) => [assignment.ownerRequestId, assignment]) ?? [],
   ), [assignments.snapshot]);
+  const filterMembers = useMemo(() => {
+    const members = new Map(assignments.snapshot?.candidates.map((member) => [member.profileId, member]) ?? []);
+    for (const assignment of assignments.snapshot?.assignments ?? []) {
+      if (assignment.assignee && !members.has(assignment.assignee.profileId)) {
+        members.set(assignment.assignee.profileId, assignment.assignee);
+      }
+    }
+    return [...members.values()].sort((a, b) => a.name.localeCompare(b.name, "it"));
+  }, [assignments.snapshot]);
+  const selectedAssignee = assignments.snapshot?.canManageAll
+    ? assigneeFilter
+    : onlyMine ? assignments.snapshot?.actorProfileId ?? "" : "";
+  const visibleRecords = useMemo(() => selectedAssignee
+    ? records.filter((record) => assignmentsByRequest.get(record.ownerRequestId)?.assignee?.profileId === selectedAssignee)
+    : records, [records, selectedAssignee, assignmentsByRequest]);
+  const filtersAvailable = Boolean(assignments.fresh && assignments.snapshot?.storageReady);
 
   const loadStages = useCallback(async () => {
     const token = await getToken();
@@ -102,13 +120,28 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
           {canManage ? <button className="btn btn-secondary w-full sm:w-auto" type="button" disabled={saving} onClick={() => setStageEditor({ name: "", color: "#047857" })}><Plus size={17} />Aggiungi colonna</button> : null}
         </div>
       </div>
+      <div className="flex min-w-0 flex-col gap-3 border-y border-slate-200 py-4 sm:flex-row sm:items-end sm:justify-between">
+        {assignments.snapshot?.canManageAll ? <label className="grid w-full gap-2 text-sm font-semibold text-ink sm:max-w-sm" htmlFor="pipeline-assignee-filter">
+          Preso in carico da
+          <select id="pipeline-assignee-filter" className="form-input min-h-12 w-full" value={assigneeFilter} disabled={!filtersAvailable} onChange={(event) => setAssigneeFilter(event.target.value)}>
+            <option value="">Tutti</option>
+            {assigneeFilter && !filterMembers.some((member) => member.profileId === assigneeFilter) ? <option value={assigneeFilter}>Membro non piu disponibile</option> : null}
+            {filterMembers.map((member) => <option key={member.profileId} value={member.profileId}>{member.name}</option>)}
+          </select>
+        </label> : <label className="flex min-h-12 cursor-pointer items-center gap-3 text-sm font-semibold text-ink">
+          <input className="size-5 shrink-0 accent-green" type="checkbox" checked={onlyMine} disabled={!filtersAvailable} onChange={(event) => setOnlyMine(event.target.checked)} />
+          Presi in carico da me
+        </label>}
+        {selectedAssignee && filtersAvailable ? <p className="text-sm text-muted" role="status">{visibleRecords.length} {visibleRecords.length === 1 ? "lead visualizzato" : "lead visualizzati"}</p> : null}
+      </div>
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p> : null}
       {assignments.error ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{assignments.error}</p> : null}
       {assignments.snapshot && !assignments.snapshot.storageReady ? <p role="status" className="text-sm text-muted">Presa in carico non ancora disponibile. Le altre funzioni della pipeline restano utilizzabili.</p> : null}
+      {selectedAssignee && filtersAvailable && !visibleRecords.length ? <p className="text-sm text-muted">{assignments.snapshot?.canManageAll ? "Nessun lead preso in carico da questo membro con i filtri attuali." : "Non hai lead presi in carico con i filtri attuali."}</p> : null}
       <div className="min-w-0 max-w-full overflow-x-auto pb-3">
         <div className="grid min-w-max grid-flow-col auto-cols-[minmax(286px,336px)] gap-4">
           {stages.map((stage, index) => {
-            const stageRecords = records.filter((record) => record.reviewPipelineStageId === stage.id);
+            const stageRecords = visibleRecords.filter((record) => record.reviewPipelineStageId === stage.id);
             return <article className={`flex min-h-[370px] flex-col rounded-xl border border-slate-200 bg-slate-100/80 p-3 transition ${draggingId ? "border-dashed" : ""}`} key={stage.id}
               onDragOver={(event) => canManage && event.preventDefault()} onDrop={(event) => { if (!canManage) return; event.preventDefault(); const id = event.dataTransfer.getData("text/leadhost-owner-request") || draggingId; if (id) void moveLead(id, stage.id); }}>
               <div className="flex items-start justify-between gap-2 px-1 pb-3">
@@ -127,7 +160,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
                     onChange={(profileId, revision) => void assignments.assign(record.ownerRequestId, profileId, revision)
                       .then(onChanged).catch(() => setError("Aggiornamento della pipeline non riuscito. Premi Aggiorna prima di riprovare."))} />
                 </NewLeadCard>)}
-                {!stageRecords.length ? <div className="grid min-h-24 place-items-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-sm text-slate-400">{canManage ? "Trascina qui un lead." : "Nessun lead in questa fase."}</div> : null}
+                {!stageRecords.length ? <div className="grid min-h-24 place-items-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-sm text-slate-400">{selectedAssignee ? "Nessun lead assegnato in questa fase." : canManage ? "Trascina qui un lead." : "Nessun lead in questa fase."}</div> : null}
               </div>
             </article>;
           })}

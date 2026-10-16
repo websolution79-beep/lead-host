@@ -6,9 +6,9 @@ import {
 } from "@/lib/admin/business-analytics";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
-  isReportableMarketplaceSubscription,
   readAllReportRows,
 } from "@/lib/marketplace-membership/reporting";
+import { selectReportableSubscriptions, summarizeSubscriptions } from "@/lib/admin/subscription-reporting";
 
 const ALLOWED_RANGES = new Set<AnalyticsRangeKey>([
   "today",
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       previousPrimeResult,
       primeAccountsResult,
       primeSubscriptionsResult,
-      marketplaceProductResult,
+      productsResult,
     ] = await Promise.all([
       supabase.rpc("get_admin_business_analytics", {
         p_from_date: range.fromDate,
@@ -64,13 +64,13 @@ export async function GET(request: NextRequest) {
         .select("profile_id,period_kind,status,membership_amount_cents,wallet_recharge_amount_cents,total_amount_cents,created_at")
         .gte("created_at", range.previousFromDate)
         .lt("created_at", range.previousToDate),
-      supabase
-        .from("prime_accounts")
-        .select("status,access_source,prime_started_at,addon_subscription_id"),
-      supabase
-        .from("addon_subscriptions")
-        .select("id,status,cancel_at_period_end"),
-      supabase.from("addon_products").select("id").eq("slug", "marketplace").maybeSingle(),
+      readAllReportRows((from, to) => supabase.from("prime_accounts")
+        .select("status,access_source,prime_started_at,addon_subscription_id")
+        .order("id").range(from, to)),
+      readAllReportRows((from, to) => supabase.from("addon_subscriptions")
+        .select("id,profile_id,addon_product_id,status,source,stripe_subscription_id,cancel_at_period_end,trial_ends_at,current_period_ends_at,access_expires_at,updated_at")
+        .order("id").range(from, to)),
+      supabase.from("addon_products").select("id,slug").in("slug", ["lead-host-prime", "marketplace"]),
     ]);
     const { data, error } = analyticsResult;
 
@@ -101,60 +101,34 @@ export async function GET(request: NextRequest) {
     if (previousPrimeResult.error) throw previousPrimeResult.error;
     if (primeAccountsResult.error) throw primeAccountsResult.error;
     if (primeSubscriptionsResult.error) throw primeSubscriptionsResult.error;
-    if (marketplaceProductResult.error) throw marketplaceProductResult.error;
+    if (productsResult.error) throw productsResult.error;
 
     analytics.snapshot.pendingReview = newLeadCountResult.count ?? 0;
-    const subscriptionById = new Map(
-      (primeSubscriptionsResult.data ?? []).map((subscription) => [subscription.id, subscription]),
-    );
-    const subscriberAccounts = (primeAccountsResult.data ?? []).filter((account) =>
-      account.access_source !== "none" && account.prime_started_at,
-    );
-    const primeSubscriptions: Array<NonNullable<typeof primeSubscriptionsResult.data>[number]> = [];
-    for (const account of subscriberAccounts) {
-      if (!account.addon_subscription_id) continue;
-      const subscription = subscriptionById.get(account.addon_subscription_id);
-      if (subscription) primeSubscriptions.push(subscription);
-    }
+    const products = productsResult.data ?? [];
+    const productSlugs = new Map(products.map((product) => [product.id, product.slug]));
+    const subscriptions = selectReportableSubscriptions(primeSubscriptionsResult.data ?? [], products, primeAccountsResult.data ?? []);
+    const now = Date.now();
     const prime = {
       current: summarizePrime(currentPrimeResult.data ?? []),
       previous: summarizePrime(previousPrimeResult.data ?? []),
-      snapshot: {
-        active: primeSubscriptions.filter((row) => row.status === "active").length,
-        total: primeSubscriptions.length,
-        pastDue: primeSubscriptions.filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
-        cancelAtPeriodEnd: primeSubscriptions.filter((row) => row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)).length,
-        cancelled: primeSubscriptions.filter((row) => ["canceled", "expired"].includes(row.status)).length,
-      },
+      snapshot: summarizeSubscriptions(subscriptions.filter((row) => productSlugs.get(row.addon_product_id) === "lead-host-prime"), now),
     };
 
-    const marketplaceProductId = marketplaceProductResult.data?.id;
-    const [marketplaceCurrentResult, marketplacePreviousResult, marketplaceSubscriptionsResult] = marketplaceProductId
+    const marketplaceProductId = products.find((product) => product.slug === "marketplace")?.id;
+    const [marketplaceCurrentResult, marketplacePreviousResult] = marketplaceProductId
       ? await Promise.all([
           readAllReportRows((from, to) => supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
             .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.fromDate).lt("paid_at", range.toDateExclusive).order("id").range(from, to)),
           readAllReportRows((from, to) => supabase.from("addon_payments").select("profile_id,payment_kind,status,amount_cents,created_at")
             .eq("addon_product_id", marketplaceProductId).gte("paid_at", range.previousFromDate).lt("paid_at", range.previousToDate).order("id").range(from, to)),
-          readAllReportRows((from, to) => supabase.from("addon_subscriptions").select("profile_id,status,source,stripe_subscription_id,cancel_at_period_end,trial_ends_at,current_period_ends_at,updated_at")
-            .eq("addon_product_id", marketplaceProductId).order("updated_at", { ascending: false }).range(from, to)),
         ])
-      : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+      : [{ data: [], error: null }, { data: [], error: null }];
     if (marketplaceCurrentResult.error) throw marketplaceCurrentResult.error;
     if (marketplacePreviousResult.error) throw marketplacePreviousResult.error;
-    if (marketplaceSubscriptionsResult.error) throw marketplaceSubscriptionsResult.error;
-    const marketplaceSubscriptions = latestMarketplaceSubscriptions(
-      (marketplaceSubscriptionsResult.data ?? []).filter(isReportableMarketplaceSubscription),
-    );
     const marketplace = {
       current: summarizeMarketplace(marketplaceCurrentResult.data ?? []),
       previous: summarizeMarketplace(marketplacePreviousResult.data ?? []),
-      snapshot: {
-        active: marketplaceSubscriptions.filter((row) => row.status === "active" && !!row.current_period_ends_at && Date.parse(row.current_period_ends_at) > Date.now()).length,
-        trialing: marketplaceSubscriptions.filter((row) => row.status === "trialing" && !!row.trial_ends_at && Date.parse(row.trial_ends_at) > Date.now()).length,
-        total: marketplaceSubscriptions.length,
-        pastDue: marketplaceSubscriptions.filter((row) => ["past_due", "unpaid"].includes(row.status)).length,
-        cancelAtPeriodEnd: marketplaceSubscriptions.filter((row) => row.cancel_at_period_end && ["active", "trialing", "past_due"].includes(row.status)).length,
-      },
+      snapshot: summarizeSubscriptions(subscriptions.filter((row) => productSlugs.get(row.addon_product_id) === "marketplace"), now),
     };
 
     return NextResponse.json(
@@ -174,7 +148,7 @@ export async function GET(request: NextRequest) {
       } satisfies BusinessAnalyticsPayload,
       {
         headers: {
-          "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+          "Cache-Control": "private, no-store",
         },
       },
     );
@@ -192,15 +166,6 @@ export async function GET(request: NextRequest) {
 
     return adminApiErrorResponse(error);
   }
-}
-
-function latestMarketplaceSubscriptions<T extends { profile_id: string }>(rows: T[]) {
-  const profileIds = new Set<string>();
-  return rows.filter((row) => {
-    if (profileIds.has(row.profile_id)) return false;
-    profileIds.add(row.profile_id);
-    return true;
-  });
 }
 
 function summarizeMarketplace(rows: Array<{ profile_id: string; payment_kind: string; status: string; amount_cents: number }>) {

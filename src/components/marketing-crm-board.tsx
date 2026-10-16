@@ -30,6 +30,7 @@ import {
   OWNER_TIMING_OPTIONS,
 } from "@/lib/owner-requests/options";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { SystemeContactAnswers } from "@/components/systeme-contact-answers";
 
 type CrmStage = {
   id: string;
@@ -771,6 +772,7 @@ function ContactEditor({
           </div>
         </section>
 
+        {contact ? <SystemeContactAnswers key={contact.id} contactId={contact.id} /> : null}
         {contact ? <CrmDocumentsPanel contactId={contact.id} /> : <PendingDocumentsPanel files={pendingDocuments} onChange={setPendingDocuments} />}
         {contact ? <CrmImagesPanel contactId={contact.id} /> : <PendingImagesPanel files={pendingImages} onChange={setPendingImages} />}
       </div>

@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Columns3, GripVertical, History, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
+import { LeadAssignmentControl } from "@/components/lead-assignment-control";
+import { useLeadAssignments } from "@/components/use-lead-assignments";
+import { leadAssigneeColors } from "@/lib/admin/lead-assignment-types";
 
 type PipelineStage = { id: string; name: string; color: string; position: number };
 type PipelineResponse = { stages?: PipelineStage[]; error?: string };
@@ -31,6 +34,11 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? null;
   }, [supabase]);
+
+  const assignments = useLeadAssignments(getToken);
+  const assignmentsByRequest = useMemo(() => new Map(
+    assignments.snapshot?.assignments.map((assignment) => [assignment.ownerRequestId, assignment]) ?? [],
+  ), [assignments.snapshot]);
 
   const loadStages = useCallback(async () => {
     const token = await getToken();
@@ -96,6 +104,8 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
         </div>
       </div>
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p> : null}
+      {assignments.error ? <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{assignments.error}</p> : null}
+      {assignments.snapshot && !assignments.snapshot.storageReady ? <p role="status" className="text-sm text-muted">Presa in carico non ancora disponibile. Le altre funzioni della pipeline restano utilizzabili.</p> : null}
       <div className="min-w-0 max-w-full overflow-x-auto pb-3">
         <div className="grid min-w-max grid-flow-col auto-cols-[minmax(286px,336px)] gap-4">
           {stages.map((stage, index) => {
@@ -111,7 +121,13 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
                 </div> : null}
               </div>
               <div className="grid min-h-24 gap-3">
-                {stageRecords.map((record) => <NewLeadCard key={record.ownerRequestId} record={record} draggable={canManage} dragging={draggingId === record.ownerRequestId} onDragStart={(event) => { event.dataTransfer.setData("text/leadhost-owner-request", record.ownerRequestId); event.dataTransfer.effectAllowed = "move"; setDraggingId(record.ownerRequestId); }} onDragEnd={() => setDraggingId(null)} onOpen={() => onOpenDetail(record)} />)}
+                {stageRecords.map((record) => <NewLeadCard key={record.ownerRequestId} record={record} draggable={canManage} dragging={draggingId === record.ownerRequestId} onDragStart={(event) => { event.dataTransfer.setData("text/leadhost-owner-request", record.ownerRequestId); event.dataTransfer.effectAllowed = "move"; setDraggingId(record.ownerRequestId); }} onDragEnd={() => setDraggingId(null)} onOpen={() => onOpenDetail(record)}>
+                  <LeadAssignmentControl ownerRequestId={record.ownerRequestId} title={record.lead?.title ?? defaultTitle(record)}
+                    snapshot={assignments.snapshot} assignment={assignmentsByRequest.get(record.ownerRequestId)}
+                    disabled={!canManage || !assignments.fresh || Boolean(assignments.savingId)}
+                    onChange={(profileId, revision) => void assignments.assign(record.ownerRequestId, profileId, revision)
+                      .then(onChanged).catch(() => setError("Aggiornamento della pipeline non riuscito. Premi Aggiorna prima di riprovare."))} />
+                </NewLeadCard>)}
                 {!stageRecords.length ? <div className="grid min-h-24 place-items-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-sm text-slate-400">{canManage ? "Trascina qui un lead." : "Nessun lead in questa fase."}</div> : null}
               </div>
             </article>;
@@ -124,11 +140,12 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   );
 }
 
-function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOpen }: { record: AdminLeadRecord; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void }) {
+function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOpen, children }: { record: AdminLeadRecord; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void; children: ReactNode }) {
   const internalNotes = record.qualificationNotes?.trim();
-  return <button className={`group w-full rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`} draggable={draggable} type="button" onClick={onOpen} onDragEnd={onDragEnd} onDragStart={onDragStart}>
+  return <article className={`group w-full rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`}>
+    <button className="w-full p-4 text-left" type="button" onClick={onOpen}>
     <div className="flex items-start gap-2">
-      {draggable ? <GripVertical className="mt-0.5 shrink-0 text-slate-300 group-hover:text-green" size={17} /> : null}
+      {draggable ? <span draggable onDragEnd={onDragEnd} onDragStart={onDragStart} title="Trascina il lead" className="mt-0.5 shrink-0 cursor-grab text-slate-400 group-hover:text-green"><GripVertical size={17} /></span> : null}
       <div className="min-w-0 flex-1 space-y-4">
         <div className="flex items-start justify-between gap-2">
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted"><Home size={12} />Immobile</p>
@@ -151,15 +168,20 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
         </div> : null}
       </div>
     </div>
-  </button>;
+    </button>
+    {children}
+  </article>;
 }
 function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
   const worker = record.firstWorkedBy;
   if (!worker) return null;
   const name = `${worker.firstName ?? ""} ${worker.lastName?.trim().slice(0, 1) ?? ""}`.trim();
   if (!name) return null;
-  const color = worker.badgeColor ?? "#2563EB";
-  return <span className="max-w-[120px] truncate rounded-full border px-2 py-0.5 text-[10px] font-bold" style={{ borderColor: color, color, backgroundColor: `${color}14` }}>{name}{worker.lastName ? "." : ""}</span>;
+  const colors = leadAssigneeColors(worker.badgeColor);
+  return <span className="grid max-w-[130px] shrink-0 gap-1 text-right" title={`Prima lavorazione: ${worker.firstName ?? ""} ${worker.lastName ?? ""}`}>
+    <span className="text-[9px] font-medium text-slate-500">Prima lavorazione</span>
+    <span className="inline-flex items-center justify-end gap-1 truncate text-[10px] font-semibold" style={{ color: colors.text }}><History size={11} aria-hidden="true" />{name}{worker.lastName ? "." : ""}</span>
+  </span>;
 }
 function formatOwnerName(record: AdminLeadRecord) { return `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim() || "Non indicato"; }
 function defaultTitle(record: AdminLeadRecord) { const type = record.property?.propertyType?.trim() || "Immobile"; const city = record.property?.city?.trim(); return city ? `${type} a ${city}` : type; }

@@ -9,6 +9,12 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      owner_request_assignments: {
+        Row: { owner_request_id: string; assignee_profile_id: string | null; revision: number | string; assigned_at: string | null; updated_at: string; updated_by_profile_id: string | null };
+        Insert: { owner_request_id: string; assignee_profile_id?: string | null; revision?: number | string; assigned_at?: string | null; updated_at?: string; updated_by_profile_id?: string | null };
+        Update: Partial<Database["public"]["Tables"]["owner_request_assignments"]["Insert"]>;
+        Relationships: [{ foreignKeyName: "owner_request_assignments_owner_request_id_fkey"; columns: ["owner_request_id"]; isOneToOne: true; referencedRelation: "owner_requests"; referencedColumns: ["id"] }];
+      };
       backup_component_status: {
         Row: {
           component: "database" | "storage" | "verification" | "repository";
@@ -3206,6 +3212,15 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      can_take_owner_request: { Args: { p_profile_id: string }; Returns: boolean };
+      owner_request_assignment_candidates: {
+        Args: { p_actor_profile_id: string };
+        Returns: { profile_id: string; first_name: string | null; last_name: string | null; badge_color: string | null }[];
+      };
+      set_owner_request_assignment: {
+        Args: { p_owner_request_id: string; p_actor_profile_id: string; p_assignee_profile_id: string | null; p_expected_revision: string };
+        Returns: Json;
+      };
       marketing_systeme_flow_snapshot: {
         Args: { p_integration_id: string; p_profile_id: string };
         Returns: Json;

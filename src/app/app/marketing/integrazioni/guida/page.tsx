@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { LeadHostProGuide } from "@/components/leadhostpro-guide";
 
 export const metadata: Metadata = {
-  title: "Guida LeadHostPro | Lead Host",
+  title: "Guida LeadHostPro",
   description: "Collega leadhostpro.it al CRM del Modulo Marketing di Lead Host.",
   robots: { index: false, follow: false },
 };

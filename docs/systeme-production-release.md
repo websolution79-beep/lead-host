@@ -6,7 +6,7 @@ Prepared on 2026-10-16. This document is a release procedure, NOT evidence of a 
 
 The user accepted first-acquisition sourceURL routing and one CRM record per recognized contact for this initial version. Multiple properties per owner remain a separate future feature. Do not change deduplication, stage preservation or routing during release.
 
-Release the existing flow-capable application as one version: webhook, versioned configuration API, editor, navigation and read-only CRM answers. No Stripe, billing, email, Marketplace, PRIME or general CRM behavior refactor is included.
+Release the existing flow-capable application as one version: webhook, versioned configuration API, editor, navigation, read-only CRM answers and protected customer guide. The customer-facing service name is LeadHostPro / leadhostpro.it. Internal provider routes, signatures, tables and identifiers retain their existing names for compatibility. No Stripe, billing, email, Marketplace, PRIME or general CRM behavior refactor is included.
 
 ## Verified baselines
 
@@ -23,9 +23,12 @@ Release the existing flow-capable application as one version: webhook, versioned
 
 Documentation/test-only commits after preview do not change application behavior. Read current remote refs again immediately before publishing. If main advanced, stop and review/merge its changes before constructing the release; never force-push or replace unrelated updates.
 
+Later customer-branding checkpoint: protected preview 43567ddbb40a383f92c25562d84334ceb6b5f226 is Ready after the LeadHostPro guide update. Source 8e8006a passed a fresh isolated full build; 43567dd corrects only the guide metadata title and also passed Vercel's build. Both were deployed only to Preview. The full evidence and 80-test validation record are in systeme-flows-rollout.md. Use this newer application candidate, not the earlier UI version in the historical baseline table.
+
 ## Validation record and limits
 
 - 54 Systeme TypeScript tests and 12 route/access-guard tests passed.
+- The later LeadHostPro branding/guide update passed 57 integration tests (including three new guide/rendering/branding cases), the same 12 API tests and 11 billing tests. The guide's Markdown document is generated from src/lib/marketing/leadhostpro-guide.json, also used in the app; verify it with node scripts/sync-leadhostpro-guide.mjs --check.
 - A fresh full Next production build and TypeScript check passed on the isolated 4198fd7 source archive. All 112 static pages generated, with the new Marketing routes in the build manifest. All 11 existing billing tests passed again.
 - Isolated SQL suites passed: legacy import, new configuration/import, ownership/RLS, rollback, deduplication, paused behavior and configuration conflicts.
 - Real signed two-page pilot passed new-contact routing, mappings, read-only answers, repeated-contact preservation and pauses.
@@ -51,6 +54,7 @@ npx tsx --test src/lib/marketing/systeme/*.test.ts
 node --experimental-vm-modules --test scripts/test-systeme-api.test.mjs
 node scripts/test-systeme-db.mjs
 npm run test:billing
+node scripts/sync-leadhostpro-guide.mjs --check
 ```
 
 Run a full Next production build using the same application sources. Keep output away from a running development server's .next directory. An isolated git-archive copy with the existing node_modules junction was used for the 4198fd7 checkpoint; credentials were loaded into the child environment only, not copied into the archive. Do not deploy this ignored scratch directory or include it in Git.

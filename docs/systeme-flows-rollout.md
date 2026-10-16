@@ -288,3 +288,28 @@ Added a synthetic regression case in flows.test.ts asserting routing follows the
 - Evidence: output/systeme-integration-qa/flows-webhook-final-paused.png. The generated untracked fingerprints/check helper remain local; do not stage tmp/output or secret-bearing state. The sourceURL finding is based on actual rendered provider logs, not inferred private browser state.
 
 Next: the user must sign in again as businesspronto.it@gmail.com in the existing protected preview /app/marketing/crm tab. Inspect both TEST FLOWS contact details, read-only answers and notes, then complete the remaining authenticated authorization checks and agree the first-origin semantics before any production publication. Live identical-message redelivery and a real concurrent import/config lock race were not exercised; isolated tests cover them, and the earlier two-tab conflict only covers optimistic configuration saves. Do not call all end-to-end/authorization/concurrency checks complete.
+
+## Authenticated CRM visual verification - 2026-10-16
+
+After the user signed in again, inspected the actual protected preview CRM as Luca Card / businesspronto.it@gmail.com. No fixture, copied session token, contact save, import activation or external configuration write was used.
+
+- TEST FLOWS Roma shows stage TEST - Lead Roma and city Roma. Its separate read-only Risposte da Systeme.io section renders Zona preferita (TEST - Proprietari Roma) = EUR, Garbatella.
+- TEST FLOWS Milano shows stage TEST - Lead Milano, city Roma from the previously documented repeated opt-in, and the preserved manual QA note. Its answer section contains only Nazione rilevata (test) (TEST - Proprietari Milano) = IT, not the other contact's answer.
+- Opened the older Test Integrazione Lead Host contact. Once loading completed, the empty additional-answer section disappeared without an error. Closed every dialog without saving.
+- The tab's captured error-log query returned no entries at this checkpoint. This does not assert that every browser context or future request is error-free.
+- Re-ran the read-only fingerprint helper: all seven preexisting contacts unchanged, nine total contacts, parent disabled, discovery null, revision 9 and unchanged event totals. No application code, migration, production deployment or Vercel protection setting changed.
+- Evidence: output/systeme-integration-qa/crm-real-roma-answers.png and crm-real-milano-answers.png. These show real imported synthetic-test answers in the authenticated preview, unlike the earlier local fixture screenshots.
+
+This closes the pending actual CRM rendering check. A second authenticated PM denial check, live identical-message redelivery and live import/config lock race remain unexecuted; the existing isolated tests are not presented as live proof. Before production publication, confirm the documented first-acquisition sourceURL behavior is acceptable or separately design an explicit per-form signal. Keep both the parent import and external webhook paused, and retain preview authentication.
+
+## Autonomous API isolation checks - 2026-10-16
+
+Added scripts/test-systeme-api.test.mjs, a test-only runner that transpiles and executes the actual answers route, flows route, Marketing access guard and flow schemas in isolated Node VM modules. Run with node --experimental-vm-modules --test scripts/test-systeme-api.test.mjs. It uses the existing TypeScript, Next and Zod dependencies; no package or application-code change is required. No environment file, real credential, network request or database write is used.
+
+The profile-context provider, Supabase client, audit sink and credential boundary are simulated. Consequently this is a real route/guard contract test with two synthetic PM identities, NOT a live Supabase JWT-validation or second-account browser test. The service-client fixture intentionally includes a mismatched-owner answer to exercise the route's additional owner predicate.
+
+All 12 new cases passed: both GET routes reject missing/invalid/suspended identities, inappropriate roles and inactive Marketing access; each PM receives only its own answers; URL ownership spoofing cannot bypass the initial contact check or either answer predicate; invalid UUID/page inputs are rejected; pagination and stable ordering are retained; internal DB details do not reach responses/logs; flow RPCs derive their owner/integration from authenticated context; strict PATCH validation rejects supplied owner fields; successful writes bind owner/audit while conflicts return 409 without success audit; activation without a configured secret is rejected before a mutating RPC.
+
+Targeted ESLint passed. Re-ran all 54 existing Systeme TypeScript tests and the full isolated database runner successfully, including the original importer suite after migration 004. Total application cases: 66, plus the SQL suites. Node's VM experimental-feature and existing tsx module.register deprecation warnings are non-fatal test-runtime notices. Initial runner-only Windows ESM-resolution and cross-realm assertion problems were repaired in the test harness; no production defect or application behavior change resulted.
+
+No browser login, new user, live contact mutation, import activation, migration, environment change or deployment was performed in this step. The separate real second-PM login remains pending, as do live identical-message redelivery and a live configuration/import lock race. Existing first-origin sourceURL semantics and the production-release decision still require acknowledgement; do not silently promise routing by the most recent form.

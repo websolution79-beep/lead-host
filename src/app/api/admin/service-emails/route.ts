@@ -2,6 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { countEligibleServiceEmailRecipients } from "@/lib/email/service-recipients";
 import {
   processServiceEmailQueue,
   runServiceEmailWorkerSafely,
@@ -49,14 +50,6 @@ type ServiceEmailCampaignRow = ServiceEmailContent & {
   updated_at: string;
 };
 
-type PropertyManagerProfileRow = {
-  profile_id: string;
-};
-
-type ActiveProfileRow = {
-  id: string;
-};
-
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
@@ -81,7 +74,7 @@ export async function GET(request: NextRequest) {
         )
         .order("created_at", { ascending: false })
         .limit(30),
-      countEligibleRecipients(supabase),
+      countEligibleServiceEmailRecipients(supabase),
     ]);
     const storageReady = !isMissingRelationError(campaignsResult.error);
 
@@ -93,7 +86,7 @@ export async function GET(request: NextRequest) {
       storageReady,
       eligibleRecipients,
       campaigns: storageReady ? campaignsResult.data ?? [] : [],
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return adminApiErrorResponse(error);
   }
@@ -212,60 +205,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return adminApiErrorResponse(error);
   }
-}
-
-async function countEligibleRecipients(
-  supabase: Awaited<ReturnType<typeof requireSuperAdmin>>["supabase"],
-) {
-  const propertyManagers = await (
-    supabase.from("property_manager_profiles") as unknown as {
-      select: (columns: string) => {
-        neq: (
-          column: string,
-          value: string,
-        ) => Promise<{
-          data: PropertyManagerProfileRow[] | null;
-          error: { message?: string } | null;
-        }>;
-      };
-    }
-  )
-    .select("profile_id")
-    .neq("verification_status", "suspended");
-
-  if (propertyManagers.error) throw propertyManagers.error;
-
-  const profileIds = Array.from(
-    new Set((propertyManagers.data ?? []).map((item) => item.profile_id)),
-  );
-
-  if (!profileIds.length) return 0;
-
-  const profiles = await (
-    supabase.from("profiles") as unknown as {
-      select: (columns: string) => {
-        in: (
-          column: string,
-          values: string[],
-        ) => {
-          eq: (
-            statusColumn: string,
-            status: string,
-          ) => Promise<{
-            data: ActiveProfileRow[] | null;
-            error: { message?: string } | null;
-          }>;
-        };
-      };
-    }
-  )
-    .select("id")
-    .in("id", profileIds)
-    .eq("status", "active");
-
-  if (profiles.error) throw profiles.error;
-
-  return profiles.data?.length ?? 0;
 }
 
 function isMissingRelationError(

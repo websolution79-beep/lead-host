@@ -19,7 +19,8 @@
 2. Completed: user applied the atomic import migration; the server endpoint is deployed to Preview only. A real signed CONTACT_OPT_IN was imported successfully during the pilot.
 3. Completed in Preview: Integrazioni menu/page with connection setup, stage selection and recent events. Authenticated configuration, creation, enabling and pausing worked in the pilot. No new migration required for this phase.
 4. Completed: dedicated server encryption key configured in Vercel Production and Preview; preview commit 59397fb passed a real Systeme.io opt-in test. Both test connections were paused and the temporary Vercel domain exception removed. Production was not redeployed.
-5. Deferred: before production deployment, implement the user-approved per-page flows and per-flow field mapping. See docs/systeme-flows-rollout.md for the staged extension and additional migration.
+5. Completed in protected Preview: independent per-page flows, field mapping and read-only additional CRM answers. All four migrations are applied. See docs/systeme-flows-rollout.md for test results, accepted first-origin semantics and remaining live-test limits.
+6. Prepared 2026-10-16: docs/systeme-client-setup.md contains client onboarding instructions; docs/systeme-production-release.md contains the controlled release, smoke-check and rollback procedure. Production application publication and production webhook activation have not occurred.
 
 ## Baseline and manual backups
 

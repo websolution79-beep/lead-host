@@ -12,6 +12,8 @@ type PipelineResponse = { stages?: PipelineStage[]; error?: string };
 type StageDraft = { id?: string; name: string; color: string };
 
 const stageColors = ["#2563EB", "#7C3AED", "#0F766E", "#B45309", "#C2410C", "#047857", "#4F46E5", "#B91C1C"] as const;
+// Existing Lead Host intake column: its editable name and position are not identifiers.
+const intakeStageId = "a2fdcf08-b16a-45cb-a68e-325596ebc1f1";
 
 export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChanged }: {
   records: AdminLeadRecord[];
@@ -157,11 +159,11 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
               </div>
               <div className="grid min-h-24 gap-3">
                 {stageRecords.map((record) => <NewLeadCard key={record.ownerRequestId} record={record} draggable={canManage} dragging={draggingId === record.ownerRequestId} onDragStart={(event) => { event.dataTransfer.setData("text/leadhost-owner-request", record.ownerRequestId); event.dataTransfer.effectAllowed = "move"; setDraggingId(record.ownerRequestId); }} onDragEnd={() => setDraggingId(null)} onOpen={() => onOpenDetail(record)}>
-                  <LeadAssignmentControl ownerRequestId={record.ownerRequestId} title={record.lead?.title ?? defaultTitle(record)}
+                  {stage.id !== intakeStageId ? <LeadAssignmentControl ownerRequestId={record.ownerRequestId} title={record.lead?.title ?? defaultTitle(record)}
                     snapshot={assignments.snapshot} assignment={assignmentsByRequest.get(record.ownerRequestId)}
                     disabled={!canManage || !assignments.fresh || Boolean(assignments.savingId)}
                     onChange={(profileId, revision) => void assignments.assign(record.ownerRequestId, profileId, revision)
-                      .then(onChanged).catch(() => setError("Aggiornamento della pipeline non riuscito. Premi Aggiorna prima di riprovare."))} />
+                      .then(onChanged).catch(() => setError("Aggiornamento della pipeline non riuscito. Premi Aggiorna prima di riprovare."))} /> : null}
                 </NewLeadCard>)}
                 {!stageRecords.length ? <div className="grid min-h-24 place-items-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-sm text-slate-400">{selectedAssignee ? "Nessun lead assegnato in questa fase." : canManage ? "Trascina qui un lead." : "Nessun lead in questa fase."}</div> : null}
               </div>

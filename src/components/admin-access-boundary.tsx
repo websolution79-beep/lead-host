@@ -19,10 +19,12 @@ export function AdminAccessBoundary({ children }: { children: ReactNode }) {
   const isProfilePage = pathname.startsWith("/admin/profilo");
   const isTeamPage = pathname.startsWith("/admin/team");
   const isEarningsPage = pathname.startsWith("/admin/i-miei-guadagni");
+  const isCalendarPage = pathname === "/admin/presenze" && session.roles.includes("team_member");
   const canAccess =
     session.isSuperAdmin ||
     isProfilePage ||
     isEarningsPage ||
+    isCalendarPage ||
     (!isTeamPage &&
       Boolean(pagePermission) &&
       hasAdminPermission(permissions, pagePermission!));

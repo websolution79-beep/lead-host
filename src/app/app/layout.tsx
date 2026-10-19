@@ -95,6 +95,7 @@ export default async function AppAreaLayout({ children }: AppAreaLayoutProps) {
       <WhatsAppSupportWidget />
       <AppAreaChrome
         section="pm"
+        isTeamMember={hasRole(session.roles, "team_member") && session.teamAccess?.status === "active" && !session.teamAccess.mustChangePassword}
         marketingAddon={marketingAddon ?? undefined}
         primeAccess={primeAccess?.isVisible ?? false}
       >

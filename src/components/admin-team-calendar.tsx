@@ -14,13 +14,14 @@ import { useAppSession } from "@/components/app-session-provider";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { calendarEntrySchema, expandCalendarEntries, projectCalendarOccurrences, TEAM_TIME_ZONE, type CalendarEntry, type CalendarFields, type CalendarMember } from "@/lib/team-calendar";
 import styles from "./admin-team-calendar.module.css";
+import { canManageCalendarEntry, type CalendarViewer } from "@/lib/team-calendar-access";
 
 const FullCalendar = dynamic(() => import("./team-calendar-view"), { ssr: false, loading: () => <div className="min-h-96 animate-pulse bg-slate-50" /> });
 const plugins = [dayGridPlugin, timeGridPlugin, listPlugin, luxonPlugin];
 const input = "min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 disabled:bg-slate-100";
 const button = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50";
-type Payload = { storageReady: boolean; members: CalendarMember[]; entries: CalendarEntry[] };
+type Payload = { storageReady: boolean; members: CalendarMember[]; entries: CalendarEntry[]; viewer: CalendarViewer };
 function today() { return DateTime.now().setZone(TEAM_TIME_ZONE).toISODate()!; }
 function blank(memberId: string): CalendarFields {
   return { member_id: memberId, kind: "available", start_date: today(), end_date: today(), all_day: false, start_time: "09:00", end_time: "13:00", repeats_weekly: false, repeat_until: null, note: "" };
@@ -28,6 +29,7 @@ function blank(memberId: string): CalendarFields {
 
 export function AdminTeamCalendar() {
   const session = useAppSession();
+  const hasAccess = Boolean(session.isSuperAdmin || session.roles.includes("team_member"));
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const calendar = useRef<FullCalendarType | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -47,6 +49,9 @@ export function AdminTeamCalendar() {
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const viewer = data?.viewer ?? { isSuperAdmin: Boolean(session.isSuperAdmin), memberId: null };
+  const selectableMembers = (data?.members ?? []).filter((member) => member.active && canManageCalendarEntry(viewer, member.id));
+  const canEdit = editing ? canManageCalendarEntry(viewer, editing.member_id) : selectableMembers.length > 0;
 
   const request = useCallback(async (method: string, body?: unknown) => {
     const { data: auth } = await supabase.auth.getSession();
@@ -76,10 +81,10 @@ export function AdminTeamCalendar() {
     return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => {
-    if (!session.isSuperAdmin) return;
+    if (!hasAccess) return;
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
-  }, [session.isSuperAdmin, load]);
+  }, [hasAccess, load]);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(timer); }, []);
   useEffect(() => {
     if (form) dialog.current?.showModal();
@@ -106,12 +111,12 @@ export function AdminTeamCalendar() {
 
   function open(entry?: CalendarEntry) {
     setEditing(entry ?? null); setFormError(""); setSuccess("");
-    setForm(entry ? { member_id: data?.members.some((m) => m.id === entry.member_id && m.active) ? entry.member_id : "", kind: entry.kind, start_date: entry.start_date, end_date: entry.end_date, all_day: entry.all_day, start_time: entry.start_time, end_time: entry.end_time, repeats_weekly: entry.repeats_weekly, repeat_until: entry.repeat_until, note: entry.note } : blank(data?.members.find((m) => m.active)?.id ?? ""));
+    setForm(entry ? { member_id: data?.members.some((m) => m.id === entry.member_id && m.active) ? entry.member_id : "", kind: entry.kind, start_date: entry.start_date, end_date: entry.end_date, all_day: entry.all_day, start_time: entry.start_time, end_time: entry.end_time, repeats_weekly: entry.repeats_weekly, repeat_until: entry.repeat_until, note: entry.note } : blank(selectableMembers[0]?.id ?? ""));
   }
   function change<K extends keyof CalendarFields>(key: K, value: CalendarFields[K]) { setForm((previous) => previous ? { ...previous, [key]: value } : previous); }
 
   async function save(event: FormEvent) {
-    event.preventDefault(); if (!form || busy) return;
+    event.preventDefault(); if (!form || busy || !canEdit) return;
     const parsed = calendarEntrySchema.safeParse(form);
     if (!parsed.success) { setFormError(parsed.error.issues[0].message); return; }
     setBusy(true); setFormError("");
@@ -127,17 +132,17 @@ export function AdminTeamCalendar() {
     finally { setBusy(false); }
   }
   async function remove() {
-    if (!editing || busy || !window.confirm(editing.repeats_weekly ? "Eliminare tutta la serie settimanale?" : "Eliminare questo evento?")) return;
+    if (!editing || busy || !canEdit || !window.confirm(editing.repeats_weekly ? "Eliminare tutta la serie settimanale?" : "Eliminare questo evento?")) return;
     setBusy(true); setFormError("");
     try { await request("DELETE", { id: editing.id, updatedAt: editing.updated_at }); setForm(null); setSuccess("Evento eliminato."); await load(); }
     catch (e) { setFormError(e instanceof Error ? e.message : "Eliminazione non riuscita."); }
     finally { setBusy(false); }
   }
 
-  if (!session.isSuperAdmin) return null;
+  if (!hasAccess) return null;
   return <div className={styles.root}>
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-      <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-800"><CalendarDays size={18} /> Accesso riservato ai Super Admin</span>
+      <span className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-800"><CalendarDays size={18} /> Calendario del team</span>
       <span className="text-xs text-slate-500">Orari di Roma</span>
     </div>
     {error && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>}
@@ -151,7 +156,7 @@ export function AdminTeamCalendar() {
     </div>
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
       <div className="flex items-center gap-2"><button className={button} title="Periodo precedente" aria-label="Periodo precedente" onClick={() => calendar.current?.getApi().prev()}><ChevronLeft size={18} /></button><button className={button} title="Periodo successivo" aria-label="Periodo successivo" onClick={() => calendar.current?.getApi().next()}><ChevronRight size={18} /></button><button className={button} onClick={() => calendar.current?.getApi().today()}>Oggi</button><h2 className="ml-1 text-sm font-semibold text-slate-900 sm:text-base" aria-live="polite">{title}</h2></div>
-      <div className="flex w-full flex-wrap gap-2 sm:w-auto"><button className={button} onClick={() => void load()} disabled={loading} title="Aggiorna calendario" aria-label="Aggiorna calendario"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /></button><button className={`${primary} flex-1 sm:flex-none`} disabled={!data?.storageReady || loading || !data.members.some((m) => m.active)} onClick={() => open()}><Plus size={18} />Aggiungi evento</button></div>
+      <div className="flex w-full flex-wrap gap-2 sm:w-auto"><button className={button} onClick={() => void load()} disabled={loading} title="Aggiorna calendario" aria-label="Aggiorna calendario"><RefreshCw size={17} className={loading ? "animate-spin" : ""} /></button><button className={`${primary} flex-1 sm:flex-none`} disabled={!data?.storageReady || loading || !selectableMembers.length} onClick={() => open()}><Plus size={18} />Aggiungi evento</button></div>
     </div>
     <div className="mb-4 grid gap-3 sm:grid-cols-3">
       <label className="grid gap-1.5 text-xs font-semibold text-slate-600">Membro<select className={input} value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)}><option value="">Tutto il team</option>{data?.members.filter((m) => m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
@@ -169,10 +174,11 @@ export function AdminTeamCalendar() {
     </div>
     <dialog ref={dialog} aria-labelledby="team-calendar-dialog-title" onCancel={(e) => { if (busy) e.preventDefault(); else setForm(null); }} onClose={() => { if (!busy) setForm(null); }} className={styles.dialog}>
       {form && <form onSubmit={save}>
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-5"><h2 id="team-calendar-dialog-title" className="text-lg font-semibold text-slate-900">{editing ? "Modifica evento" : "Nuova disponibilita o assenza"}</h2><button type="button" className={button} disabled={busy} onClick={() => setForm(null)} title="Chiudi" aria-label="Chiudi"><X size={18} /></button></div>
-        <fieldset disabled={busy} className="grid gap-4 p-5">
-          {editing?.repeats_weekly && <p className="text-sm font-medium text-amber-800">La modifica riguarda tutta la serie settimanale.</p>}
-          <label className="grid gap-1 text-sm font-semibold">Membro del team<select required className={input} value={form.member_id} onChange={(e) => change("member_id", e.target.value)}><option value="">Seleziona membro</option>{data?.members.filter((m) => m.active).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+        <div className="flex items-center justify-between gap-3 border-b border-slate-200 p-5"><h2 id="team-calendar-dialog-title" className="text-lg font-semibold text-slate-900">{editing ? canEdit ? "Modifica evento" : "Dettaglio evento" : "Nuova disponibilita o assenza"}</h2><button type="button" className={button} disabled={busy} onClick={() => setForm(null)} title="Chiudi" aria-label="Chiudi"><X size={18} /></button></div>
+        {!canEdit && <p className="px-5 pt-4 text-sm font-semibold text-slate-600">Evento di un altro membro: sola lettura.</p>}
+        <fieldset disabled={busy || !canEdit} className="grid gap-4 p-5">
+          {editing?.repeats_weekly && canEdit && <p className="text-sm font-medium text-amber-800">La modifica riguarda tutta la serie settimanale.</p>}
+          {canEdit ? <label className="grid gap-1 text-sm font-semibold">Membro del team<select required className={input} value={form.member_id} onChange={(e) => change("member_id", e.target.value)}><option value="">Seleziona membro</option>{selectableMembers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label> : <div className="text-sm"><span className="font-semibold">Membro del team</span><p className="mt-1">{data?.members.find((m) => m.id === editing?.member_id)?.name ?? "Membro del team"}</p></div>}
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tipo evento">{(["available", "absent"] as const).map((kind) => <button type="button" key={kind} aria-pressed={form.kind === kind} data-kind={kind} className={styles.statusChoice} onClick={() => change("kind", kind)}><span>{kind === "available" ? <CheckCircle2 size={16} /> : <MinusCircle size={16} />}{kind === "available" ? "Disponibile" : "Assente"}</span><small aria-hidden="true">{form.kind === kind ? "Selezionato" : "\u00a0"}</small></button>)}</div>
           <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-emerald-700" checked={form.all_day} onChange={(e) => setForm({ ...form, all_day: e.target.checked, start_time: e.target.checked ? null : "09:00", end_time: e.target.checked ? null : "13:00" })} />Tutto il giorno</label>
           <div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-1 text-sm font-semibold">Dal giorno<input type="date" required className={input} value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value, end_date: form.repeats_weekly || form.end_date < e.target.value ? e.target.value : form.end_date })} /></label><label className="grid gap-1 text-sm font-semibold">Al giorno (compreso)<input type="date" required disabled={form.repeats_weekly} min={form.start_date} className={input} value={form.end_date} onChange={(e) => change("end_date", e.target.value)} /></label></div>
@@ -182,7 +188,7 @@ export function AdminTeamCalendar() {
           <label className="grid gap-1 text-sm font-semibold">Nota facoltativa<textarea className={`${input} min-h-20 resize-y`} maxLength={1000} value={form.note} onChange={(e) => change("note", e.target.value)} /></label>
           {formError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{formError}</div>}
         </fieldset>
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 p-5">{editing && <button type="button" className={`${button} mr-auto !border-red-200 !text-red-700`} disabled={busy} onClick={() => void remove()}><Trash2 size={16} />Elimina</button>}<button type="button" className={button} disabled={busy} onClick={() => setForm(null)}>Annulla</button><button type="submit" className={primary} disabled={busy}><Save size={16} />{busy ? "Salvataggio..." : "Salva"}</button></div>
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200 p-5">{editing && canEdit && <button type="button" className={`${button} mr-auto !border-red-200 !text-red-700`} disabled={busy} onClick={() => void remove()}><Trash2 size={16} />Elimina</button>}<button type="button" className={button} disabled={busy} onClick={() => setForm(null)}>{canEdit ? "Annulla" : "Chiudi"}</button>{canEdit && <button type="submit" className={primary} disabled={busy}><Save size={16} />{busy ? "Salvataggio..." : "Salva"}</button>}</div>
       </form>}
     </dialog>
   </div>;

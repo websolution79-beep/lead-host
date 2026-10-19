@@ -45,7 +45,7 @@
 .statusChoice[aria-pressed="true"][data-kind="available"] { background: #047857; border-color: #047857; color: #fff; }
 .statusChoice[aria-pressed="true"][data-kind="absent"] { background: #b91c1c; border-color: #b91c1c; color: #fff; }
 .statusChoice:focus-visible { outline: 3px solid #94a3b8; outline-offset: 3px; }
-.statusChoice:disabled { opacity: 0.6; cursor: wait; }
+.statusChoice:disabled { opacity: 0.6; cursor: default; }
 @media (max-width: 767px) {
   .root :global(.fc) { font-size: 12px; }
   .root :global(.fc-timegrid-event .fc-event-main) { font-size: 10px; }

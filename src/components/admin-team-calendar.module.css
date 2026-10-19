@@ -1,0 +1,53 @@
+.root {
+  min-width: 0;
+  --fc-border-color: #e2e8f0;
+  --fc-today-bg-color: #f0fdf7;
+  --fc-now-indicator-color: #dc2626;
+  --fc-page-bg-color: #ffffff;
+}
+.root :global(.fc) { font-size: 13px; }
+.root :global(.fc-col-header-cell-cushion) { padding: 12px 4px; color: #334155; font-weight: 600; }
+.root :global(.fc-timegrid-slot) { height: 28px; }
+.root :global(.fc-timegrid-slot-label) { color: #64748b; font-size: 11px; }
+.root :global(.fc-event) { border-radius: 5px; border-width: 0 0 0 4px; cursor: pointer; overflow: hidden; }
+.root :global(.fc-event:focus-visible) { outline: 2px solid #047857; outline-offset: 2px; }
+.root :global(.fc-daygrid-event) { white-space: normal; }
+.root :global(.fc-list-event:hover td) { background: #f8fafc; }
+.root :global(.fc-list-event-time) { white-space: normal; min-width: 65px; }
+.root :global(.fc-list-day-cushion) { background: #f1f5f9; }
+.root :global(.fc-timegrid-event .fc-event-main) { overflow-y: auto; }
+.eventDetails { min-width: 0; padding: 4px; white-space: normal; overflow-wrap: anywhere; font-size: 12px; line-height: 16px; }
+.eventStatus { display: block; margin-top: 4px; font-weight: 600; }
+.eventStatus svg { display: inline-block; vertical-align: -2px; margin-right: 3px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 16px; font-size: 12px; color: #475569; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.dialog { width: min(600px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 0; border: 1px solid #cbd5e1; border-radius: 8px; color: #17202a; background: white; overflow-y: auto; box-shadow: 0 24px 80px #0f172a33; }
+.dialog::backdrop { background: #0f172a80; }
+.statusChoice {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 8px;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.statusChoice > span { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.statusChoice > span > svg { flex-shrink: 0; }
+.statusChoice small { font-size: 11px; line-height: 14px; font-weight: 500; }
+.statusChoice:hover { background: #f1f5f9; }
+.statusChoice[aria-pressed="true"][data-kind="available"] { background: #047857; border-color: #047857; color: #fff; }
+.statusChoice[aria-pressed="true"][data-kind="absent"] { background: #b91c1c; border-color: #b91c1c; color: #fff; }
+.statusChoice:focus-visible { outline: 3px solid #94a3b8; outline-offset: 3px; }
+.statusChoice:disabled { opacity: 0.6; cursor: wait; }
+@media (max-width: 767px) {
+  .root :global(.fc) { font-size: 12px; }
+  .root :global(.fc-timegrid-event .fc-event-main) { font-size: 10px; }
+  .dialog { max-height: calc(100dvh - 16px); }
+}

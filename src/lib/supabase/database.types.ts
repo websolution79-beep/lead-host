@@ -9,6 +9,19 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      team_calendar_entries: {
+        Row: {
+          id: string; member_id: string; kind: "available" | "absent";
+          start_date: string; end_date: string; all_day: boolean;
+          start_time: string | null; end_time: string | null;
+          repeats_weekly: boolean; repeat_until: string | null; note: string;
+          created_by: string | null; updated_by: string | null;
+          created_at: string; updated_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["team_calendar_entries"]["Row"], "id" | "created_at" | "updated_at"> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["team_calendar_entries"]["Insert"]>;
+        Relationships: [];
+      };
       owner_request_assignments: {
         Row: { owner_request_id: string; assignee_profile_id: string | null; revision: number | string; assigned_at: string | null; updated_at: string; updated_by_profile_id: string | null };
         Insert: { owner_request_id: string; assignee_profile_id?: string | null; revision?: number | string; assigned_at?: string | null; updated_at?: string; updated_by_profile_id?: string | null };

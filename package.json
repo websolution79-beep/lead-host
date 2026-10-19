@@ -15,10 +15,17 @@
     "backup:restore-storage": "node scripts/backup/restore-storage.mjs"
   },
   "dependencies": {
+    "@fullcalendar/core": "^6.1.22",
+    "@fullcalendar/daygrid": "^6.1.22",
+    "@fullcalendar/list": "^6.1.22",
+    "@fullcalendar/luxon3": "^6.1.22",
+    "@fullcalendar/react": "^6.1.22",
+    "@fullcalendar/timegrid": "^6.1.22",
     "@supabase/supabase-js": "^2.110.7",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.475.0",
+    "luxon": "^3.7.2",
     "next": "^16.2.11",
     "pdfkit": "^0.19.1",
     "react": "19.2.4",
@@ -30,6 +37,7 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1110.0",
     "@tailwindcss/postcss": "^4",
+    "@types/luxon": "^3.7.6",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",
     "@types/react": "^19",

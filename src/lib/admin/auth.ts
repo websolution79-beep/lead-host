@@ -153,6 +153,10 @@ export async function requireActiveTeamMember(
   return context as AdminContext & { teamMemberId: string };
 }
 
+export async function requireTeamCalendarAccess(request: NextRequest): Promise<AdminContext> {
+  return requireAdminContext(request);
+}
+
 export function adminApiErrorResponse(error: unknown) {
   if (error instanceof AdminApiError) {
     return NextResponse.json({ error: error.message }, { status: error.status });

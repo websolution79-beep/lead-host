@@ -18,6 +18,7 @@ type AppAreaChromeProps = {
   adminHomeHref?: string;
   adminPermissions?: AdminPermissionMap;
   isSuperAdmin?: boolean;
+  isTeamMember?: boolean;
   marketingAddon?: MarketingAddonState;
   primeAccess?: boolean;
 };
@@ -177,7 +178,7 @@ const adminLinks: Array<{
     superAdminOnly: true,
   },
   { label: "Team", href: "/admin/team", group: "Configurazione", superAdminOnly: true },
-  { label: "Presenze e assenze", href: "/admin/presenze", group: "Configurazione", superAdminOnly: true },
+  { label: "Presenze e assenze", href: "/admin/presenze", group: "Configurazione" },
   { label: "I miei guadagni", href: "/admin/i-miei-guadagni", group: "Configurazione", teamMemberOnly: true },
   { label: "Profilo", href: "/admin/profilo", group: "Configurazione" },
 ];
@@ -188,6 +189,7 @@ export function AppAreaChrome({
   adminHomeHref = "/admin",
   adminPermissions = {},
   isSuperAdmin = false,
+  isTeamMember = false,
   marketingAddon,
   primeAccess = false,
 }: AppAreaChromeProps) {
@@ -214,6 +216,9 @@ export function AppAreaChrome({
           ]
         : basePmLinks;
   const homeHref = section === "admin" ? adminHomeHref : "/app/marketplace";
+  const mobileLinks = section === "pm" && isTeamMember
+    ? [...links, { label: "Presenze e assenze", href: "/admin/presenze", group: "Team" }]
+    : links;
 
   return (
     <main className="premium-shell min-h-screen">
@@ -230,7 +235,7 @@ export function AppAreaChrome({
             <BrandLogo href={homeHref} />
           </div>
           <MobileMenu
-            links={links}
+            links={mobileLinks}
             supportHref={section === "admin" ? "/admin/segnalazioni" : "/app/assistenza"}
             supportSection={section}
             adminLeadBadgeHref={section === "admin" ? "/admin/leads" : undefined}

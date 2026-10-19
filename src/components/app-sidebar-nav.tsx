@@ -303,7 +303,6 @@ const adminLinks: AppNavLink[] = [
     href: "/admin/presenze",
     icon: CalendarDays,
     category: "Configurazione",
-    superAdminOnly: true,
   },
   {
     label: "I miei guadagni",

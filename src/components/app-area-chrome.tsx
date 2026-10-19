@@ -177,6 +177,7 @@ const adminLinks: Array<{
     superAdminOnly: true,
   },
   { label: "Team", href: "/admin/team", group: "Configurazione", superAdminOnly: true },
+  { label: "Presenze e assenze", href: "/admin/presenze", group: "Configurazione", superAdminOnly: true },
   { label: "I miei guadagni", href: "/admin/i-miei-guadagni", group: "Configurazione", teamMemberOnly: true },
   { label: "Profilo", href: "/admin/profilo", group: "Configurazione" },
 ];

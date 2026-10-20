@@ -11,6 +11,7 @@ import {
 } from "@/lib/owner-requests/duplicate-check";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
+import { detectLeadEditActivity } from "@/lib/lead-operational-activity";
 
 type RouteContext = {
   params: Promise<{
@@ -162,6 +163,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         { status: 409 },
       );
     }
+
+    const activityKind = detectLeadEditActivity({ request: requestResult.data, contact: contactResult.data, property: propertyResult.data, lead: leadResult.data }, payload.data);
 
     const nextContact = {
       firstName:
@@ -385,6 +388,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (finalWriteError) throw finalWriteError;
 
+    let activityWarning: string | undefined;
+    if (activityKind) {
+      try {
+        const activity = await supabase.rpc("record_owner_request_operational_activity", {
+          p_owner_request_id: ownerRequestId,
+          p_actor_profile_id: profile.id,
+          p_kind: activityKind,
+        });
+        if (activity.error) throw activity.error;
+      } catch (error) {
+        console.error("Lead saved but operational activity not recorded:", error instanceof Error ? error.message : "database unavailable");
+        activityWarning = "Informazioni salvate, ma la data dell'ultima attivita non e stata aggiornata. Contatta l'amministratore.";
+      }
+    }
+
     await writeAdminAuditLog({
       supabase,
       request,
@@ -436,6 +454,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ok: true,
       missingFields,
       duplicateCheck,
+      activityWarning,
     });
   } catch (error) {
     return adminApiErrorResponse(error);

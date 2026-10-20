@@ -9,6 +9,12 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      owner_request_operational_activity: {
+        Row: { owner_request_id: string; last_activity_at: string; kind: "pipeline_move" | "note_updated" | "information_updated"; source: "tracked" | "audit"; actor_profile_id: string | null };
+        Insert: Database["public"]["Tables"]["owner_request_operational_activity"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["owner_request_operational_activity"]["Insert"]>;
+        Relationships: [];
+      };
       team_calendar_entries: {
         Row: {
           id: string; member_id: string; kind: "available" | "absent";
@@ -3470,6 +3476,10 @@ export type Database = {
           p_actor_profile_id: string;
         };
         Returns: Database["public"]["Tables"]["owner_requests"]["Row"];
+      };
+      record_owner_request_operational_activity: {
+        Args: { p_owner_request_id: string; p_actor_profile_id: string; p_kind: string };
+        Returns: string;
       };
       fail_service_email_batch: {
         Args: {

@@ -26,6 +26,7 @@ import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import { LeadPresenceBanner } from "@/components/lead-presence-banner";
+import { AdminLeadPipelineMove } from "@/components/admin-lead-pipeline-move";
 import { AdminLeadVerificationCompensation } from "@/components/admin-lead-verification-compensation";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { PaginationControls } from "@/components/pagination-controls";
@@ -299,6 +300,29 @@ export function AdminLeadsConsole() {
 
     return () => window.clearTimeout(timeout);
   }, [loadRecords]);
+
+  async function movePipelineStage(record: AdminLeadRecord, stageId: string) {
+    setActionLoading(record.ownerRequestId);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+      const response = await fetch("/api/admin/leads/pipeline", {
+        method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move_request", ownerRequestId: record.ownerRequestId, stageId }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Spostamento non riuscito. Riprova.");
+      setRecords((current) => current.map((item) => item.ownerRequestId === record.ownerRequestId
+        ? { ...item, reviewPipelineStageId: stageId } : item));
+      try {
+        await loadRecords();
+      } catch {
+        setError("Lead spostato. Non riesco ad aggiornare gli altri dati: ricarica la pagina prima di continuare.");
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   async function approve(record: AdminLeadRecord) {
     const priceDraft = getApprovalDraft(record);
@@ -879,6 +903,7 @@ export function AdminLeadsConsole() {
               onApprove={requestApproval}
               onReject={reject}
               onMoveToStatus={moveToStatus}
+              onPipelineMove={movePipelineStage}
               onManualTelegram={requestManualTelegram}
               onRepublish={setRepublishRecord}
               onReleasePrime={setPrimeReleaseRecord}
@@ -961,6 +986,7 @@ function LeadDetailPanel({
   onApprove,
   onReject,
   onMoveToStatus,
+  onPipelineMove,
   onManualTelegram,
   onRepublish,
   onReleasePrime,
@@ -985,6 +1011,7 @@ function LeadDetailPanel({
     status: "pending" | "to_verify",
   ) => void;
   onManualTelegram: (record: AdminLeadRecord) => void;
+  onPipelineMove: (record: AdminLeadRecord, stageId: string) => Promise<void>;
   onRepublish: (record: AdminLeadRecord) => void;
   onReleasePrime: (record: AdminLeadRecord) => void;
   onEdit: () => void;
@@ -1037,6 +1064,9 @@ function LeadDetailPanel({
         </div>
       </div>
 
+      {canManage && record.requestStatus === "to_verify" ? <AdminLeadPipelineMove
+        key={record.ownerRequestId} currentStageId={record.reviewPipelineStageId} disabled={isBusy}
+        onMove={(stageId) => onPipelineMove(record, stageId)} /> : null}
       <div
         className={`mt-4 rounded-lg border p-3 ${
           missingFields.length

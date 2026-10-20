@@ -9,6 +9,12 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      owner_request_presence: {
+        Row: { session_id: string; owner_request_id: string; profile_id: string; expires_at: string; closed_at: string | null };
+        Insert: Database["public"]["Tables"]["owner_request_presence"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["owner_request_presence"]["Insert"]>;
+        Relationships: [];
+      };
       owner_request_operational_activity: {
         Row: { owner_request_id: string; last_activity_at: string; kind: "pipeline_move" | "note_updated" | "information_updated"; source: "tracked" | "audit"; actor_profile_id: string | null };
         Insert: Database["public"]["Tables"]["owner_request_operational_activity"]["Row"];
@@ -3231,6 +3237,10 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      update_owner_request_presence: {
+        Args: { p_owner_request_id: string; p_actor_profile_id: string; p_session_id: string; p_action: string };
+        Returns: Json;
+      };
       can_take_owner_request: { Args: { p_profile_id: string }; Returns: boolean };
       owner_request_assignment_candidates: {
         Args: { p_actor_profile_id: string };

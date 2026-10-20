@@ -25,6 +25,7 @@ import {
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
+import { LeadPresenceBanner } from "@/components/lead-presence-banner";
 import { AdminLeadVerificationCompensation } from "@/components/admin-lead-verification-compensation";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { PaginationControls } from "@/components/pagination-controls";
@@ -1003,6 +1004,7 @@ function LeadDetailPanel({
 
   return (
     <aside className="card h-fit p-5">
+      {canManage && record.requestStatus === "to_verify" ? <LeadPresenceBanner key={record.ownerRequestId} ownerRequestId={record.ownerRequestId} /> : null}
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="section-kicker">Dettaglio</p>

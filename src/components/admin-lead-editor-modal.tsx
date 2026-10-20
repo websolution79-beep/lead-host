@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { AdminLeadFinancialEstimateModal } from "@/components/admin-lead-financial-estimate-modal";
+import { LeadPresenceBanner } from "@/components/lead-presence-banner";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { ITALY_GEO } from "@/lib/geo/italy-geo";
 import {
@@ -315,6 +316,7 @@ export function AdminLeadEditorModal({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {record.requestStatus === "to_verify" ? <LeadPresenceBanner key={record.ownerRequestId} ownerRequestId={record.ownerRequestId} /> : null}
           <div className="grid min-w-0 gap-7">
             <EditorSection icon={UserRound} title="Dati proprietario">
               <div className="grid gap-4 sm:grid-cols-2">

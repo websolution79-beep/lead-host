@@ -252,6 +252,7 @@ export function AdminLeadEditorModal({
     });
     const payload = (await response.json()) as {
       error?: string;
+      activityWarning?: string;
       fields?: Array<{ field: string; message: string }>;
     };
 
@@ -264,6 +265,8 @@ export function AdminLeadEditorModal({
       setSaving(false);
       return;
     }
+
+    if (payload.activityWarning) window.alert(payload.activityWarning);
 
     if (!record.lead) {
       onApprovalDraftChange?.({

@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock3, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { LeadAssignmentControl } from "@/components/lead-assignment-control";
 import { useLeadAssignments } from "@/components/use-lead-assignments";
+import { compareLeadActivity, describeLeadActivity } from "@/lib/lead-operational-activity";
 
 type PipelineStage = { id: string; name: string; color: string; position: number };
 type PipelineResponse = { stages?: PipelineStage[]; error?: string };
@@ -14,6 +15,7 @@ type StageDraft = { id?: string; name: string; color: string };
 const stageColors = ["#2563EB", "#7C3AED", "#0F766E", "#B45309", "#C2410C", "#047857", "#4F46E5", "#B91C1C"] as const;
 // Existing Lead Host intake column: its editable name and position are not identifiers.
 const intakeStageId = "a2fdcf08-b16a-45cb-a68e-325596ebc1f1";
+const activityDateFormat = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChanged }: {
   records: AdminLeadRecord[];
@@ -32,6 +34,13 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   const [deleteDestinationId, setDeleteDestinationId] = useState("");
   const [onlyMine, setOnlyMine] = useState(false);
   const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [activityOrder, setActivityOrder] = useState("current");
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const getToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -137,6 +146,13 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
           <input className="size-5 shrink-0 accent-green" type="checkbox" checked={onlyMine} disabled={!filtersAvailable} onChange={(event) => setOnlyMine(event.target.checked)} />
           Presi in carico da me
         </label>}
+        <label className="grid w-full gap-2 text-sm font-semibold text-ink sm:max-w-sm" htmlFor="pipeline-activity-order">
+          Ordine nelle colonne
+          <select id="pipeline-activity-order" className="form-input min-h-12 w-full" value={activityOrder} onChange={(event) => setActivityOrder(event.target.value)}>
+            <option value="current">Ordine attuale</option>
+            <option value="oldest">Meno lavorati di recente</option>
+          </select>
+        </label>
         {selectedAssignee && filtersAvailable ? <p className="text-sm text-muted" role="status">{visibleRecords.length} {visibleRecords.length === 1 ? "lead visualizzato" : "lead visualizzati"}</p> : null}
       </div>
       {error ? <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p> : null}
@@ -147,6 +163,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
         <div className="grid min-w-max grid-flow-col auto-cols-[minmax(286px,336px)] gap-4">
           {stages.map((stage, index) => {
             const stageRecords = visibleRecords.filter((record) => record.reviewPipelineStageId === stage.id);
+            if (activityOrder === "oldest") stageRecords.sort(compareLeadActivity);
             return <article className={`flex min-h-[370px] flex-col rounded-xl border border-slate-200 bg-slate-100/80 p-3 transition ${draggingId ? "border-dashed" : ""}`} key={stage.id}
               onDragOver={(event) => canManage && event.preventDefault()} onDrop={(event) => { if (!canManage) return; event.preventDefault(); const id = event.dataTransfer.getData("text/leadhost-owner-request") || draggingId; if (id) void moveLead(id, stage.id); }}>
               <div className="flex items-start justify-between gap-2 px-1 pb-3">
@@ -158,7 +175,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
                 </div> : null}
               </div>
               <div className="grid min-h-24 gap-3">
-                {stageRecords.map((record) => <NewLeadCard key={record.ownerRequestId} record={record} draggable={canManage} dragging={draggingId === record.ownerRequestId} onDragStart={(event) => { event.dataTransfer.setData("text/leadhost-owner-request", record.ownerRequestId); event.dataTransfer.effectAllowed = "move"; setDraggingId(record.ownerRequestId); }} onDragEnd={() => setDraggingId(null)} onOpen={() => onOpenDetail(record)}>
+                {stageRecords.map((record) => <NewLeadCard key={record.ownerRequestId} record={record} now={now} draggable={canManage} dragging={draggingId === record.ownerRequestId} onDragStart={(event) => { event.dataTransfer.setData("text/leadhost-owner-request", record.ownerRequestId); event.dataTransfer.effectAllowed = "move"; setDraggingId(record.ownerRequestId); }} onDragEnd={() => setDraggingId(null)} onOpen={() => onOpenDetail(record)}>
                   {stage.id !== intakeStageId ? <LeadAssignmentControl ownerRequestId={record.ownerRequestId} title={record.lead?.title ?? defaultTitle(record)}
                     snapshot={assignments.snapshot} assignment={assignmentsByRequest.get(record.ownerRequestId)}
                     disabled={!canManage || !assignments.fresh || Boolean(assignments.savingId)}
@@ -177,9 +194,9 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   );
 }
 
-function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOpen, children }: { record: AdminLeadRecord; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void; children: ReactNode }) {
+function NewLeadCard({ record, now, draggable, dragging, onDragStart, onDragEnd, onOpen, children }: { record: AdminLeadRecord; now: number; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void; children: ReactNode }) {
   const internalNotes = record.qualificationNotes?.trim();
-  return <article className={`group w-full rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`}>
+  return <article data-lead-request-id={record.ownerRequestId} className={`group w-full rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`}>
     <button className={`w-full p-4 text-left ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`} draggable={draggable} onDragStart={onDragStart} onDragEnd={onDragEnd} type="button" onClick={onOpen}>
     <div className="flex items-start gap-2">
       {draggable ? <span title="Trascina il lead" className="mt-0.5 shrink-0 text-slate-400 group-hover:text-green"><GripVertical size={17} /></span> : null}
@@ -207,7 +224,19 @@ function NewLeadCard({ record, draggable, dragging, onDragStart, onDragEnd, onOp
     </div>
     </button>
     {children}
+    <ActivityFooter record={record} now={now} />
   </article>;
+}
+function ActivityFooter({ record, now }: { record: AdminLeadRecord; now: number }) {
+  const activity = describeLeadActivity(record, now);
+  const colors = activity.tone === "danger" ? "border-red-200 bg-red-50 text-red-800" : activity.tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600";
+  const date = activity.at ?? (record.operationalActivity === null ? record.createdAt : null);
+  return <div data-activity-tone={activity.tone} className={`rounded-b-lg border-t px-4 py-3 text-xs leading-5 ${colors}`}>
+    <p className="flex items-start gap-1.5 font-semibold"><Clock3 size={14} className="mt-0.5 shrink-0" />{activity.label}</p>
+    {date && Number.isFinite(Date.parse(date)) ? <p className="mt-0.5">{!activity.at ? "Arrivo: " : ""}<time dateTime={date}>{activityDateFormat.format(new Date(date))}</time></p> : null}
+    {activity.age ? <p className="mt-0.5 font-semibold">{activity.age}</p> : null}
+    {activity.historical ? <span className="text-[10px]" title="Operazione recuperata dai vecchi log; non certifica l'ultimo contatto telefonico e puo includere salvataggi senza variazioni.">Da storico</span> : null}
+  </div>;
 }
 function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
   const worker = record.firstWorkedBy;

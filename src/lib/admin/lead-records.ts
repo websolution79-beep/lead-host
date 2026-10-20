@@ -1,5 +1,7 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/lib/supabase/database.types";
+import { fetchLeadActivities } from "@/lib/admin/lead-activity-records";
+import type { LeadOperationalActivity } from "@/lib/lead-operational-activity";
 import {
   getVisibleSharedSlotsAvailable,
   parseLeadDate,
@@ -27,6 +29,7 @@ export type AdminLeadRecord = {
   ownerRequestId: string;
   createdAt: string;
   updatedAt: string;
+  operationalActivity?: LeadOperationalActivity | null;
   requestStatus: string;
   acquisitionChannel: string;
   qualificationNotes: string | null;
@@ -147,7 +150,7 @@ async function fetchAdminLeadRecordBatch(
   }
 
   const firstWorkedProfileIds = [...new Set((requests ?? []).map((item) => item.first_worked_by_profile_id).filter((id): id is string => Boolean(id)))];
-  const [contactsResult, propertiesResult, leadsResult, statusMetadataResult, firstWorkedProfilesResult, firstWorkedMembersResult] =
+  const [contactsResult, propertiesResult, leadsResult, statusMetadataResult, firstWorkedProfilesResult, firstWorkedMembersResult, activities] =
     await Promise.all([
       supabase
         .from("owner_contacts")
@@ -175,6 +178,7 @@ async function fetchAdminLeadRecordBatch(
       firstWorkedProfileIds.length
         ? supabase.from("team_members").select("profile_id,badge_color").in("profile_id", firstWorkedProfileIds)
         : Promise.resolve({ data: [], error: null }),
+      fetchLeadActivities(supabase, ownerRequestIds),
     ]);
 
   if (contactsResult.error) throw contactsResult.error;
@@ -245,6 +249,7 @@ async function fetchAdminLeadRecordBatch(
       ownerRequestId: request.id,
       createdAt: request.created_at,
       updatedAt: request.updated_at,
+      operationalActivity: activities.available ? activities.byRequest.get(request.id) ?? null : undefined,
       requestStatus: request.status,
       acquisitionChannel: request.acquisition_channel,
       qualificationNotes: request.qualification_notes,

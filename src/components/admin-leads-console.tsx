@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   BadgeCheck,
@@ -119,6 +119,7 @@ export function AdminLeadsConsole() {
       hasAdminPermission(session.adminPermissions ?? {}, "prime", "write"));
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
+  const recordsLoadId = useRef(0);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
     waitingCompletion: 0,
     duplicates: 0,
@@ -213,7 +214,9 @@ export function AdminLeadsConsole() {
   }, [supabase]);
 
   const loadRecords = useCallback(async () => {
+    const loadId = ++recordsLoadId.current;
     const token = await getAccessToken();
+    if (loadId !== recordsLoadId.current) return;
 
     setLoading(true);
     setError(null);
@@ -233,6 +236,7 @@ export function AdminLeadsConsole() {
     const payload = (await response.json()) as Partial<AdminLeadsResponse> & {
       error?: string;
     };
+    if (loadId !== recordsLoadId.current) return;
 
     if (!response.ok) {
       setError(payload.error ?? "Non sono riuscito a caricare i lead.");
@@ -314,11 +318,14 @@ export function AdminLeadsConsole() {
       if (!response.ok) throw new Error(payload.error ?? "Spostamento non riuscito. Riprova.");
       setRecords((current) => current.map((item) => item.ownerRequestId === record.ownerRequestId
         ? { ...item, reviewPipelineStageId: stageId } : item));
-      try {
-        await loadRecords();
-      } catch {
+      // The move is complete; a slower list refresh must not keep the action busy.
+      const refresh = loadRecords();
+      const refreshId = recordsLoadId.current;
+      void refresh.catch(() => {
+        if (refreshId !== recordsLoadId.current) return;
+        setLoading(false);
         setError("Lead spostato. Non riesco ad aggiornare gli altri dati: ricarica la pagina prima di continuare.");
-      }
+      });
     } finally {
       setActionLoading(null);
     }

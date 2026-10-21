@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeEuro,
   Calculator,
@@ -21,6 +21,8 @@ import {
   OWNER_TIMING_OPTIONS,
 } from "@/lib/owner-requests/options";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { getLeadAccessToken } from "@/lib/auth/lead-access-token";
+import { useAppSession } from "@/components/app-session-provider";
 
 type AdminLeadEditorModalProps = {
   record: AdminLeadRecord;
@@ -77,11 +79,13 @@ export function AdminLeadEditorModal({
   onSaved,
 }: AdminLeadEditorModalProps) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const { userId } = useAppSession();
   const [draft, setDraft] = useState<LeadEditDraft>(() =>
     buildDraft(record, approvalDraft),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const [financialEstimateOpen, setFinancialEstimateOpen] = useState(false);
   const regions = useMemo(
     () => mergeOptions(ITALY_GEO.map((item) => item.region), draft.region),
@@ -125,6 +129,10 @@ export function AdminLeadEditorModal({
       ),
     [draft.requestedServices],
   );
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [error]);
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflow;
@@ -195,12 +203,12 @@ export function AdminLeadEditorModal({
 
     setSaving(true);
     setError("");
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    let saved = false;
+    try {
+    const token = await getLeadAccessToken(supabase, userId);
 
     if (!token) {
-      setError("Sessione admin non disponibile.");
-      setSaving(false);
+      setError("Sessione scaduta. Accedi in un'altra scheda e riprova: i dati inseriti restano nel modulo.");
       return;
     }
 
@@ -267,6 +275,7 @@ export function AdminLeadEditorModal({
       return;
     }
 
+    saved = true;
     if (payload.activityWarning) window.alert(payload.activityWarning);
 
     if (!record.lead) {
@@ -280,8 +289,11 @@ export function AdminLeadEditorModal({
     }
 
     await onSaved();
-    setSaving(false);
     onClose();
+    } catch (cause) {
+      setError(saved ? "Informazioni salvate, ma non riesco ad aggiornare l'elenco. Chiudi il dettaglio e ricarica la pagina."
+        : cause instanceof Error && !(cause instanceof TypeError) ? cause.message : "Salvataggio non riuscito. Verifica la connessione e riprova: i dati inseriti restano nel modulo.");
+    } finally { setSaving(false); }
   }
 
   return (
@@ -553,8 +565,9 @@ export function AdminLeadEditorModal({
           </div>
 
           {error ? (
-            <p className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+            <p ref={errorRef} role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
               {error}
+              {error.startsWith("Sessione") ? <a className="mt-2 block underline" href="/login?redirect=%2Fadmin%2Fleads" target="_blank" rel="noopener noreferrer">{"Accedi in un'altra scheda"}</a> : null}
             </p>
           ) : null}
         </div>

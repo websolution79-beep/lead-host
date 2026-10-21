@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { BellRing, Send, X } from "lucide-react";
 import { useAppSession } from "@/components/app-session-provider";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 
 const TELEGRAM_CHANNEL_URL = "https://t.me/+nZiF2verYaUzNzg0";
+const WHATSAPP_COMMUNITY_URL = "https://chat.whatsapp.com/DkYCM4dsODCEOtu2mFooe1";
 
 export function TelegramOpportunityPrompt() {
   const session = useAppSession();
@@ -33,7 +35,6 @@ export function TelegramOpportunityPrompt() {
 
   useEffect(() => {
     if (!isPropertyManager) {
-      setLoading(false);
       return;
     }
 
@@ -119,7 +120,7 @@ export function TelegramOpportunityPrompt() {
     closeForSession();
   }
 
-  if (loading || !visible) return null;
+  if (!isPropertyManager || loading || !visible) return null;
 
   return (
     <div
@@ -130,7 +131,7 @@ export function TelegramOpportunityPrompt() {
       }}
     >
       <section
-        className="relative w-full max-w-xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="telegram-prompt-title"
@@ -138,7 +139,7 @@ export function TelegramOpportunityPrompt() {
         <button
           className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-ink focus:outline-none focus:ring-2 focus:ring-[#229ED9] focus:ring-offset-2"
           type="button"
-          aria-label="Chiudi avviso Telegram"
+          aria-label="Chiudi avviso notifiche"
           title="Chiudi"
           onClick={closeForSession}
         >
@@ -156,18 +157,29 @@ export function TelegramOpportunityPrompt() {
             Le opportunità su Lead Host sono limitate: quando un Property Manager acquista un Lead in esclusiva, questo non è più disponibile per gli altri.
           </p>
           <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
-            Entra nel nostro canale Telegram per ricevere una notifica ogni volta che pubblichiamo un nuovo immobile, senza dover controllare continuamente il Marketplace.
+            Entra nel nostro canale Telegram o nella Community WhatsApp per ricevere una notifica ogni volta che pubblichiamo un nuovo immobile, senza dover controllare continuamente il Marketplace.
           </p>
 
           <a
-            className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] px-5 text-center text-sm font-bold text-white shadow-sm transition hover:bg-[#1B8DC7] focus:outline-none focus:ring-2 focus:ring-[#229ED9] focus:ring-offset-2 sm:text-base"
+            className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#229ED9] px-5 py-3 text-center text-sm font-bold text-white shadow-sm transition hover:bg-[#1B8DC7] focus:outline-none focus:ring-2 focus:ring-[#229ED9] focus:ring-offset-2 sm:text-base"
             href={TELEGRAM_CHANNEL_URL}
             target="_blank"
             rel="noreferrer"
             onClick={closeForSession}
           >
-            <Send aria-hidden="true" size={19} />
-            ATTIVA GLI AVVISI SU TELEGRAM
+            <Send aria-hidden="true" size={19} className="shrink-0" />
+            <span className="min-w-0 break-words">ATTIVA GLI AVVISI SU TELEGRAM</span>
+          </a>
+
+          <a
+            className="mt-3 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-green px-5 py-3 text-center text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2 sm:text-base"
+            href={WHATSAPP_COMMUNITY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={closeForSession}
+          >
+            <Image src="/images/workshop-whatsapp.svg" alt="" width={19} height={19} className="shrink-0 brightness-0 invert" />
+            <span className="min-w-0 break-words">ATTIVA GLI AVVISI SU WHATSAPP</span>
           </a>
 
           <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-700">

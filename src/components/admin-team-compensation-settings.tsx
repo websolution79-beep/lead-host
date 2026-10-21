@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BadgeEuro, Percent, Power, Save, ShieldCheck } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { AdminMarketplacePromotionSettings } from "@/components/admin-marketplace-promotion-settings";
 
 type CompensationSettings = {
   featureEnabled: boolean;
@@ -254,6 +255,7 @@ export function AdminTeamCompensationSettings() {
           onChange={(value) => setSettings((current) => ({ ...current, primeLeadPurchaseBasisPoints: value }))}
         />
       </div>
+      <AdminMarketplacePromotionSettings generalEngineEnabled={settings.featureEnabled} />
     </div>
   );
 }

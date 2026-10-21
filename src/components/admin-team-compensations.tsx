@@ -19,6 +19,7 @@ type EventType =
   | "prime_first_activation"
   | "prime_renewal"
   | "prime_lead_purchase"
+  | "marketplace_promotion_sale"
   | "refund_adjustment"
   | "manual_adjustment";
 
@@ -311,6 +312,7 @@ const eventTypeOptions = [
   { value: "prime_first_activation", label: "Prima attivazione PRIME" },
   { value: "prime_renewal", label: "Rinnovo PRIME" },
   { value: "prime_lead_purchase", label: "Acquisto Lead PRIME" },
+  { value: "marketplace_promotion_sale", label: "Vendita lead Marketplace" },
   { value: "refund_adjustment", label: "Riaccredito Lead" },
   { value: "manual_adjustment", label: "Rettifica manuale" },
 ];

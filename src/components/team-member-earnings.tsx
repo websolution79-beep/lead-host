@@ -268,6 +268,7 @@ export function TeamMemberEarnings({ previewMemberId }: { previewMemberId?: stri
               <option value="prime_first_activation">Nuovo PM PRIME</option>
               <option value="prime_renewal">Rinnovo PM PRIME</option>
               <option value="prime_lead_purchase">Acquisto Lead PM PRIME</option>
+              <option value="marketplace_promotion_sale">Vendita lead Marketplace</option>
               <option value="refund_adjustment">Rettifiche rimborso</option>
               <option value="manual_adjustment">Rettifiche manuali</option>
             </select>
@@ -407,6 +408,7 @@ function eventTypeLabel(type: string) {
   if (type === "prime_first_activation") return "Nuovo PRIME";
   if (type === "prime_renewal") return "Rinnovo PRIME";
   if (type === "prime_lead_purchase") return "Acquisto Lead PRIME";
+  if (type === "marketplace_promotion_sale") return "Vendita lead Marketplace";
   if (type === "refund_adjustment") return "Rettifica rimborso";
   return "Rettifica manuale";
 }

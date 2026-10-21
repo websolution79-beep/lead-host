@@ -14,6 +14,7 @@ import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { capturePrimeLeadPurchaseCompensation } from "@/lib/team-compensation/worker";
+import { runMarketplacePromotionWorkerSafely } from "@/lib/team-compensation/marketplace-promotion-worker";
 import { getMarketplaceAccess } from "@/lib/marketplace-membership/access";
 
 const purchaseSchema = z.object({
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
           balanceCents: purchase.balance_cents,
         }),
         runBrevoWorkerSafely(10),
+        runMarketplacePromotionWorkerSafely(10),
         capturePrimeLeadPurchaseCompensation({
           purchaseId: purchase.purchase_id,
           propertyManagerId: propertyManager.id,

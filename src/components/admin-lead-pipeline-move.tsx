@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowRightLeft, RefreshCw } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { getLeadAccessToken } from "@/lib/auth/lead-access-token";
+import { useAppSession } from "@/components/app-session-provider";
 
 type Stage = { id: string; name: string };
 
@@ -12,6 +14,7 @@ export function AdminLeadPipelineMove({ currentStageId, disabled, onMove }: {
   onMove: (stageId: string) => Promise<void>;
 }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const { userId } = useAppSession();
   const id = useId();
   const [stages, setStages] = useState<Stage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,11 +33,11 @@ export function AdminLeadPipelineMove({ currentStageId, disabled, onMove }: {
       setLoading(true);
       setLoadError("");
       try {
-        const { data } = await supabase.auth.getSession();
+        const token = await getLeadAccessToken(supabase, userId);
         if (controller.signal.aborted) return;
-        if (!data.session) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+        if (!token) throw new Error("Sessione scaduta. Accedi in un'altra scheda e ricarica le fasi.");
         const response = await fetch("/api/admin/leads/pipeline", { cache: "no-store", signal: controller.signal,
-          headers: { Authorization: `Bearer ${data.session.access_token}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         const payload = await response.json() as { stages?: Stage[]; error?: string };
         if (controller.signal.aborted) return;
@@ -49,7 +52,7 @@ export function AdminLeadPipelineMove({ currentStageId, disabled, onMove }: {
     }
     void load();
     return () => controller.abort();
-  }, [supabase, reload]);
+  }, [supabase, reload, userId]);
 
   async function move() {
     const stage = stages.find((item) => item.id === destination);

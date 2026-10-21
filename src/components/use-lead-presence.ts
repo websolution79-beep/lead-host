@@ -2,10 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { getLeadAccessToken } from "@/lib/auth/lead-access-token";
+import { useAppSession } from "@/components/app-session-provider";
 import { activeLeadViewers, LEAD_PRESENCE_HEARTBEAT_MS, type LeadPresenceSnapshot } from "@/lib/admin/lead-presence";
 
 export function useLeadPresence(ownerRequestId: string) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const { userId } = useAppSession();
   const [state, setState] = useState<{ snapshot: LeadPresenceSnapshot | null; receivedAt: number; unavailable: boolean; requestId: string }>(() => ({ snapshot: null, receivedAt: 0, unavailable: false, requestId: ownerRequestId }));
   const [now, setNow] = useState(() => Date.now());
 
@@ -33,9 +36,9 @@ export function useLeadPresence(ownerRequestId: string) {
       pending = controller;
       const timeout = window.setTimeout(() => controller.abort(), 12000);
       try {
-        const { data } = await supabase.auth.getSession();
+        const accessToken = await getLeadAccessToken(supabase, userId);
         if (!alive || suspended || controller.signal.aborted) return;
-        token = data.session?.access_token ?? null;
+        token = accessToken;
         if (!token) throw new Error("Session unavailable");
         const response = await fetch(endpoint, { method: "POST", cache: "no-store", signal: controller.signal,
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -78,7 +81,7 @@ export function useLeadPresence(ownerRequestId: string) {
       document.removeEventListener("visibilitychange", focus);
       release();
     };
-  }, [ownerRequestId, supabase]);
+  }, [ownerRequestId, supabase, userId]);
 
   const current = state.requestId === ownerRequestId;
   return {

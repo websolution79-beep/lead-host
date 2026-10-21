@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Clock3, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { getLeadAccessToken } from "@/lib/auth/lead-access-token";
+import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import { LeadAssignmentControl } from "@/components/lead-assignment-control";
 import { useLeadAssignments } from "@/components/use-lead-assignments";
@@ -24,6 +26,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   onChanged: () => Promise<void>;
 }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
+  const { userId } = useAppSession();
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,9 +46,8 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   }, []);
 
   const getToken = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ?? null;
-  }, [supabase]);
+    return getLeadAccessToken(supabase, userId);
+  }, [supabase, userId]);
 
   const assignments = useLeadAssignments(getToken);
   const assignmentsByRequest = useMemo(() => new Map(
@@ -69,13 +71,16 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   const filtersAvailable = Boolean(assignments.fresh && assignments.snapshot?.storageReady);
 
   const loadStages = useCallback(async () => {
+    try {
     const token = await getToken();
     if (!token) { setError("Sessione non disponibile. Effettua nuovamente l'accesso."); setLoading(false); return; }
     const response = await fetch("/api/admin/leads/pipeline", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
     const payload = (await response.json()) as PipelineResponse;
     if (!response.ok) setError(payload.error ?? "Non riesco a caricare la pipeline.");
     else setStages(payload.stages ?? []);
-    setLoading(false);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Non riesco a caricare la pipeline. Riprova.");
+    } finally { setLoading(false); }
   }, [getToken]);
 
   useEffect(() => {
@@ -84,10 +89,10 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   }, [loadStages]);
 
   async function updatePipeline(body: Record<string, unknown>) {
-    const token = await getToken();
-    if (!token) { setError("Sessione non disponibile. Effettua nuovamente l'accesso."); return false; }
     setSaving(true); setError("");
     try {
+      const token = await getToken();
+      if (!token) { setError("Sessione non disponibile. Effettua nuovamente l'accesso."); return false; }
       const response = await fetch("/api/admin/leads/pipeline", {
         method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body),
       });

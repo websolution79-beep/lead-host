@@ -23,6 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { getLeadAccessToken } from "@/lib/auth/lead-access-token";
 import { ADMIN_NEW_LEADS_COUNT_EVENT } from "@/components/admin-lead-nav-badge";
 import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import { LeadPresenceBanner } from "@/components/lead-presence-banner";
@@ -210,10 +211,8 @@ export function AdminLeadsConsole() {
     : null;
 
   const getAccessToken = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-
-    return data.session?.access_token ?? null;
-  }, [supabase]);
+    return getLeadAccessToken(supabase, session.userId);
+  }, [supabase, session.userId]);
 
   const promotions = useMarketplacePromotions(
     paginatedRecords.flatMap((record) => record.lead ? [record.lead.id] : []),
@@ -224,6 +223,7 @@ export function AdminLeadsConsole() {
 
   const loadRecords = useCallback(async () => {
     const loadId = ++recordsLoadId.current;
+    try {
     const token = await getAccessToken();
     if (loadId !== recordsLoadId.current) return;
 
@@ -273,6 +273,11 @@ export function AdminLeadsConsole() {
       }),
     );
     setLoading(false);
+    } catch (cause) {
+      if (loadId !== recordsLoadId.current) return;
+      setError(cause instanceof Error ? cause.message : "Non riesco a caricare i lead. Riprova tra poco.");
+      setLoading(false);
+    }
   }, [getAccessToken]);
 
   const loadPrimeTargets = useCallback(async () => {

@@ -74,6 +74,7 @@ const templateGroups: { label: string; ids: TransactionalEmailTemplateId[] }[] =
   { label: "Acquisizione proprietari", ids: ["admin.owner_request_pending", "owner.completion_requested"] },
   { label: "Lead e Marketplace", ids: ["lead.new_available", "lead.digest", "lead.purchased", "admin.lead_purchased"] },
   { label: "Wallet", ids: ["wallet.top_up"] },
+  { label: "Team e compensi", ids: ["team.marketplace_promotion_earned"] },
   { label: "Abbonamento Marketplace", ids: [
     "marketplace.activated", "admin.marketplace_activated",
     "marketplace.payment_received", "admin.marketplace_payment_received",
@@ -91,6 +92,7 @@ const templateGroups: { label: string; ids: TransactionalEmailTemplateId[] }[] =
 ];
 
 function getTemplateAudience(id: TransactionalEmailTemplateId) {
+  if (id.startsWith("team.")) return { label: "Membro interessato", className: "bg-amber-50 text-amber-800" };
   if (id.startsWith("admin.")) return { label: "Team / Admin", className: "bg-amber-50 text-amber-800" };
   if (id.startsWith("owner.")) return { label: "Proprietari", className: "bg-sky-50 text-sky-800" };
   return { label: "Iscritti PM", className: "bg-emerald-50 text-emerald-800" };

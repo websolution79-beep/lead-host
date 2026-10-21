@@ -163,5 +163,12 @@ function getSampleVariables(
     stripe_invoice_id: "in_test_prime_001",
     billing_period_end: "19 settembre 2026",
     template_id: templateId,
+    member_name: "Giorgia",
+    commission_amount: "5,00 EUR",
+    compensation_event_id: "00000000-0000-4000-8000-000000000001",
+    purchase_id: "00000000-0000-4000-8000-000000000002",
+    promotion_member_name: "Giorgia De Salvo",
+    promotion_compensation: "5,00 EUR",
+    promotion_details: "Promozione assegnata a: Giorgia De Salvo",
   };
 }

@@ -398,6 +398,9 @@ export async function sendAdminLeadPurchaseEmail({
     .join(" ");
   const purchaseModeLabel = mode === "exclusive" ? "esclusiva" : "condivisa";
 
+  const { fetchPromotionSaleSummary } = await import("@/lib/team-compensation/promotion-sale-summary");
+  const promotion = await fetchPromotionSaleSummary(createServiceSupabaseClient(), leadPurchaseId);
+
   return sendTransactionalEmailToInternalRecipients({
     profileId: profile.id,
     propertyManagerId,
@@ -414,6 +417,7 @@ export async function sendAdminLeadPurchaseEmail({
       amount: formatCurrencyCents(amountCents),
       wallet_balance: formatCurrencyCents(balanceCents),
       purchase_id: leadPurchaseId,
+      ...promotion,
     },
     subject: "",
     html: "",

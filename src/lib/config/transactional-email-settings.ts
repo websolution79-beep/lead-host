@@ -21,6 +21,7 @@ export const transactionalEmailTemplateIds = [
   "admin.owner_request_pending",
   "lead.purchased",
   "admin.lead_purchased",
+  "team.marketplace_promotion_earned",
   "wallet.top_up",
   "lead.new_available",
   "prime.lead_assigned",
@@ -216,7 +217,7 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
     body:
       '{{property_manager_name}} ({{property_manager_email}}) ha acquistato il lead "{{lead_title}}" in modalita {{purchase_mode_label}}.',
     extra:
-      "Importo: {{amount}}. Saldo wallet residuo del PM: {{wallet_balance}}. ID acquisto: {{purchase_id}}.",
+      "Importo: {{amount}}. Saldo wallet residuo del PM: {{wallet_balance}}. ID acquisto: {{purchase_id}}.\n{{promotion_details}}",
     ctaLabel: "Apri pagamenti admin",
     ctaUrl: "/admin/pagamenti",
     variables: [
@@ -228,7 +229,24 @@ export const defaultTransactionalEmailTemplates: TransactionalEmailTemplate[] = 
       "amount",
       "wallet_balance",
       "purchase_id",
+      "promotion_member_name",
+      "promotion_compensation",
+      "promotion_details",
     ],
+  },
+  {
+    id: "team.marketplace_promotion_earned",
+    label: "Compenso maturato - vendita lead Marketplace",
+    description: "Invio solo al membro titolare di un compenso registrato per la promozione Marketplace. Nessuna copia automatica al team.",
+    enabled: true,
+    subject: "Compenso maturato: {{lead_title}}",
+    preview: "Una vendita Marketplace ha generato un compenso a tuo favore.",
+    title: "Hai maturato un nuovo compenso",
+    body: 'Ciao {{member_name}}, il lead "{{lead_title}}", che avevi preso in promozione, e stato acquistato.',
+    extra: "Compenso maturato: {{commission_amount}}.\nPuoi consultare il dettaglio nella sezione I miei guadagni.",
+    ctaLabel: "Vedi i miei guadagni",
+    ctaUrl: "/admin/i-miei-guadagni",
+    variables: ["member_name", "lead_title", "commission_amount", "purchase_id", "compensation_event_id"],
   },
   {
     id: "wallet.top_up",

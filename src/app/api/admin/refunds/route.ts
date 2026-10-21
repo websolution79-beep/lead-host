@@ -3,6 +3,7 @@ import { z } from "zod";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { captureTeamRefundCompensationSafely } from "@/lib/team-compensation/worker";
+import { runMarketplacePromotionWorkerSafely } from "@/lib/team-compensation/marketplace-promotion-worker";
 
 const createRefundSchema = z.object({
   leadPurchaseId: z.string().uuid(),
@@ -229,6 +230,7 @@ export async function PATCH(request: NextRequest) {
         await Promise.allSettled([
           runBrevoWorkerSafely(10),
           captureTeamRefundCompensationSafely(payload.refundId),
+          runMarketplacePromotionWorkerSafely(25),
         ]);
       });
       return NextResponse.json({ ok: true, result: data });

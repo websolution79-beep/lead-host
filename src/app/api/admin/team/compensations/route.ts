@@ -9,6 +9,7 @@ const filtersSchema = z.object({
     "prime_first_activation",
     "prime_renewal",
     "prime_lead_purchase",
+    "marketplace_promotion_sale",
     "refund_adjustment",
     "manual_adjustment",
   ]).optional(),

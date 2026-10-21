@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { processServiceEmailQueue } from "@/lib/email/service-campaigns";
 import { getEnv } from "@/lib/env";
+import { runMarketplacePromotionWorkerSafely } from "@/lib/team-compensation/marketplace-promotion-worker";
 import {
   reconcileTeamRefundCompensationsSafely,
   runTeamCompensationWorkerSafely,
@@ -17,10 +18,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [result, compensations, refundCompensations] = await Promise.all([
+    const [result, compensations, refundCompensations, marketplacePromotions] = await Promise.all([
       processServiceEmailQueue(5, 100),
       runTeamCompensationWorkerSafely(100),
       reconcileTeamRefundCompensationsSafely(),
+      runMarketplacePromotionWorkerSafely(100),
     ]);
 
     return NextResponse.json({
@@ -28,6 +30,7 @@ export async function GET(request: NextRequest) {
       worker: result,
       compensations,
       refundCompensations,
+      marketplacePromotions,
     });
   } catch (error) {
     console.error(

@@ -30,6 +30,8 @@ import { AdminLeadPipelineMove } from "@/components/admin-lead-pipeline-move";
 import { AdminLeadVerificationCompensation } from "@/components/admin-lead-verification-compensation";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { PaginationControls } from "@/components/pagination-controls";
+import { MarketplacePromotionControl } from "@/components/marketplace-promotion-control";
+import { useMarketplacePromotions } from "@/components/use-marketplace-promotions";
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import {
@@ -212,6 +214,13 @@ export function AdminLeadsConsole() {
 
     return data.session?.access_token ?? null;
   }, [supabase]);
+
+  const promotions = useMarketplacePromotions(
+    paginatedRecords.flatMap((record) => record.lead ? [record.lead.id] : []),
+    filter === "published" && !loading,
+    getAccessToken,
+  );
+  const promotionsByLead = new Map(promotions.snapshot?.promotions.map((promotion) => [promotion.leadId, promotion]) ?? []);
 
   const loadRecords = useCallback(async () => {
     const loadId = ++recordsLoadId.current;
@@ -776,12 +785,16 @@ export function AdminLeadsConsole() {
           />
         ) : (
         <div className="card overflow-hidden">
+          {filter === "published" && promotions.readError ? <div className="flex flex-wrap items-center gap-3 border-b border-red-200 p-4 text-sm text-red-700" role="alert">
+            <span>{promotions.readError}</span>
+            <button type="button" className="min-h-11 font-semibold underline" onClick={promotions.refresh}>Riprova promozioni</button>
+          </div> : null}
           <div className="admin-leads-header">
             <span>Richiesta</span>
             <span>Immobile</span>
             <span>Stato</span>
             <span>Disponibilita</span>
-            <span>Acquisti</span>
+            <span>{filter === "published" ? "Promozione" : "Acquisti"}</span>
             <span></span>
           </div>
 
@@ -843,7 +856,15 @@ export function AdminLeadsConsole() {
                     </span>
                   </div>
 
-                  <div className="grid gap-1 text-sm">
+                  {filter === "published" && record.lead ? (
+                    <MarketplacePromotionControl
+                      leadId={record.lead.id} title={record.lead.title ?? buildDefaultTitle(record)}
+                      snapshot={promotions.snapshot} promotion={promotionsByLead.get(record.lead.id)}
+                      canWrite={canManageLeads} pending={Boolean(promotions.pending[record.lead.id])}
+                      error={promotions.errors[record.lead.id]} now={promotions.now}
+                      onChange={(...args) => void promotions.change(...args)}
+                    />
+                  ) : <div className="grid gap-1 text-sm">
                     <span className="font-semibold text-ink">
                       {record.purchases.length > 0
                         ? `${record.purchases.length} PM`
@@ -854,7 +875,7 @@ export function AdminLeadsConsole() {
                         record.purchases[0]?.buyerName ??
                       "Non acquistato"}
                     </span>
-                  </div>
+                  </div>}
 
                   <button
                     className="inline-flex items-center justify-end gap-1 text-sm font-bold text-green"

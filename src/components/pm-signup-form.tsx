@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { managedPropertiesOptions } from "@/lib/domain/pm-onboarding";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { PM_SIGNUP_NOTICE_PARTS, PM_SIGNUP_NOTICE_VERSION } from "@/lib/legal/pm-signup-notice";
 import {
   dispatchBrowserTrackingEvent,
   getBrowserTrackingConsentSnapshot,
@@ -21,7 +22,6 @@ export function PmSignupForm() {
   const [primaryCity, setPrimaryCity] = useState("");
   const [password, setPassword] = useState("");
   const [legalAccepted, setLegalAccepted] = useState(false);
-  const [emailMarketingConsent, setEmailMarketingConsent] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,7 +70,7 @@ export function PmSignupForm() {
         primaryCity,
         password,
         legalAccepted,
-        emailMarketingConsent,
+        signupNoticeVersion: PM_SIGNUP_NOTICE_VERSION,
         trackingConsent,
       }),
     });
@@ -283,40 +283,25 @@ export function PmSignupForm() {
           required
         />
         <span className="text-sm leading-6 text-slate-700">
-          Dichiaro di aver letto l&apos;{" "}
+          {PM_SIGNUP_NOTICE_PARTS.beforePrivacy}
           <Link
             className="font-semibold text-green underline decoration-green/30 underline-offset-4"
             href="https://www.iubenda.com/privacy-policy/12644511"
             target="_blank"
             rel="noreferrer"
           >
-            Informativa Privacy
-          </Link>{" "}
-          e accetto i{" "}
+            {PM_SIGNUP_NOTICE_PARTS.privacy}
+          </Link>
+          {PM_SIGNUP_NOTICE_PARTS.between}
           <Link
             className="font-semibold text-green underline decoration-green/30 underline-offset-4"
             href="/termini"
             target="_blank"
             rel="noreferrer"
           >
-            Termini e Condizioni
+            {PM_SIGNUP_NOTICE_PARTS.terms}
           </Link>
-          .
-        </span>
-      </label>
-      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <input
-          className="mt-1 size-4 shrink-0 accent-green"
-          type="checkbox"
-          checked={emailMarketingConsent}
-          onChange={(event) => setEmailMarketingConsent(event.target.checked)}
-        />
-        <span className="text-sm leading-6 text-slate-700">
-          Acconsento a ricevere via email aggiornamenti sulle nuove opportunità
-          pubblicate, novità e contenuti gratuiti da Lead Host.
-          <span className="mt-1 block text-xs text-muted">
-            Puoi modificare questa preferenza in qualsiasi momento dal tuo profilo.
-          </span>
+          {PM_SIGNUP_NOTICE_PARTS.afterTerms}
         </span>
       </label>
       {message ? (

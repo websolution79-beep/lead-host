@@ -10,6 +10,7 @@ import {
 import { MARKETING_CONSENT_POLICY_VERSION } from "@/lib/brevo/config";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { recordTermsAcceptance } from "@/lib/legal/acceptances";
+import { getPmSignupMarketingActivation, PM_SIGNUP_NOTICE_TEXT, PM_SIGNUP_NOTICE_VERSION } from "@/lib/legal/pm-signup-notice";
 import {
   CURRENT_PRIVACY_POLICY_VERSION,
   CURRENT_TERMS_VERSION,
@@ -30,6 +31,7 @@ const registrationSchema = z.object({
   password: z.string().min(8).max(128),
   legalAccepted: z.literal(true),
   emailMarketingConsent: z.boolean().optional().default(false),
+  signupNoticeVersion: z.literal(PM_SIGNUP_NOTICE_VERSION).optional(),
   trackingConsent: z
     .object({
       resolved: z.boolean(),
@@ -42,6 +44,8 @@ const registrationSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const payload = registrationSchema.parse(await request.json());
+    // Legacy forms retain their actual optional choice, including a refusal.
+    const marketingActivation = getPmSignupMarketingActivation(payload, MARKETING_CONSENT_POLICY_VERSION);
     const serviceClient = createServiceSupabaseClient();
     const { settings } = await fetchPmRegistrationSettings(serviceClient);
 
@@ -53,6 +57,14 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 },
       );
+    }
+
+    if (marketingActivation.automatic) {
+      const readiness = serviceClient as unknown as { rpc: (name: string) => Promise<{ data: unknown; error: unknown }> };
+      const { data: ready, error: readinessError } = await readiness.rpc("pm_signup_automatic_marketing_ready");
+      if (readinessError || ready !== true) {
+        return NextResponse.json({ error: "La registrazione è in aggiornamento. Riprova tra poco." }, { status: 503 });
+      }
     }
 
     const supabase = createPublicSupabaseClient();
@@ -73,8 +85,14 @@ export async function POST(request: NextRequest) {
           legal_accepted: payload.legalAccepted,
           terms_version: CURRENT_TERMS_VERSION,
           privacy_policy_version: CURRENT_PRIVACY_POLICY_VERSION,
-          email_marketing_consent: payload.emailMarketingConsent,
-          email_marketing_policy_version: MARKETING_CONSENT_POLICY_VERSION,
+          email_marketing_consent: marketingActivation.enabled,
+          email_marketing_policy_version: marketingActivation.policyVersion,
+          marketing_activation_source: marketingActivation.source,
+          marketing_activation_automatic: marketingActivation.automatic,
+          ...(marketingActivation.automatic ? {
+            registration_notice_version: PM_SIGNUP_NOTICE_VERSION,
+            registration_notice_text: PM_SIGNUP_NOTICE_TEXT,
+          } : {}),
         },
       },
     });
@@ -121,15 +139,27 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.user) {
+      const { data: registrationProfile, error: profileError } = await serviceClient
+        .from("profiles").select("id").eq("auth_user_id", data.user.id).maybeSingle();
+      if (profileError) console.error("PM registration acceptance profile lookup failed", { code: profileError.code });
+      // profiles.id is not auth.users.id. Do not insert evidence for an obfuscated duplicate response.
+      if (registrationProfile) {
       const { error: acceptanceError } = await recordTermsAcceptance(
         serviceClient,
         {
-          profileId: data.user.id,
+          profileId: registrationProfile.id,
           context: "account_registration",
           termsVersion: CURRENT_TERMS_VERSION,
           metadata: {
             privacy_policy_version: CURRENT_PRIVACY_POLICY_VERSION,
             source: "pm_signup_form",
+            ...(marketingActivation.automatic ? {
+              signup_notice_version: PM_SIGNUP_NOTICE_VERSION,
+              signup_notice_text: PM_SIGNUP_NOTICE_TEXT,
+              marketing_activation_source: marketingActivation.source,
+              marketing_activation_automatic: true,
+              explicit_marketing_checkbox: false,
+            } : {}),
           },
         },
       );
@@ -137,6 +167,7 @@ export async function POST(request: NextRequest) {
       // A duplicate can only result from a repeated signup response; it is safe.
       if (acceptanceError && acceptanceError.code !== "23505") {
         console.error("PM registration legal acceptance recording failed", acceptanceError);
+      }
       }
     }
 

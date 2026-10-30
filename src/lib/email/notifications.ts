@@ -1,5 +1,7 @@
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
+import { boundedMap } from "@/lib/async/bounded-map";
+import { resolveTransactionalEmailTemplate } from "@/lib/config/transactional-email-settings";
 import { formatCurrencyCents } from "@/lib/auth/roles";
 import {
   fetchEffectiveMarketplacePromotion,
@@ -656,7 +658,7 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
 
   if (pmError) {
     console.warn("New lead email recipients not loaded:", pmError.message);
-    return emptySummary;
+    throw pmError;
   }
 
   if (!propertyManagers?.length) return emptySummary;
@@ -676,7 +678,7 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
     ]);
   } catch (error) {
     console.warn("New lead email recipients not loaded:", error);
-    return emptySummary;
+    throw error;
   }
 
   const preferencesByProfileId = new Map(
@@ -707,9 +709,13 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
   const recipients = eligibleProfiles.filter(
     (profile) => !alreadySentEmails.has(profile.email),
   );
-  const results = await Promise.all(
-    recipients.map((profile) =>
+  const template = await resolveTransactionalEmailTemplate(supabase, "lead.new_available");
+  const results = await boundedMap(
+    recipients,
+    3,
+    (profile) =>
       sendTransactionalEmail({
+        idempotencyKey: `new-lead:${effectiveLead.id}:${profile.id}`,
         to: profile.email,
         profileId: profile.id,
         propertyManagerId: pmByProfileId.get(profile.id)?.id ?? null,
@@ -723,8 +729,7 @@ export async function notifyImmediateNewLead(lead: LeadSummary) {
           exclusive_price: formatCurrencyCents(effectiveLead.exclusive_price_cents),
         },
         ...email,
-      }),
-    ),
+      }, template),
   );
 
   return results.reduce<NewLeadNotificationSummary>(
@@ -797,7 +802,7 @@ async function fetchAlreadySentNewLeadEmails(
     return new Set(data.map((item) => item.recipient_email));
   } catch (error) {
     console.warn("New lead email duplicate check failed:", error);
-    return new Set<string>();
+    throw error;
   }
 }
 

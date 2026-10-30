@@ -5,8 +5,12 @@ import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { notifyPublicLeadPublication } from "@/lib/leads/public-publication";
 import { notifyPrimeLeadAssignment } from "@/lib/prime/notifications";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { boundedMap } from "@/lib/async/bounded-map";
 
 type ReleasedPrimeLead = { id: string };
+
+let lifecycleRunning = false;
+let lastLifecycleStartedAt = 0;
 
 type PrimeLifecycleRpcClient = {
   rpc: (
@@ -28,6 +32,22 @@ export async function POST(request: NextRequest) {
   if (!context || context.profile.status !== "active") {
     return NextResponse.json({ error: "Sessione non valida." }, { status: 401 });
   }
+
+  // Coalesce opportunistic browser heartbeats within each warm instance.
+  // The database still controls release eligibility; this is not a global lock.
+  if (lifecycleRunning || Date.now() - lastLifecycleStartedAt < 30_000) {
+    return NextResponse.json({ ok: true, deferred: true });
+  }
+  lifecycleRunning = true;
+  lastLifecycleStartedAt = Date.now();
+  try {
+    return await runLifecycle();
+  } finally {
+    lifecycleRunning = false;
+  }
+}
+
+async function runLifecycle() {
 
   const supabase = createServiceSupabaseClient();
   const rpcClient = supabase as unknown as PrimeLifecycleRpcClient;
@@ -63,10 +83,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: pendingError.message }, { status: 500 });
   }
 
-  const notificationResults = await Promise.allSettled(
-    (pendingNotifications ?? []).map((lead) =>
-      notifyPublicLeadPublication(lead.id),
-    ),
+  const notificationResults = await boundedMap(
+    pendingNotifications ?? [], 1,
+    async (lead) => (await Promise.allSettled([notifyPublicLeadPublication(lead.id)]))[0],
   );
   const notificationsCompleted = notificationResults.filter(
     (result) => result.status === "fulfilled" && result.value.completed,
@@ -78,7 +97,7 @@ export async function POST(request: NextRequest) {
       .eq("visibility_mode", "prime_private")
       .is("prime_notification_sent_at", null)
       .gt("prime_access_until", new Date().toISOString())
-      .order("prime_assigned_at", { ascending: true })
+      .order("prime_access_started_at", { ascending: true })
       .limit(5);
 
   if (pendingPrimeError) {

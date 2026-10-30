@@ -23,10 +23,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const refreshDeadline = AbortSignal.timeout(8_000);
   const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
     {
+      global: {
+        fetch: (input, init) => fetch(input, {
+          ...init,
+          signal: init?.signal
+            ? AbortSignal.any([init.signal, refreshDeadline])
+            : refreshDeadline,
+        }),
+      },
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -35,7 +44,24 @@ export async function middleware(request: NextRequest) {
   );
 
   if (refreshToken) {
-    const { data } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+    let result;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      result = await Promise.race([
+        supabase.auth.refreshSession({ refresh_token: refreshToken }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Refresh deadline exceeded")), 8_000);
+        }),
+      ]);
+    } catch {
+      return temporaryUnavailable();
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    const { data, error } = result;
+    if (error && (!error.status || error.status >= 500 || error.status === 429)) {
+      return temporaryUnavailable();
+    }
     const session = data.session;
 
     if (session) {
@@ -60,6 +86,13 @@ export async function middleware(request: NextRequest) {
   response.cookies.set(REFRESH_TOKEN_COOKIE, "", getClearSessionCookieOptions());
 
   return response;
+}
+
+function temporaryUnavailable() {
+  return new NextResponse("Il servizio di accesso sta rispondendo lentamente. Riprova tra pochi secondi: la sessione non e' stata cancellata.", {
+    status: 503,
+    headers: { "Retry-After": "5", "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8" },
+  });
 }
 
 function isAccessTokenFresh(token: string) {

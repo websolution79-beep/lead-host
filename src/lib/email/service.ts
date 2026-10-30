@@ -5,6 +5,7 @@ import {
   resolveTransactionalEmailTemplate,
   type EmailTemplateVariables,
   type TransactionalEmailTemplateId,
+  type TransactionalEmailTemplate,
 } from "@/lib/config/transactional-email-settings";
 import type { Json } from "@/lib/supabase/database.types";
 import { resolveTransactionalEmailInternalRecipients } from "@/lib/config/transactional-email-recipients";
@@ -33,11 +34,11 @@ type ResendResponse = {
   name?: string;
 };
 
-export async function sendTransactionalEmail(payload: EmailPayload) {
+export async function sendTransactionalEmail(payload: EmailPayload, resolvedTemplate?: TransactionalEmailTemplate) {
   const supabase = createServiceSupabaseClient();
   const apiKey = getEnv("RESEND_API_KEY");
   const from = getEnv("TRANSACTIONAL_EMAIL_FROM");
-  const template = await resolveTransactionalEmailTemplate(supabase, payload.eventType);
+  const template = resolvedTemplate ?? await resolveTransactionalEmailTemplate(supabase, payload.eventType);
   const renderedEmail = renderTransactionalEmailTemplate({
     template,
     variables: payload.templateVariables ?? {},
@@ -72,6 +73,7 @@ export async function sendTransactionalEmail(payload: EmailPayload) {
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
+      signal: AbortSignal.timeout(15_000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",

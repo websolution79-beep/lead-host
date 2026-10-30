@@ -1,4 +1,4 @@
-import { after, NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import {
   ACCESS_TOKEN_COOKIE,
   REFRESH_TOKEN_COOKIE,
@@ -9,7 +9,6 @@ import {
 import { getAuthenticatedProfileContext } from "@/lib/auth/profile-context";
 import { getTeamAccessForProfile } from "@/lib/admin/team-access";
 import { getFirstAllowedAdminRoute } from "@/lib/admin/permissions";
-import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 
 type SessionPayload = {
   accessToken?: string;
@@ -72,7 +71,8 @@ export async function POST(request: NextRequest) {
     response.cookies.set(REFRESH_TOKEN_COOKIE, payload.refreshToken, getSessionCookieOptions());
   }
 
-  after(() => runBrevoWorkerSafely(10));
+  // Login must not drain unrelated marketing jobs. Registration, purchases,
+  // the dedicated worker endpoint and the scheduled reconciliation do that.
   return response;
 }
 

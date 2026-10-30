@@ -5,6 +5,7 @@ import { revalidateTag } from "next/cache";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { notifyPublicLeadPublication } from "@/lib/leads/public-publication";
 import { notifyPrimeLeadAssignment } from "@/lib/prime/notifications";
+import { boundedMap } from "@/lib/async/bounded-map";
 
 type ExpireLeadsResult = {
   expired_count: number;
@@ -93,10 +94,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const notificationResults = await Promise.allSettled(
-    (pendingNotifications ?? []).map((lead) =>
-      notifyPublicLeadPublication(lead.id),
-    ),
+  const notificationResults = await boundedMap(
+    pendingNotifications ?? [], 1,
+    async (lead) => (await Promise.allSettled([notifyPublicLeadPublication(lead.id)]))[0],
   );
   const notificationsCompleted = notificationResults.filter(
     (result) => result.status === "fulfilled" && result.value.completed,
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       .eq("visibility_mode", "prime_private")
       .is("prime_notification_sent_at", null)
       .gt("prime_access_until", new Date().toISOString())
-      .order("prime_assigned_at", { ascending: true })
+      .order("prime_access_started_at", { ascending: true })
       .limit(20);
 
   if (pendingPrimeAssignmentError && !primeMigrationMissing) {

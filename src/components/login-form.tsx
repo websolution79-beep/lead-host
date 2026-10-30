@@ -45,6 +45,7 @@ export function LoginForm() {
       if (data.session) {
         const sessionResponse = await fetch("/api/auth/session", {
           method: "POST",
+          signal: AbortSignal.timeout(12_000),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             accessToken: data.session.access_token,
@@ -77,7 +78,7 @@ export function LoginForm() {
       setError("Sessione non disponibile.");
     } catch (error) {
       setError(
-        error instanceof Error && error.message === "LOGIN_TIMEOUT"
+        error instanceof Error && (error.message === "LOGIN_TIMEOUT" || error.name === "TimeoutError" || error.name === "AbortError")
           ? "Il servizio sta rispondendo lentamente. Riprova tra poco."
           : "Non riesco a completare l'accesso. Riprova tra poco.",
       );

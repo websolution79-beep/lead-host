@@ -12,6 +12,7 @@ import {
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { MARKETPLACE_LEADS_CACHE_TAG } from "@/lib/cache/tags";
 import { detectLeadEditActivity } from "@/lib/lead-operational-activity";
+import { fetchAdminLeadRecords } from "@/lib/admin/lead-records";
 
 type RouteContext = {
   params: Promise<{
@@ -94,6 +95,21 @@ const editableStatuses = new Set([
 ]);
 
 type ServiceClient = SupabaseClient<Database>;
+
+export async function GET(request: NextRequest, context: RouteContext) {
+  try {
+    const { supabase } = await requireSuperAdmin(request);
+    const { ownerRequestId } = await context.params;
+    if (!z.string().uuid().safeParse(ownerRequestId).success) {
+      return NextResponse.json({ error: "Identificativo lead non valido." }, { status: 400 });
+    }
+    const [record] = await fetchAdminLeadRecords(supabase, [ownerRequestId]);
+    if (!record) return NextResponse.json({ error: "Lead non trovato." }, { status: 404 });
+    return NextResponse.json({ record }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return adminApiErrorResponse(error);
+  }
+}
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {

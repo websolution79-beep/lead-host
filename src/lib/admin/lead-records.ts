@@ -463,7 +463,7 @@ function emptyDuplicateCheck(status: AdminLeadRecord["duplicateCheck"]["status"]
   };
 }
 
-async function fetchPurchasesByLead(supabase: ServiceClient, leadIds: string[]) {
+export async function fetchPurchasesByLead(supabase: ServiceClient, leadIds: string[]) {
   const purchasesByLead = new Map<string, AdminLeadPurchase[]>();
 
   if (leadIds.length === 0) {

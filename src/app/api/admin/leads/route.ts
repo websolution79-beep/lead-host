@@ -4,6 +4,7 @@ import { fetchAdminLeadRecords } from "@/lib/admin/lead-records";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchLeadListPage, leadListFilterSchema } from "@/lib/admin/lead-list-page";
+import { fetchAdminLeadListRecords } from "@/lib/admin/lead-list-records";
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
       }
       const page = await fetchLeadListPage(supabase, request.nextUrl.searchParams);
       if (page) {
-        const records = await fetchAdminLeadRecords(supabase, page.ownerRequestIds);
+        const records = await fetchAdminLeadListRecords(supabase, page.ownerRequestIds);
         return NextResponse.json({ records, stats: page.stats, pagination: page.pagination });
       }
     }

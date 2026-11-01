@@ -115,9 +115,10 @@ export type AdminLeadRecord = {
   purchases: AdminLeadPurchase[];
 };
 
-export async function fetchAdminLeadRecords(supabase: ServiceClient) {
+export async function fetchAdminLeadRecords(supabase: ServiceClient, ownerRequestIds?: string[]) {
+  if (ownerRequestIds?.length === 0) return [];
   const { settings } = await fetchCommercialSettings(supabase);
-  const ownerRequestsResult = await fetchAdminOwnerRequests(supabase);
+  const ownerRequestsResult = await fetchAdminOwnerRequests(supabase, ownerRequestIds);
   if (ownerRequestsResult.error) throw ownerRequestsResult.error;
 
   const requests = ownerRequestsResult.data ?? [];
@@ -343,28 +344,34 @@ async function fetchAdminLeadRecordBatch(
   });
 }
 
-async function fetchAdminOwnerRequests(supabase: ServiceClient) {
+async function fetchAdminOwnerRequests(supabase: ServiceClient, ownerRequestIds?: string[]) {
   const fields =
     "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,subletting_available,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at";
-  const result = await fetchAllOwnerRequestPages((from, to) => supabase
+  const result = await fetchAllOwnerRequestPages((from, to) => {
+    const query = supabase
     .from("owner_requests")
-    .select(fields)
+    .select(fields);
+    return (ownerRequestIds ? query.in("id", ownerRequestIds) : query)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .range(from, to));
+    .range(from, to);
+  });
 
   if (!result.error || !isMissingSublettingColumnError(result.error)) {
     return { ...result, sublettingColumnAvailable: true };
   }
 
-  const fallback = await fetchAllOwnerRequestPages((from, to) => supabase
+  const fallback = await fetchAllOwnerRequestPages((from, to) => {
+    const query = supabase
     .from("owner_requests")
     .select(
       "id,created_at,updated_at,status,acquisition_channel,qualification_notes,duplicate_check,privacy_consent_at,data_sharing_consent_at,marketing_consent_at,owner_verified,review_pipeline_stage_id,first_worked_by_profile_id,first_worked_at",
-    )
+    );
+    return (ownerRequestIds ? query.in("id", ownerRequestIds) : query)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .range(from, to));
+    .range(from, to);
+  });
 
   return {
     ...fallback,

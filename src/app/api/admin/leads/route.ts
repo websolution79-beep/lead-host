@@ -3,12 +3,24 @@ import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import { fetchAdminLeadRecords } from "@/lib/admin/lead-records";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchLeadListPage, leadListFilterSchema } from "@/lib/admin/lead-list-page";
 
 type ServiceClient = SupabaseClient<Database>;
 
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
+    // Opt-in path: existing pipeline consumers retain the original response.
+    if (request.nextUrl.searchParams.has("filter")) {
+      if (!leadListFilterSchema.safeParse(request.nextUrl.searchParams.get("filter")).success) {
+        return NextResponse.json({ error: "Filtro elenco lead non valido." }, { status: 400 });
+      }
+      const page = await fetchLeadListPage(supabase, request.nextUrl.searchParams);
+      if (page) {
+        const records = await fetchAdminLeadRecords(supabase, page.ownerRequestIds);
+        return NextResponse.json({ records, stats: page.stats, pagination: page.pagination });
+      }
+    }
     const [records, stats] = await Promise.all([
       fetchAdminLeadRecords(supabase),
       fetchLeadStats(supabase),

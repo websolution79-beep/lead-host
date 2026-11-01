@@ -35,6 +35,7 @@ import { MarketplacePromotionControl } from "@/components/marketplace-promotion-
 import { useMarketplacePromotions } from "@/components/use-marketplace-promotions";
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
+import type { AdminLeadListRecord } from "@/lib/admin/lead-list-records";
 import {
   hasActionableDuplicateWarning,
   hasCompletedLeadPurchase,
@@ -49,7 +50,8 @@ import {
 } from "@/lib/owner-requests/completeness";
 
 type AdminLeadsResponse = {
-  records: AdminLeadRecord[];
+  records: (AdminLeadRecord | AdminLeadListRecord)[];
+  pagination?: { page: number; pageSize: number; total: number; totalPages: number };
   stats: {
     waitingCompletion: number;
     duplicates: number;
@@ -123,6 +125,17 @@ export function AdminLeadsConsole() {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [records, setRecords] = useState<AdminLeadRecord[]>([]);
   const recordsLoadId = useRef(0);
+  const listAbort = useRef<AbortController | null>(null);
+  const detailAbort = useRef<AbortController | null>(null);
+  const detailLoadId = useRef(0);
+  const invalidateList = useCallback(() => {
+    recordsLoadId.current++;
+    listAbort.current?.abort();
+  }, []);
+  const [detailRecord, setDetailRecord] = useState<AdminLeadRecord | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [listPage, setListPage] = useState<{ records: AdminLeadListRecord[]; pagination: NonNullable<AdminLeadsResponse["pagination"]> } | null>(null);
+  const [loadedKey, setLoadedKey] = useState("");
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
     waitingCompletion: 0,
     duplicates: 0,
@@ -134,7 +147,14 @@ export function AdminLeadsConsole() {
     expired: 0,
     rejected: 0,
   });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedIdState] = useState<string | null>(null);
+  const setSelectedId = useCallback((id: string | null) => {
+    detailLoadId.current++;
+    detailAbort.current?.abort();
+    setDetailRecord(null);
+    setDetailError(null);
+    setSelectedIdState(id);
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [publishWarningId, setPublishWarningId] = useState<string | null>(null);
   const [manualTelegramRecord, setManualTelegramRecord] =
@@ -143,9 +163,18 @@ export function AdminLeadsConsole() {
     useState<AdminLeadRecord | null>(null);
   const [primeReleaseRecord, setPrimeReleaseRecord] =
     useState<AdminLeadRecord | null>(null);
-  const [filter, setFilter] = useState<FilterState>("new");
+  const [filter, setFilterState] = useState<FilterState>("new");
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(1);
+  const setFilter = useCallback((value: FilterState) => {
+    setPage(1);
+    setFilterState(value);
+  }, []);
+  const loadFilter = filter === "new" ? null : filter;
+  const loadSearch = loadFilter ? debouncedQuery : "";
+  const loadPage = loadFilter ? page : 1;
+  const requestKey = loadFilter ? JSON.stringify([loadFilter, loadSearch, loadPage]) : "pipeline";
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +187,7 @@ export function AdminLeadsConsole() {
   const [primeTargetsLoaded, setPrimeTargetsLoaded] = useState(false);
   const [primeTargetsLoading, setPrimeTargetsLoading] = useState(false);
 
-  const filteredRecords = records.filter((record) => {
+  const filteredRecords = loadedKey !== requestKey ? [] : records.filter((record) => {
     if (filter === "completion" && record.requestStatus !== "waiting_for_completion") {
       return false;
     }
@@ -193,21 +222,22 @@ export function AdminLeadsConsole() {
   });
 
   const pageSize = 25;
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / pageSize));
+  const activeListPage = loadedKey === requestKey ? listPage : null;
+  const totalPages = activeListPage?.pagination.totalPages ?? Math.max(1, Math.ceil(filteredRecords.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const paginatedRecords = filteredRecords.slice(
+  const paginatedRecords = activeListPage?.records ?? filteredRecords.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
 
   const selectedRecord = selectedId
-    ? records.find((record) => record.ownerRequestId === selectedId) ?? null
+    ? records.find((record) => record.ownerRequestId === selectedId) ?? (detailRecord?.ownerRequestId === selectedId ? detailRecord : null)
     : null;
   const editingRecord = editingId
-    ? records.find((record) => record.ownerRequestId === editingId) ?? null
+    ? records.find((record) => record.ownerRequestId === editingId) ?? (detailRecord?.ownerRequestId === editingId ? detailRecord : null)
     : null;
   const publishWarningRecord = publishWarningId
-    ? records.find((record) => record.ownerRequestId === publishWarningId) ?? null
+    ? records.find((record) => record.ownerRequestId === publishWarningId) ?? (detailRecord?.ownerRequestId === publishWarningId ? detailRecord : null)
     : null;
 
   const getAccessToken = useCallback(async () => {
@@ -223,6 +253,10 @@ export function AdminLeadsConsole() {
 
   const loadRecords = useCallback(async () => {
     const loadId = ++recordsLoadId.current;
+    listAbort.current?.abort();
+    const controller = new AbortController();
+    listAbort.current = controller;
+    setLoading(true);
     try {
     const token = await getAccessToken();
     if (loadId !== recordsLoadId.current) return;
@@ -236,11 +270,13 @@ export function AdminLeadsConsole() {
       return;
     }
 
-    const response = await fetch("/api/admin/leads", {
+    const params = loadFilter ? new URLSearchParams({ filter: loadFilter, search: loadSearch, page: String(loadPage), pageSize: "25" }) : null;
+    const response = await fetch(params ? `/api/admin/leads?${params}` : "/api/admin/leads", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
+      signal: controller.signal,
     });
     const payload = (await response.json()) as Partial<AdminLeadsResponse> & {
       error?: string;
@@ -253,7 +289,18 @@ export function AdminLeadsConsole() {
       return;
     }
 
-    setRecords(payload.records ?? []);
+    if (loadFilter && payload.pagination) {
+      if (loadPage > payload.pagination.totalPages) {
+        setPage(Math.max(1, payload.pagination.totalPages));
+        return;
+      }
+      setListPage({ records: (payload.records ?? []) as AdminLeadListRecord[], pagination: payload.pagination });
+      setRecords([]);
+    } else {
+      setListPage(null);
+      setRecords((payload.records ?? []) as AdminLeadRecord[]);
+    }
+    setLoadedKey(requestKey);
     const nextStats =
       payload.stats ?? {
         waitingCompletion: 0,
@@ -278,7 +325,17 @@ export function AdminLeadsConsole() {
       setError(cause instanceof Error ? cause.message : "Non riesco a caricare i lead. Riprova tra poco.");
       setLoading(false);
     }
-  }, [getAccessToken]);
+  }, [getAccessToken, loadFilter, loadPage, loadSearch, requestKey]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => () => {
+    detailLoadId.current++;
+    detailAbort.current?.abort();
+  }, []);
 
   const loadPrimeTargets = useCallback(async () => {
     if (!canPublishToPrime || primeTargetsLoaded || primeTargetsLoading) return;
@@ -316,8 +373,11 @@ export function AdminLeadsConsole() {
       void loadRecords();
     }, 0);
 
-    return () => window.clearTimeout(timeout);
-  }, [loadRecords]);
+    return () => {
+      window.clearTimeout(timeout);
+      invalidateList();
+    };
+  }, [loadRecords, invalidateList]);
 
   async function movePipelineStage(record: AdminLeadRecord, stageId: string) {
     setActionLoading(record.ownerRequestId);
@@ -332,6 +392,8 @@ export function AdminLeadsConsole() {
       if (!response.ok) throw new Error(payload.error ?? "Spostamento non riuscito. Riprova.");
       setRecords((current) => current.map((item) => item.ownerRequestId === record.ownerRequestId
         ? { ...item, reviewPipelineStageId: stageId } : item));
+      setDetailRecord((current) => current?.ownerRequestId === record.ownerRequestId
+        ? { ...current, reviewPipelineStageId: stageId } : current);
       // The move is complete; a slower list refresh must not keep the action busy.
       const refresh = loadRecords();
       const refreshId = recordsLoadId.current;
@@ -417,7 +479,28 @@ export function AdminLeadsConsole() {
     void approve(record);
   }
 
-  function selectRecord(record: AdminLeadRecord) {
+  async function loadDetail(id: string, loadId: number) {
+    try {
+      const token = await getAccessToken();
+      if (loadId !== detailLoadId.current) return;
+      if (!token) throw new Error("Sessione non disponibile. Effettua nuovamente l'accesso.");
+      const controller = new AbortController();
+      detailAbort.current = controller;
+      const response = await fetch(`/api/admin/leads/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: controller.signal,
+      });
+      const payload = await response.json() as { record?: AdminLeadRecord; error?: string };
+      if (loadId !== detailLoadId.current) return;
+      if (!response.ok || !payload.record || payload.record.ownerRequestId !== id) throw new Error(payload.error ?? "Non riesco a caricare il dettaglio.");
+      setDetailRecord(payload.record);
+      initializeApprovalDraft(payload.record);
+    } catch (cause) {
+      if (loadId !== detailLoadId.current) return;
+      setDetailError(cause instanceof Error ? cause.message : "Dettaglio non disponibile.");
+    }
+  }
+
+  function selectRecord(record: AdminLeadRecord | AdminLeadListRecord) {
     setSelectedId(record.ownerRequestId);
     setActionReason("");
     if (canPublishToPrime && !primeTargetsLoaded) {
@@ -426,6 +509,14 @@ export function AdminLeadsConsole() {
     if (record.lead?.publishedAt) {
       void recordPublishedLeadView(record.lead.id);
     }
+    if ("summaryOnly" in record) {
+      void loadDetail(record.ownerRequestId, detailLoadId.current);
+    } else {
+      initializeApprovalDraft(record);
+    }
+  }
+
+  function initializeApprovalDraft(record: AdminLeadRecord) {
     setApprovalDrafts((current) => ({
       ...current,
       [record.ownerRequestId]: current[record.ownerRequestId] ?? {
@@ -508,6 +599,7 @@ export function AdminLeadsConsole() {
       setError(payload.error ?? "Rifiuto non completato.");
     } else {
       setActionReason("");
+      setSelectedId(null);
       await loadRecords();
       setFilter("rejected");
     }
@@ -771,6 +863,7 @@ export function AdminLeadsConsole() {
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
           {error}
+          <button type="button" className="ml-3 underline" disabled={loading} onClick={() => void loadRecords()}>Riprova</button>
         </div>
       ) : null}
 
@@ -803,9 +896,9 @@ export function AdminLeadsConsole() {
             <span></span>
           </div>
 
-          {loading ? (
+          {loading || (!error && (loadedKey !== requestKey || (loadFilter && loadSearch !== query.trim()))) ? (
             <div className="p-8 text-center text-muted">Caricamento lead...</div>
-          ) : filteredRecords.length > 0 ? (
+          ) : paginatedRecords.length > 0 ? (
             <div className="divide-y divide-slate-200">
               {paginatedRecords.map((record) => (
                 <div
@@ -905,7 +998,7 @@ export function AdminLeadsConsole() {
             pagination={{
               page: currentPage,
               pageSize,
-              total: filteredRecords.length,
+              total: activeListPage?.pagination.total ?? filteredRecords.length,
               totalPages,
             }}
             disabled={loading}
@@ -916,7 +1009,7 @@ export function AdminLeadsConsole() {
 
       </div>
 
-      {selectedRecord ? (
+      {selectedId ? (
         <div
           className="fixed inset-0 z-[80] overflow-y-auto bg-slate-950/35 p-0 sm:p-5 lg:p-8"
           role="dialog"
@@ -924,7 +1017,7 @@ export function AdminLeadsConsole() {
           aria-label="Dettaglio lead"
         >
           <div className="min-h-full bg-paper p-4 sm:rounded-xl sm:p-6 lg:mx-auto lg:max-w-6xl lg:p-8">
-            <LeadDetailPanel
+            {selectedRecord ? <LeadDetailPanel
               record={selectedRecord}
               canManage={canManageLeads}
               canManuallyPublishTelegram={canManuallyPublishTelegram}
@@ -945,7 +1038,16 @@ export function AdminLeadsConsole() {
               approvalDraft={getApprovalDraft(selectedRecord)}
               onApprovalDraftChange={(update) => updateApprovalDraft(selectedRecord, update)}
               actionLoading={actionLoading}
-            />
+            /> : <div className="grid gap-4 p-6" role="status">
+              <p>{detailError ?? "Caricamento dettaglio lead..."}</p>
+              <div className="flex gap-3">
+                {detailError ? <button className="btn btn-primary" type="button" onClick={() => {
+                  setSelectedId(selectedId);
+                  void loadDetail(selectedId, detailLoadId.current);
+                }}>Riprova</button> : null}
+                <button className="btn btn-secondary" type="button" onClick={() => setSelectedId(null)}>Chiudi</button>
+              </div>
+            </div>}
           </div>
         </div>
       ) : null}
@@ -958,7 +1060,12 @@ export function AdminLeadsConsole() {
             updateApprovalDraft(editingRecord, update)
           }
           onClose={() => setEditingId(null)}
-          onSaved={loadRecords}
+          onSaved={async () => {
+            await loadRecords();
+            if (detailRecord && selectedId === detailRecord.ownerRequestId) {
+              await loadDetail(selectedId, detailLoadId.current);
+            }
+          }}
         />
       ) : null}
 
@@ -2092,7 +2199,7 @@ function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
   );
 }
 
-function StatusBadge({ record }: { record: AdminLeadRecord }) {
+function StatusBadge({ record }: { record: AdminLeadRecord | AdminLeadListRecord }) {
   if (record.lead?.visibilityMode === "prime_private") {
     return (
       <span className="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
@@ -2269,7 +2376,7 @@ function parseEuroCents(value: string) {
   return Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : 0;
 }
 
-function isNewLead(record: AdminLeadRecord) {
+function isNewLead(record: { requestStatus: string }) {
   return record.requestStatus === "to_verify";
 }
 
@@ -2309,7 +2416,7 @@ function mergeApprovalDraft(
   };
 }
 
-function isPendingLead(record: AdminLeadRecord) {
+function isPendingLead(record: { requestStatus: string }) {
   return record.requestStatus === "pending";
 }
 
@@ -2364,13 +2471,13 @@ function groupMissingFields(fields: MissingLeadField[]) {
     .filter((group) => group.fields.length);
 }
 
-function formatOwner(record: AdminLeadRecord) {
+function formatOwner(record: AdminLeadRecord | AdminLeadListRecord) {
   const name = `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim();
 
   return name || record.contact?.email || "Proprietario non indicato";
 }
 
-function buildDefaultTitle(record: AdminLeadRecord) {
+function buildDefaultTitle(record: AdminLeadRecord | AdminLeadListRecord) {
   const propertyType = record.property?.propertyType ?? "Immobile";
   const place = record.property?.city ?? record.property?.province ?? record.property?.region;
 

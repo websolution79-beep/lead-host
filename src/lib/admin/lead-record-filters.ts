@@ -1,21 +1,24 @@
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
+import type { AdminLeadListRecord } from "@/lib/admin/lead-list-records";
+
+type FilterRecord = AdminLeadRecord | AdminLeadListRecord;
 
 const COMPLETED_PURCHASE_STATUSES = new Set(["paid", "contact_unlocked"]);
 
-export function hasActionableDuplicateWarning(record: AdminLeadRecord) {
+export function hasActionableDuplicateWarning(record: FilterRecord) {
   return (
     !["published", "not_publishable"].includes(record.requestStatus) &&
     ["duplicate", "possible_duplicate"].includes(record.duplicateCheck.status)
   );
 }
 
-export function hasCompletedLeadPurchase(record: AdminLeadRecord) {
+export function hasCompletedLeadPurchase(record: FilterRecord) {
   return record.purchases.some((purchase) =>
     COMPLETED_PURCHASE_STATUSES.has(purchase.status),
   );
 }
 
-export function isExpiredAdminLead(record: AdminLeadRecord, now = Date.now()) {
+export function isExpiredAdminLead(record: FilterRecord, now = Date.now()) {
   const lead = record.lead;
 
   if (!lead) return false;
@@ -27,7 +30,7 @@ export function isExpiredAdminLead(record: AdminLeadRecord, now = Date.now()) {
 }
 
 export function isVisibleAdminMarketplaceLead(
-  record: AdminLeadRecord,
+  record: FilterRecord,
   now = Date.now(),
 ) {
   const lead = record.lead;

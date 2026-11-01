@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Clock3, Columns3, GripVertical, Home, Pencil, Phone, Plus, Trash2, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock3, Columns3, GripVertical, Home, Pencil, Phone, Plus, RefreshCw, Trash2, UserRound, X } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { getLeadAccessToken } from "@/lib/auth/lead-access-token";
 import { useAppSession } from "@/components/app-session-provider";
-import type { AdminLeadRecord } from "@/lib/admin/lead-records";
+import type { LeadPipelineRecord, LeadPipelineStage as PipelineStage } from "@/lib/admin/lead-pipeline-records";
 import { LeadAssignmentControl } from "@/components/lead-assignment-control";
 import { useLeadAssignments } from "@/components/use-lead-assignments";
 import { compareLeadActivity, describeLeadActivity } from "@/lib/lead-operational-activity";
 
-type PipelineStage = { id: string; name: string; color: string; position: number };
 type PipelineResponse = { stages?: PipelineStage[]; error?: string };
 type StageDraft = { id?: string; name: string; color: string };
 
@@ -19,16 +18,22 @@ const stageColors = ["#2563EB", "#7C3AED", "#0F766E", "#B45309", "#C2410C", "#04
 const intakeStageId = "a2fdcf08-b16a-45cb-a68e-325596ebc1f1";
 const activityDateFormat = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
-export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChanged }: {
-  records: AdminLeadRecord[];
+export function AdminNewLeadsPipeline({ records, snapshotStages, loading, refreshing, updatedAt, refreshError, canManage, onOpenDetail, onChanged, onBusyChange, onMoveCommitted }: {
+  records: LeadPipelineRecord[];
+  snapshotStages: PipelineStage[];
+  loading: boolean;
+  refreshing: boolean;
+  updatedAt: number | null;
+  refreshError: string;
   canManage: boolean;
-  onOpenDetail: (record: AdminLeadRecord) => void;
+  onOpenDetail: (record: LeadPipelineRecord) => void;
   onChanged: () => Promise<void>;
+  onBusyChange: (busy: boolean) => void;
+  onMoveCommitted: (ownerRequestId: string, stageId: string) => void;
 }) {
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const { userId } = useAppSession();
-  const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const stages = snapshotStages;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -70,26 +75,8 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
     : records, [records, selectedAssignee, assignmentsByRequest]);
   const filtersAvailable = Boolean(assignments.fresh && assignments.snapshot?.storageReady);
 
-  const loadStages = useCallback(async () => {
-    try {
-    const token = await getToken();
-    if (!token) { setError("Sessione non disponibile. Effettua nuovamente l'accesso."); setLoading(false); return; }
-    const response = await fetch("/api/admin/leads/pipeline", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-    const payload = (await response.json()) as PipelineResponse;
-    if (!response.ok) setError(payload.error ?? "Non riesco a caricare la pipeline.");
-    else setStages(payload.stages ?? []);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Non riesco a caricare la pipeline. Riprova.");
-    } finally { setLoading(false); }
-  }, [getToken]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => void loadStages(), 0);
-    return () => window.clearTimeout(timer);
-  }, [loadStages]);
-
   async function updatePipeline(body: Record<string, unknown>) {
-    setSaving(true); setError("");
+    setSaving(true); setError(""); onBusyChange(true);
     try {
       const token = await getToken();
       if (!token) { setError("Sessione non disponibile. Effettua nuovamente l'accesso."); return false; }
@@ -98,13 +85,13 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
       });
       const payload = (await response.json()) as PipelineResponse;
       if (!response.ok) { setError(payload.error ?? "Aggiornamento pipeline non riuscito."); return false; }
-      setStages(payload.stages ?? []);
-      await onChanged();
+      if (body.action === "move_request" && typeof body.ownerRequestId === "string" && typeof body.stageId === "string") onMoveCommitted(body.ownerRequestId, body.stageId);
+      void onChanged().catch(() => setError("Operazione completata. Aggiornamento pipeline non riuscito: premi Aggiorna."));
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Aggiornamento pipeline non riuscito. Riprova.");
       return false;
-    } finally { setSaving(false); }
+    } finally { setSaving(false); onBusyChange(false); }
   }
 
   async function saveStage() {
@@ -125,7 +112,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
     if (changed) setDraggingId(null);
   }
 
-  if (loading) return <section className="card p-8 text-center text-muted">Caricamento pipeline nuovi lead...</section>;
+  if (loading) return <section role="status" className="card p-8 text-center text-muted">Caricamento di tutte le colonne e dei lead in lavorazione...</section>;
 
   return (
     <section className="grid min-w-0 max-w-full gap-4">
@@ -139,6 +126,11 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
           {canManage ? <button className="btn btn-secondary w-full sm:w-auto" type="button" disabled={saving} onClick={() => setStageEditor({ name: "", color: "#047857" })}><Plus size={17} />Aggiungi colonna</button> : null}
         </div>
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted" role="status">
+        <span>{updatedAt ? <>Ultimo aggiornamento: <time dateTime={new Date(updatedAt).toISOString()}>{activityDateFormat.format(new Date(updatedAt))}</time></> : "Pipeline non ancora caricata"}{refreshing ? " · Aggiornamento in corso..." : ""}</span>
+        <button type="button" title="Aggiorna la pipeline" className="inline-flex items-center gap-1.5 font-semibold text-green underline disabled:opacity-50" disabled={refreshing || saving} onClick={() => void onChanged()}><RefreshCw size={14} aria-hidden="true" />Aggiorna</button>
+      </div>
+      {refreshError ? <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{refreshError} La situazione mostrata risale all&apos;ultimo aggiornamento riuscito.</p> : null}
       <div className="flex min-w-0 flex-col gap-3 border-y border-slate-200 py-4 sm:flex-row sm:items-end sm:justify-between">
         {assignments.snapshot?.canManageAll ? <label className="grid w-full gap-2 text-sm font-semibold text-ink sm:max-w-sm" htmlFor="pipeline-assignee-filter">
           Preso in carico da
@@ -184,8 +176,12 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
                   {stage.id !== intakeStageId ? <LeadAssignmentControl ownerRequestId={record.ownerRequestId} title={record.lead?.title ?? defaultTitle(record)}
                     snapshot={assignments.snapshot} assignment={assignmentsByRequest.get(record.ownerRequestId)}
                     disabled={!canManage || !assignments.fresh || Boolean(assignments.savingId)}
-                    onChange={(profileId, revision) => void assignments.assign(record.ownerRequestId, profileId, revision)
-                      .then(onChanged).catch(() => setError("Aggiornamento della pipeline non riuscito. Premi Aggiorna prima di riprovare."))} /> : null}
+                    onChange={(profileId, revision) => {
+                      onBusyChange(true);
+                      void assignments.assign(record.ownerRequestId, profileId, revision)
+                        .then(() => { void onChanged(); }).catch(() => setError("Aggiornamento della pipeline non riuscito. Premi Aggiorna prima di riprovare."))
+                        .finally(() => onBusyChange(false));
+                    }} /> : null}
                 </NewLeadCard>)}
                 {!stageRecords.length ? <div className="grid min-h-24 place-items-center rounded-lg border border-dashed border-slate-300 px-4 text-center text-sm text-slate-400">{selectedAssignee ? "Nessun lead assegnato in questa fase." : canManage ? "Trascina qui un lead." : "Nessun lead in questa fase."}</div> : null}
               </div>
@@ -199,7 +195,7 @@ export function AdminNewLeadsPipeline({ records, canManage, onOpenDetail, onChan
   );
 }
 
-function NewLeadCard({ record, now, draggable, dragging, onDragStart, onDragEnd, onOpen, children }: { record: AdminLeadRecord; now: number; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void; children: ReactNode }) {
+function NewLeadCard({ record, now, draggable, dragging, onDragStart, onDragEnd, onOpen, children }: { record: LeadPipelineRecord; now: number; draggable: boolean; dragging: boolean; onDragStart: (event: DragEvent<HTMLElement>) => void; onDragEnd: () => void; onOpen: () => void; children: ReactNode }) {
   const internalNotes = record.qualificationNotes?.trim();
   return <article data-lead-request-id={record.ownerRequestId} className={`group w-full rounded-lg border border-slate-200 bg-white text-left shadow-sm transition hover:border-green/40 hover:shadow-md ${dragging ? "opacity-40" : ""}`}>
     <button className={`w-full p-4 text-left ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`} draggable={draggable} onDragStart={onDragStart} onDragEnd={onDragEnd} type="button" onClick={onOpen}>
@@ -232,7 +228,7 @@ function NewLeadCard({ record, now, draggable, dragging, onDragStart, onDragEnd,
     <ActivityFooter record={record} now={now} />
   </article>;
 }
-function ActivityFooter({ record, now }: { record: AdminLeadRecord; now: number }) {
+function ActivityFooter({ record, now }: { record: LeadPipelineRecord; now: number }) {
   const activity = describeLeadActivity(record, now);
   const colors = activity.tone === "danger" ? "border-red-200 bg-red-50 text-red-800" : activity.tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-slate-50 text-slate-600";
   const date = activity.at ?? (record.operationalActivity === null ? record.createdAt : null);
@@ -243,7 +239,7 @@ function ActivityFooter({ record, now }: { record: AdminLeadRecord; now: number 
     {activity.historical ? <span className="text-[10px]" title="Operazione recuperata dai vecchi log; non certifica l'ultimo contatto telefonico e puo includere salvataggi senza variazioni.">Da storico</span> : null}
   </div>;
 }
-function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
+function FirstWorkedBadge({ record }: { record: LeadPipelineRecord }) {
   const worker = record.firstWorkedBy;
   if (!worker) return null;
   const name = `${worker.firstName ?? ""} ${worker.lastName?.trim().slice(0, 1) ?? ""}`.trim();
@@ -251,8 +247,8 @@ function FirstWorkedBadge({ record }: { record: AdminLeadRecord }) {
   const color = worker.badgeColor ?? "#2563EB";
   return <span className="max-w-[120px] truncate rounded-full border px-2 py-0.5 text-[10px] font-bold" title={`Prima lavorazione: ${worker.firstName ?? ""} ${worker.lastName ?? ""}`} style={{ borderColor: color, color, backgroundColor: `${color}14` }}>{name}{worker.lastName ? "." : ""}</span>;
 }
-function formatOwnerName(record: AdminLeadRecord) { return `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim() || "Non indicato"; }
-function defaultTitle(record: AdminLeadRecord) { const type = record.property?.propertyType?.trim() || "Immobile"; const city = record.property?.city?.trim(); return city ? `${type} a ${city}` : type; }
+function formatOwnerName(record: LeadPipelineRecord) { return `${record.contact?.firstName ?? ""} ${record.contact?.lastName ?? ""}`.trim() || "Non indicato"; }
+function defaultTitle(record: LeadPipelineRecord) { const type = record.property?.propertyType?.trim() || "Immobile"; const city = record.property?.city?.trim(); return city ? `${type} a ${city}` : type; }
 function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) { return <button aria-label={label} className="grid size-8 place-items-center rounded-md text-slate-500 hover:bg-white hover:text-ink disabled:opacity-30" type="button" disabled={disabled} onClick={onClick}>{children}</button>; }
 
 function StageDialog({ draft, saving, canDelete, onChange, onClose, onDelete, onSave }: { draft: StageDraft; saving: boolean; canDelete: boolean; onChange: (update: Partial<StageDraft>) => void; onClose: () => void; onDelete: () => void; onSave: () => void }) {

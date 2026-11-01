@@ -5,12 +5,17 @@ import type { Database, Json } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchLeadListPage, leadListFilterSchema } from "@/lib/admin/lead-list-page";
 import { fetchAdminLeadListRecords } from "@/lib/admin/lead-list-records";
+import { fetchAdminLeadPipeline } from "@/lib/admin/lead-pipeline-records";
 
 type ServiceClient = SupabaseClient<Database>;
 
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
+    if (request.nextUrl.searchParams.get("view") === "pipeline") {
+      const [pipeline, stats] = await Promise.all([fetchAdminLeadPipeline(supabase), fetchLeadStats(supabase)]);
+      return NextResponse.json({ ...pipeline, stats }, { headers: { "Cache-Control": "no-store" } });
+    }
     // Opt-in path: existing pipeline consumers retain the original response.
     if (request.nextUrl.searchParams.has("filter")) {
       if (!leadListFilterSchema.safeParse(request.nextUrl.searchParams.get("filter")).success) {

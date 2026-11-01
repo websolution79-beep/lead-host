@@ -36,6 +36,7 @@ import { useMarketplacePromotions } from "@/components/use-marketplace-promotion
 import { useAppSession } from "@/components/app-session-provider";
 import type { AdminLeadRecord } from "@/lib/admin/lead-records";
 import type { AdminLeadListRecord } from "@/lib/admin/lead-list-records";
+import type { LeadPipelineRecord, LeadPipelineStage } from "@/lib/admin/lead-pipeline-records";
 import {
   hasActionableDuplicateWarning,
   hasCompletedLeadPurchase,
@@ -50,7 +51,8 @@ import {
 } from "@/lib/owner-requests/completeness";
 
 type AdminLeadsResponse = {
-  records: (AdminLeadRecord | AdminLeadListRecord)[];
+  records: (AdminLeadRecord | AdminLeadListRecord | LeadPipelineRecord)[];
+  stages?: LeadPipelineStage[];
   pagination?: { page: number; pageSize: number; total: number; totalPages: number };
   stats: {
     waitingCompletion: number;
@@ -131,11 +133,17 @@ export function AdminLeadsConsole() {
   const invalidateList = useCallback(() => {
     recordsLoadId.current++;
     listAbort.current?.abort();
+    listAbort.current = null;
   }, []);
   const [detailRecord, setDetailRecord] = useState<AdminLeadRecord | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [listPage, setListPage] = useState<{ records: AdminLeadListRecord[]; pagination: NonNullable<AdminLeadsResponse["pagination"]> } | null>(null);
   const [loadedKey, setLoadedKey] = useState("");
+  const [pipelineSnapshot, setPipelineSnapshot] = useState<{ records: LeadPipelineRecord[]; stages: LeadPipelineStage[]; updatedAt: number } | null>(null);
+  const [pipelineRefreshing, setPipelineRefreshing] = useState(false);
+  const [pipelineRefreshError, setPipelineRefreshError] = useState("");
+  const pipelineBusy = useRef(false);
+  const pipelineHasSnapshot = useRef(false);
   const [stats, setStats] = useState<AdminLeadsResponse["stats"]>({
     waitingCompletion: 0,
     duplicates: 0,
@@ -202,24 +210,9 @@ export function AdminLeadsConsole() {
     if (filter === "expired" && !isExpiredAdminLead(record)) return false;
     if (filter === "rejected" && record.requestStatus !== "not_publishable") return false;
 
-    const haystack = [
-      record.contact?.firstName,
-      record.contact?.lastName,
-      record.contact?.email,
-      record.contact?.phone,
-      record.property?.city,
-      record.property?.province,
-      record.property?.region,
-      record.property?.propertyType,
-      record.property?.description,
-      record.lead?.title,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    return query.trim() ? haystack.includes(query.trim().toLowerCase()) : true;
+    return matchesPipelineSearch(record, query);
   });
+  const pipelineRecords = pipelineSnapshot?.records.filter(record => matchesPipelineSearch(record, query)) ?? [];
 
   const pageSize = 25;
   const activeListPage = loadedKey === requestKey ? listPage : null;
@@ -251,27 +244,25 @@ export function AdminLeadsConsole() {
   );
   const promotionsByLead = new Map(promotions.snapshot?.promotions.map((promotion) => [promotion.leadId, promotion]) ?? []);
 
-  const loadRecords = useCallback(async () => {
+  const loadRecords = useCallback(async (background = false) => {
     const loadId = ++recordsLoadId.current;
     listAbort.current?.abort();
     const controller = new AbortController();
     listAbort.current = controller;
-    setLoading(true);
+    if (background) setPipelineRefreshing(true);
+    else setLoading(true);
     try {
     const token = await getAccessToken();
     if (loadId !== recordsLoadId.current) return;
 
-    setLoading(true);
-    setError(null);
+    if (!background) setError(null);
 
     if (!token) {
-      setError("Sessione non disponibile. Effettua di nuovo il login.");
-      setLoading(false);
-      return;
+      throw new Error("Sessione non disponibile. Effettua di nuovo il login.");
     }
 
     const params = loadFilter ? new URLSearchParams({ filter: loadFilter, search: loadSearch, page: String(loadPage), pageSize: "25" }) : null;
-    const response = await fetch(params ? `/api/admin/leads?${params}` : "/api/admin/leads", {
+    const response = await fetch(params ? `/api/admin/leads?${params}` : "/api/admin/leads?view=pipeline", {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -284,12 +275,17 @@ export function AdminLeadsConsole() {
     if (loadId !== recordsLoadId.current) return;
 
     if (!response.ok) {
-      setError(payload.error ?? "Non sono riuscito a caricare i lead.");
-      setLoading(false);
-      return;
+      throw new Error(payload.error ?? "Non sono riuscito a caricare i lead.");
     }
 
-    if (loadFilter && payload.pagination) {
+    if (!loadFilter) {
+      if (!Array.isArray(payload.stages) || !Array.isArray(payload.records)) throw new Error("Risposta pipeline non valida. Riprova.");
+      setPipelineSnapshot({ records: payload.records as LeadPipelineRecord[], stages: payload.stages, updatedAt: Date.now() });
+      pipelineHasSnapshot.current = true;
+      setPipelineRefreshError("");
+      setListPage(null);
+      setRecords([]);
+    } else if (payload.pagination) {
       if (loadPage > payload.pagination.totalPages) {
         setPage(Math.max(1, payload.pagination.totalPages));
         return;
@@ -322,8 +318,15 @@ export function AdminLeadsConsole() {
     setLoading(false);
     } catch (cause) {
       if (loadId !== recordsLoadId.current) return;
-      setError(cause instanceof Error ? cause.message : "Non riesco a caricare i lead. Riprova tra poco.");
+      const message = cause instanceof Error ? cause.message : "Non riesco a caricare i lead. Riprova tra poco.";
+      if (background || (!loadFilter && pipelineHasSnapshot.current)) setPipelineRefreshError(message);
+      else setError(message);
       setLoading(false);
+    } finally {
+      if (loadId === recordsLoadId.current) {
+        setPipelineRefreshing(false);
+        listAbort.current = null;
+      }
     }
   }, [getAccessToken, loadFilter, loadPage, loadSearch, requestKey]);
 
@@ -379,6 +382,34 @@ export function AdminLeadsConsole() {
     };
   }, [loadRecords, invalidateList]);
 
+  useEffect(() => {
+    if (filter !== "new") return;
+    const refresh = () => {
+      if (!document.hidden && !listAbort.current && pipelineHasSnapshot.current && !pipelineBusy.current && !selectedId && !editingId && !actionLoading) void loadRecords(true);
+    };
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [filter, loadRecords, selectedId, editingId, actionLoading]);
+
+  const updatePipelineBusy = useCallback((busy: boolean) => {
+    pipelineBusy.current = busy;
+    if (busy) {
+      invalidateList();
+      setPipelineRefreshing(false);
+      if (pipelineHasSnapshot.current) setLoading(false);
+    }
+  }, [invalidateList]);
+
+  const commitPipelineMove = useCallback((ownerRequestId: string, stageId: string) => {
+    setPipelineSnapshot(current => current ? { ...current, records: current.records.map(record => record.ownerRequestId === ownerRequestId ? { ...record, reviewPipelineStageId: stageId } : record) } : current);
+  }, []);
+
   async function movePipelineStage(record: AdminLeadRecord, stageId: string) {
     setActionLoading(record.ownerRequestId);
     try {
@@ -394,8 +425,9 @@ export function AdminLeadsConsole() {
         ? { ...item, reviewPipelineStageId: stageId } : item));
       setDetailRecord((current) => current?.ownerRequestId === record.ownerRequestId
         ? { ...current, reviewPipelineStageId: stageId } : current);
+      commitPipelineMove(record.ownerRequestId, stageId);
       // The move is complete; a slower list refresh must not keep the action busy.
-      const refresh = loadRecords();
+      const refresh = loadRecords(filter === "new");
       const refreshId = recordsLoadId.current;
       void refresh.catch(() => {
         if (refreshId !== recordsLoadId.current) return;
@@ -500,7 +532,7 @@ export function AdminLeadsConsole() {
     }
   }
 
-  function selectRecord(record: AdminLeadRecord | AdminLeadListRecord) {
+  function selectRecord(record: AdminLeadRecord | AdminLeadListRecord | LeadPipelineRecord) {
     setSelectedId(record.ownerRequestId);
     setActionReason("");
     if (canPublishToPrime && !primeTargetsLoaded) {
@@ -876,10 +908,17 @@ export function AdminLeadsConsole() {
       <div className="grid gap-5">
         {filter === "new" ? (
           <AdminNewLeadsPipeline
-            records={filteredRecords}
+            records={pipelineRecords}
+            snapshotStages={pipelineSnapshot?.stages ?? []}
+            loading={!pipelineSnapshot && loading}
+            refreshing={pipelineRefreshing || loading}
+            updatedAt={pipelineSnapshot?.updatedAt ?? null}
+            refreshError={pipelineRefreshError}
             canManage={canManageLeads}
             onOpenDetail={selectRecord}
-            onChanged={loadRecords}
+            onChanged={() => loadRecords(Boolean(pipelineSnapshot))}
+            onBusyChange={updatePipelineBusy}
+            onMoveCommitted={commitPipelineMove}
           />
         ) : (
         <div className="card overflow-hidden">
@@ -1171,7 +1210,7 @@ function LeadDetailPanel({
 
   return (
     <aside className="card h-fit p-5">
-      {canManage && record.requestStatus === "to_verify" ? <LeadPresenceBanner key={record.ownerRequestId} ownerRequestId={record.ownerRequestId} /> : null}
+      {canManage && record.requestStatus === "to_verify" ? <LeadPresenceBanner key={`presence-${record.ownerRequestId}`} ownerRequestId={record.ownerRequestId} /> : null}
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="section-kicker">Dettaglio</p>
@@ -1205,7 +1244,7 @@ function LeadDetailPanel({
       </div>
 
       {canManage && record.requestStatus === "to_verify" ? <AdminLeadPipelineMove
-        key={record.ownerRequestId} currentStageId={record.reviewPipelineStageId} disabled={isBusy}
+        key={`pipeline-move-${record.ownerRequestId}`} currentStageId={record.reviewPipelineStageId} disabled={isBusy}
         onMove={(stageId) => onPipelineMove(record, stageId)} /> : null}
       <div
         className={`mt-4 rounded-lg border p-3 ${
@@ -2378,6 +2417,13 @@ function parseEuroCents(value: string) {
 
 function isNewLead(record: { requestStatus: string }) {
   return record.requestStatus === "to_verify";
+}
+
+function matchesPipelineSearch(record: Pick<LeadPipelineRecord, "contact" | "property" | "lead">, query: string) {
+  const text = [record.contact?.firstName, record.contact?.lastName, record.contact?.email, record.contact?.phone,
+    record.property?.city, record.property?.province, record.property?.region, record.property?.propertyType,
+    record.property?.description, record.lead?.title].filter(Boolean).join(" ").toLowerCase();
+  return !query.trim() || text.includes(query.trim().toLowerCase());
 }
 
 function mergeApprovalDraft(

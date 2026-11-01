@@ -12,6 +12,7 @@ import {
 import { buildPagination, readPagination } from "@/lib/api/pagination";
 import { runBrevoWorkerSafely } from "@/lib/brevo/worker";
 import { readRowsInIdBatches } from "@/lib/supabase/batched-query";
+import { fetchPmListPage } from "@/lib/admin/pm-list-page";
 
 const updatePropertyManagerSchema = z.object({
   profileId: z.string().uuid(),
@@ -135,6 +136,13 @@ export async function GET(request: NextRequest) {
       .optional()
       .catch(undefined)
       .parse(request.nextUrl.searchParams.get("managedProperties") || undefined);
+
+    if (!requestedProfileId) {
+      const page = await fetchPmListPage(supabase, request.nextUrl.searchParams, search, managedPropertiesFilter);
+      if (page) return NextResponse.json(page, {
+        headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=45" },
+      });
+    }
 
     const { data: roleRows, error: rolesError } = await supabase
       .from("user_roles")

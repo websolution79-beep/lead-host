@@ -72,9 +72,9 @@ type EmailRecipientsResponse = {
 const templateGroups: { label: string; ids: TransactionalEmailTemplateId[] }[] = [
   { label: "Account Property Manager", ids: ["pm.welcome", "pm.verified", "pm.account_deactivated"] },
   { label: "Acquisizione proprietari", ids: ["admin.owner_request_pending", "owner.completion_requested"] },
-  { label: "Lead e Marketplace", ids: ["lead.new_available", "lead.digest", "lead.purchased", "admin.lead_purchased"] },
+  { label: "Lead e Marketplace", ids: ["lead.new_available", "lead.digest", "lead.purchased", "lead.booking_call_purchased", "admin.lead_purchased"] },
   { label: "Wallet", ids: ["wallet.top_up"] },
-  { label: "Team e compensi", ids: ["team.marketplace_promotion_earned"] },
+  { label: "Team e compensi", ids: ["team.marketplace_promotion_earned", "team.booking_call_requested"] },
   { label: "Abbonamento Marketplace", ids: [
     "marketplace.activated", "admin.marketplace_activated",
     "marketplace.payment_received", "admin.marketplace_payment_received",

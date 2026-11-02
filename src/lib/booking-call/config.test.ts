@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fetchBookingCallConfig, quoteBookingCall, type BookingCallConfig } from "./config";
+import { fetchBookingCallConfig, fetchBookingCallWorkflowConfig, quoteBookingCall, type BookingCallConfig } from "./config";
 
 const config: BookingCallConfig = { schemaVersion: 1, storageReady: true, enabled: true, feeCents: 1500, compensationCents: 300, currency: "EUR" };
 
@@ -8,6 +8,18 @@ test("booking quote separates lead, service, total and fixed qualifier compensat
   assert.deepEqual(quoteBookingCall({ config, leadAmountCents: 5000, visibilityMode: "public", exclusiveAvailable: true }), {
     leadAmountCents: 5000, bookingFeeCents: 1500, totalAmountCents: 6500, compensationCents: 300, currency: "EUR",
   });
+});
+
+test("purchase workflow stays closed until every workflow migration is installed", async () => {
+  for (const data of [null, { ...config, schemaVersion: 2, engineReady: true }, { ...config, schemaVersion: 3, engineReady: false, workflowReady: true }]) {
+    const result = await fetchBookingCallWorkflowConfig({ rpc: async () => ({ data, error: null }) });
+    assert.equal(result.workflowReady, false); assert.equal(result.enabled, false);
+  }
+  const ready = await fetchBookingCallWorkflowConfig({ rpc: async (name: string) => {
+    assert.equal(name, "get_marketplace_booking_call_readiness_v3");
+    return { data: { ...config, schemaVersion: 3, engineReady: true, workflowReady: true }, error: null };
+  } });
+  assert.equal(ready.workflowReady, true); assert.equal(ready.enabled, true);
 });
 
 test("public-only booking never bypasses exclusive availability or the rollout gate", () => {

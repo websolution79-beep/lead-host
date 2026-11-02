@@ -9,6 +9,7 @@ const readinessSchema = z.object({
 });
 
 export type BookingCallConfig = z.infer<typeof readinessSchema> & { storageReady: boolean };
+export type BookingCallWorkflowConfig = Omit<BookingCallConfig, "schemaVersion"> & { workflowReady: boolean };
 type RpcClient = { rpc: (name: string) => PromiseLike<{ data: unknown; error: { code?: string } | null }> };
 
 export async function fetchBookingCallConfig(client: unknown): Promise<BookingCallConfig> {
@@ -25,8 +26,21 @@ export async function fetchBookingCallConfig(client: unknown): Promise<BookingCa
   }
 }
 
+export async function fetchBookingCallWorkflowConfig(client: unknown): Promise<BookingCallWorkflowConfig> {
+  const disabled: BookingCallWorkflowConfig = { storageReady: false, enabled: false, workflowReady: false,
+    feeCents: 0, compensationCents: BOOKING_CALL_COMPENSATION_CENTS, currency: "EUR" };
+  try {
+    const result = await (client as RpcClient).rpc("get_marketplace_booking_call_readiness_v3");
+    const schema = readinessSchema.extend({ schemaVersion: z.literal(3), engineReady: z.literal(true), workflowReady: z.literal(true) });
+    const parsed = schema.safeParse(result.data);
+    if (result.error || !parsed.success) return disabled;
+    return { ...parsed.data, storageReady: true, enabled: parsed.data.enabled && parsed.data.feeCents > 0 };
+  } catch { return disabled; }
+}
+
 export function quoteBookingCall(input: {
-  config: BookingCallConfig; leadAmountCents: number; visibilityMode: string; exclusiveAvailable: boolean;
+  config: Pick<BookingCallConfig, "storageReady" | "enabled" | "feeCents" | "compensationCents" | "currency">;
+  leadAmountCents: number; visibilityMode: string; exclusiveAvailable: boolean;
 }) {
   const { config, leadAmountCents } = input;
   if (!config.storageReady || !config.enabled || config.compensationCents !== BOOKING_CALL_COMPENSATION_CENTS ||

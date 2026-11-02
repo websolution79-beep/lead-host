@@ -29,6 +29,7 @@ import { AdminLeadEditorModal } from "@/components/admin-lead-editor-modal";
 import { LeadPresenceBanner } from "@/components/lead-presence-banner";
 import { AdminLeadPipelineMove } from "@/components/admin-lead-pipeline-move";
 import { AdminLeadVerificationCompensation } from "@/components/admin-lead-verification-compensation";
+import { AdminBookingCallTask } from "@/components/admin-booking-call-task";
 import { AdminNewLeadsPipeline } from "@/components/admin-new-leads-pipeline";
 import { PaginationControls } from "@/components/pagination-controls";
 import { MarketplacePromotionControl } from "@/components/marketplace-promotion-control";
@@ -1500,6 +1501,8 @@ function LeadDetailPanel({
           <p className="mt-2 text-sm text-muted">Nessun acquisto registrato.</p>
         )}
       </section>
+
+      {record.lead && record.purchases.length > 0 ? <AdminBookingCallTask key={record.lead.id} leadId={record.lead.id} embedded /> : null}
 
       <section className="mt-5 border-t border-slate-200 pt-5">
         <p className="text-sm font-bold text-ink">Note interne</p>

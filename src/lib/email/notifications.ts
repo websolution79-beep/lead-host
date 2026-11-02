@@ -380,6 +380,7 @@ export async function sendAdminLeadPurchaseEmail({
   mode,
   amountCents,
   balanceCents,
+  bookingCall = false,
 }: {
   profile: ProfileRow;
   propertyManagerId: string;
@@ -389,6 +390,7 @@ export async function sendAdminLeadPurchaseEmail({
   mode: "shared" | "exclusive";
   amountCents: number;
   balanceCents: number;
+  bookingCall?: boolean;
 }) {
   if (await hasSentAdminLeadPurchaseEmail(leadPurchaseId)) {
     return { status: "skipped" as const, reason: "already_sent" as const };
@@ -398,7 +400,7 @@ export async function sendAdminLeadPurchaseEmail({
     .map((value) => value?.trim())
     .filter(Boolean)
     .join(" ");
-  const purchaseModeLabel = mode === "exclusive" ? "esclusiva" : "condivisa";
+  const purchaseModeLabel = bookingCall ? "esclusiva con booking Call" : mode === "exclusive" ? "esclusiva" : "condivisa";
 
   const { fetchPromotionSaleSummary } = await import("@/lib/team-compensation/promotion-sale-summary");
   const promotion = await fetchPromotionSaleSummary(createServiceSupabaseClient(), leadPurchaseId);

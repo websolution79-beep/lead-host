@@ -18,6 +18,7 @@ const querySchema = z.object({
       "prime_renewal",
       "prime_lead_purchase",
       "marketplace_promotion_sale",
+      "marketplace_booking_call",
       "refund_adjustment",
       "manual_adjustment",
     ])
@@ -197,6 +198,7 @@ function eventTypeLabel(type: string) {
   if (type === "prime_renewal") return "Rinnovo PM PRIME";
   if (type === "prime_lead_purchase") return "Acquisto Lead PM PRIME";
   if (type === "marketplace_promotion_sale") return "Vendita lead Marketplace";
+  if (type === "marketplace_booking_call") return "Booking Call";
   if (type === "refund_adjustment") return "Rettifica rimborso";
   return "Rettifica manuale";
 }

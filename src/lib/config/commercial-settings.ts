@@ -25,6 +25,8 @@ export type CommercialSettings = {
   verifiedSharedLeadPriceCents: number;
   verifiedExclusiveLeadPriceCents: number;
   sharedPurchasesEnabled: boolean;
+  bookingCallFeeCents?: number;
+  bookingCallEnabled?: boolean;
   maxSharedBuyers: number;
   unavailableVisibilityDays: number;
   soldVisibilityDays: number;
@@ -55,6 +57,8 @@ const SETTINGS_KEYS = {
   verifiedSharedPriceCents: "lead.verified_shared_price_cents",
   verifiedExclusivePriceCents: "lead.verified_exclusive_price_cents",
   sharedPurchasesEnabled: "lead.shared_purchases_enabled",
+  bookingCallFeeCents: "lead.booking_call_fee_cents",
+  bookingCallEnabled: "lead.booking_call_enabled",
   maxSharedBuyers: "lead.max_shared_buyers",
   unavailableVisibilityDays: "lead.unavailable_visibility_days",
   soldVisibilityDays: "lead.sold_visibility_days",
@@ -75,6 +79,8 @@ export const defaultCommercialSettings: CommercialSettings = {
   verifiedSharedLeadPriceCents: commercialRules.sharedLeadPriceCents,
   verifiedExclusiveLeadPriceCents: commercialRules.exclusiveLeadPriceCents,
   sharedPurchasesEnabled: true,
+  bookingCallFeeCents: 0,
+  bookingCallEnabled: false,
   maxSharedBuyers: commercialRules.maxSharedBuyers,
   unavailableVisibilityDays: commercialRules.unavailableVisibilityDays,
   soldVisibilityDays: commercialRules.soldVisibilityDays,
@@ -165,6 +171,8 @@ export async function fetchCommercialSettings(supabase: ServiceClient) {
       values.get(SETTINGS_KEYS.sharedPurchasesEnabled),
       defaultCommercialSettings.sharedPurchasesEnabled,
     ),
+    bookingCallFeeCents: parseCents(values.get(SETTINGS_KEYS.bookingCallFeeCents), 0),
+    bookingCallEnabled: parseBoolean(values.get(SETTINGS_KEYS.bookingCallEnabled), false),
     maxSharedBuyers: parsePositiveInteger(
       values.get(SETTINGS_KEYS.maxSharedBuyers),
       defaultCommercialSettings.maxSharedBuyers,
@@ -211,7 +219,7 @@ export async function saveCommercialSettings({
   profileId: string;
   settings: CommercialSettings;
 }) {
-  const rows = [
+  const rows: Array<{ key: string; value: Json; updated_by: string }> = [
     {
       key: SETTINGS_KEYS.firstTopUpMinCents,
       value: settings.firstTopUpMinCents,
@@ -285,6 +293,8 @@ export async function saveCommercialSettings({
       options: { onConflict: string },
     ) => Promise<{ error: { code?: string; message?: string } | null }>;
   };
+  if (settings.bookingCallFeeCents !== undefined) rows.push({ key: SETTINGS_KEYS.bookingCallFeeCents, value: settings.bookingCallFeeCents, updated_by: profileId });
+  if (settings.bookingCallEnabled !== undefined) rows.push({ key: SETTINGS_KEYS.bookingCallEnabled, value: settings.bookingCallEnabled, updated_by: profileId });
   const { error } = await settingsTable.upsert(rows, { onConflict: "key" });
 
   if (error) throw error;

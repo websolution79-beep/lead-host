@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { writeAdminAuditLog } from "@/lib/admin/audit";
+import { fetchBookingCallWorkflowConfig } from "@/lib/booking-call/config";
 import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 import {
   fetchCommercialSettings,
@@ -28,6 +29,8 @@ const commercialSettingsSchema = z.object({
   verifiedSharedLeadPriceCents: z.number().int().min(100).max(100000),
   verifiedExclusiveLeadPriceCents: z.number().int().min(100).max(200000),
   sharedPurchasesEnabled: z.boolean(),
+  bookingCallFeeCents: z.number().int().min(0).max(200000).optional(),
+  bookingCallEnabled: z.boolean().optional(),
   maxSharedBuyers: z.number().int().min(1).max(5),
   unavailableVisibilityDays: z.number().int().min(0).max(90),
   soldVisibilityDays: z.number().int().min(0).max(90),
@@ -37,10 +40,10 @@ const commercialSettingsSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
-    const { settings, storageReady } = await fetchCommercialSettings(supabase);
+    const [{ settings, storageReady }, booking] = await Promise.all([fetchCommercialSettings(supabase), fetchBookingCallWorkflowConfig(supabase)]);
 
     return NextResponse.json(
-      { settings, storageReady },
+      { settings, storageReady, bookingWorkflowReady: booking.workflowReady },
       {
         headers: {
           "Cache-Control": "private, max-age=15, stale-while-revalidate=45",
@@ -61,6 +64,8 @@ export async function PATCH(request: NextRequest) {
     const payload = commercialSettingsSchema.parse(await request.json());
     const settings: CommercialSettings = {
       ...payload,
+      bookingCallFeeCents: payload.bookingCallFeeCents ?? previousSettings.bookingCallFeeCents ?? 0,
+      bookingCallEnabled: payload.bookingCallEnabled ?? previousSettings.bookingCallEnabled ?? false,
       primeDefaultAccessDurationHours:
         previousSettings.primeDefaultAccessDurationHours,
       primeFirstMonthServiceFeeCents:
@@ -74,6 +79,13 @@ export async function PATCH(request: NextRequest) {
         id: rule.id ?? crypto.randomUUID(),
       })),
     };
+
+    if (settings.bookingCallEnabled) {
+      const booking = await fetchBookingCallWorkflowConfig(supabase);
+      if (!booking.workflowReady || !settings.bookingCallFeeCents) {
+        return NextResponse.json({ error: !booking.workflowReady ? "Completa l'installazione del servizio booking Call prima di attivarlo." : "Imposta un costo booking Call maggiore di zero." }, { status: 422 });
+      }
+    }
 
     await saveCommercialSettings({
       supabase,

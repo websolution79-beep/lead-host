@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
+import { AdminApiError, adminApiErrorResponse, requireSuperAdmin } from "@/lib/admin/auth";
 
 const filtersSchema = z.object({
   status: z.enum(["accrued", "pending_attribution", "voided"]).optional(),
@@ -10,6 +10,7 @@ const filtersSchema = z.object({
     "prime_renewal",
     "prime_lead_purchase",
     "marketplace_promotion_sale",
+    "marketplace_booking_call",
     "refund_adjustment",
     "manual_adjustment",
   ]).optional(),
@@ -70,10 +71,38 @@ export async function PATCH(request: NextRequest) {
     const payload = assignSchema.parse(await request.json());
     const rpc = supabase as unknown as {
       rpc: (
-        fn: "assign_pending_team_compensation_event",
+        fn: string,
         args: Record<string, unknown>,
       ) => Promise<{ data: unknown; error: { message?: string } | null }>;
     };
+    const events = supabase.from("team_compensation_events" as never) as unknown as {
+      select: (fields: string) => { eq: (key: string, value: string) => { maybeSingle: () => PromiseLike<{
+        data: { event_type: string; source_event_key: string; metadata: Record<string, unknown> | null } | null; error: unknown;
+      }> } };
+    };
+    const event = await events.select("event_type,source_event_key,metadata").eq("id", payload.eventId).maybeSingle();
+    if (event.error) throw new Error("Verifica compenso non disponibile.");
+    if (!event.data) throw new AdminApiError(404, "Compenso non trovato.");
+    const isBooking = event.data.event_type === "marketplace_booking_call" ||
+      (event.data.event_type === "refund_adjustment" && event.data.source_event_key.startsWith("marketplace_booking_call_refund:"));
+    if (isBooking) {
+      const bookingId = z.string().uuid().safeParse(event.data.metadata?.booking_call_id);
+      if (!bookingId.success) throw new AdminApiError(409, "Riferimento booking non valido.");
+      const bookings = supabase.from("marketplace_booking_calls" as never) as unknown as {
+        select: (fields: string) => { eq: (key: string, value: string) => { maybeSingle: () => PromiseLike<{
+          data: { compensation_event_id: string | null; reversal_event_id: string | null } | null; error: unknown;
+        }> } };
+      };
+      const booking = await bookings.select("compensation_event_id,reversal_event_id").eq("id", bookingId.data).maybeSingle();
+      if (booking.error || !booking.data || ![booking.data.compensation_event_id, booking.data.reversal_event_id].includes(payload.eventId)) {
+        throw new AdminApiError(409, "Il compenso non corrisponde al booking.");
+      }
+      const assigned = await rpc.rpc("attribute_booking_call_compensation", {
+        p_booking_call_id: bookingId.data, p_member_id: payload.memberId, p_actor_profile_id: profile.id,
+      });
+      if (assigned.error || !assigned.data) throw new AdminApiError(409, "Compenso booking non attribuito. Ricarica i compensi e riprova.");
+      return NextResponse.json({ ok: true, event: assigned.data });
+    }
     const { data, error } = await rpc.rpc(
       "assign_pending_team_compensation_event",
       {

@@ -1,6 +1,7 @@
 // In-memory PostgreSQL only: no application credentials, no live calls or emails.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { testBookingWorkflow } from "./test-booking-call-workflow-fixture.mjs";
 const { PGlite } = await import(process.env.PGLITE_MODULE || "@electric-sql/pglite");
 const db = await PGlite.create();
 const uuid = (kind, n = 1) => `${String(kind).padStart(8,"0")}-0000-4000-8000-${String(n).padStart(12,"0")}`;
@@ -185,6 +186,7 @@ try {
   await db.exec("update settings set value='false'::jsonb where key='lead.booking_call_enabled';");
   assert.equal((await buy(1)).replayed,true);checks++;await expectError(buy(12),"booking_call_disabled");
   await refund(1);assert.equal((await booking(1)).status,"refunded");checks++;
+  checks += await testBookingWorkflow({ db, sql, one, expectError, makeLead, buy, booking, refund, count, lead, request, token, uuid, buyer, admin, qualifier, qualifierProfile, promoter, promoterProfile });
   for(const f of originalFunctions){assert.equal((await one("select pg_get_functiondef($1) body",[f.oid])).body,f.body);checks++;}
   console.log(JSON.stringify({passed:true,checks,isolatedPostgres:true,oldPurchaseAndRefundFunctionsUnchanged:true,atomicRollback:true,retries:true,fullRefundIncludesFee:true,bookingOnlyReversal:true,pendingAttributionPair:true,productionReads:0,productionWrites:0}));
 } finally { await db.close(); }

@@ -20,6 +20,7 @@ type EventType =
   | "prime_renewal"
   | "prime_lead_purchase"
   | "marketplace_promotion_sale"
+  | "marketplace_booking_call"
   | "refund_adjustment"
   | "manual_adjustment";
 
@@ -313,6 +314,7 @@ const eventTypeOptions = [
   { value: "prime_renewal", label: "Rinnovo PRIME" },
   { value: "prime_lead_purchase", label: "Acquisto Lead PRIME" },
   { value: "marketplace_promotion_sale", label: "Vendita lead Marketplace" },
+  { value: "marketplace_booking_call", label: "Booking Call" },
   { value: "refund_adjustment", label: "Riaccredito Lead" },
   { value: "manual_adjustment", label: "Rettifica manuale" },
 ];

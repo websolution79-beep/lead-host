@@ -28,6 +28,7 @@ import type {
 type SettingsResponse = {
   settings: CommercialSettings;
   storageReady: boolean;
+  bookingWorkflowReady?: boolean;
   error?: string;
 };
 
@@ -66,6 +67,7 @@ export function AdminCommercialSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [storageReady, setStorageReady] = useState(true);
+  const [bookingWorkflowReady, setBookingWorkflowReady] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -102,6 +104,7 @@ export function AdminCommercialSettings() {
 
     setSettings(payload.settings);
     setStorageReady(payload.storageReady);
+    setBookingWorkflowReady(Boolean(payload.bookingWorkflowReady));
     setLoading(false);
   }, [getAccessToken]);
 
@@ -263,7 +266,7 @@ export function AdminCommercialSettings() {
       ) : null}
 
       {!loading && activeTab === "lead_prices" ? (
-        <LeadPriceSettings settings={settings} onChange={updateSettings} />
+        <LeadPriceSettings settings={settings} onChange={updateSettings} bookingWorkflowReady={bookingWorkflowReady} />
       ) : null}
 
       {!loading && activeTab === "geo_rules" ? (
@@ -337,9 +340,11 @@ function WalletSettings({
 function LeadPriceSettings({
   settings,
   onChange,
+  bookingWorkflowReady,
 }: {
   settings: CommercialSettings;
   onChange: (update: Partial<CommercialSettings>) => void;
+  bookingWorkflowReady: boolean;
 }) {
   return (
     <section className="card p-6">
@@ -412,6 +417,17 @@ function LeadPriceSettings({
             />
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-4 border-y border-amber-200 py-5 sm:grid-cols-2 sm:items-end">
+        <EuroField label="Costo booking Call" valueCents={settings.bookingCallFeeCents ?? 0}
+          onChange={(value) => onChange({ bookingCallFeeCents: value })} />
+        <label className="inline-flex min-h-12 items-center gap-3 text-sm font-semibold text-ink">
+          <input className="size-5 accent-green" type="checkbox" disabled={!bookingWorkflowReady}
+            checked={Boolean(settings.bookingCallEnabled)} onChange={event => onChange({ bookingCallEnabled: event.target.checked })} />
+          Acquisto esclusivo con booking Call attivo
+        </label>
+        {!bookingWorkflowReady ? <p className="text-sm text-amber-800 sm:col-span-2">Booking Call in attesa del completamento dell&apos;installazione.</p> : null}
       </div>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">

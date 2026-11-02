@@ -31,6 +31,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Array<{
 }> = [
   { href: "/admin/marketplace", permission: "marketplace" },
   { href: "/admin/leads", permission: "leads" },
+  { href: "/admin/booking-call", permission: "leads" },
   { href: "/admin/acquisizione", permission: "acquisition" },
   { href: "/admin/property-manager", permission: "property_managers" },
   { href: "/admin/prime-zone", permission: "prime" },
@@ -66,6 +67,7 @@ const ADMIN_API_PERMISSION_ROUTES: Array<{
   { prefix: "/api/admin/brevo", permissions: ["brevo"] },
   { prefix: "/api/admin/coupons", permissions: ["coupons"] },
   { prefix: "/api/admin/leads", permissions: ["leads"] },
+  { prefix: "/api/admin/booking-calls", permissions: ["leads"] },
   { prefix: "/api/admin/payments", permissions: ["payments"] },
   { prefix: "/api/admin/refunds", permissions: ["refunds"] },
   { prefix: "/api/admin/reports", permissions: ["support"] },

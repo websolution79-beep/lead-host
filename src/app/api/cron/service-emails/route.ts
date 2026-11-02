@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { processServiceEmailQueue } from "@/lib/email/service-campaigns";
 import { getEnv } from "@/lib/env";
 import { runMarketplacePromotionWorkerSafely } from "@/lib/team-compensation/marketplace-promotion-worker";
+import { runBookingCallEmailWorkerSafely } from "@/lib/booking-call/email-worker";
 import {
   reconcileTeamRefundCompensationsSafely,
   runTeamCompensationWorkerSafely,
@@ -18,11 +19,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [result, compensations, refundCompensations, marketplacePromotions] = await Promise.all([
+    const [result, compensations, refundCompensations, marketplacePromotions, bookingCalls] = await Promise.all([
       processServiceEmailQueue(5, 100),
       runTeamCompensationWorkerSafely(100),
       reconcileTeamRefundCompensationsSafely(),
       runMarketplacePromotionWorkerSafely(100),
+      cronSecret ? runBookingCallEmailWorkerSafely(1) : Promise.resolve({ skipped: true, reason: "cron_not_configured" }),
     ]);
 
     return NextResponse.json({
@@ -31,6 +33,7 @@ export async function GET(request: NextRequest) {
       compensations,
       refundCompensations,
       marketplacePromotions,
+      bookingCalls,
     });
   } catch (error) {
     console.error(

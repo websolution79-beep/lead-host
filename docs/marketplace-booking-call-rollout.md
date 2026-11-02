@@ -266,3 +266,55 @@ requires an explicit positive fee and admin action after approval. Disabling
 new bookings must retain the booking summaries/notices and processing of
 existing tasks/refunds; do not drop booking tables or roll back to a pre-booking
 UI after real bookings exist. No production release or activation performed.
+
+## Step 5: Vercel preview verification, 2 November 2026
+
+Code commit `204d8a89b96e31274bfb9d943e14926b19b52f10` was pushed only to
+`codex/marketplace-booking-call`. Project/team/Git source were verified before
+the push. Preview deployment `dpl_BGo2mBC9egXiACJseksSa7cDqAfa` reached READY:
+
+- Immutable URL: https://lead-host-mi16nirky-websolution79-1327s-projects.vercel.app
+- Branch alias: https://lead-host-git-codex-marketp-870fb9-websolution79-1327s-projects.vercel.app
+- Build cloned the intended SHA, compiled Next.js, passed full TypeScript,
+  generated 120 static pages and deployed successfully. QA fixture routes are
+  absent from the build route manifest.
+- Production remains `dpl_4A9Jk8kEbnoeW7wpVdAcyuZLH4qT` at
+  `f4f4e512182480f7fe65e004a651dc641908c736` on `main`.
+- Vercel protection remains `all_except_custom_domains`. The existing CLI
+  login accessed the protected preview using its automated protection-bypass
+  mechanism; protection was not disabled and no access token is shared here.
+
+Remote unauthenticated smoke checks, without submitting valid purchase data:
+
+| Request | Expected / actual |
+| --- | --- |
+| GET /login | 200 |
+| GET /app/marketplace | 307 to the Lead Host login |
+| GET /admin/impostazioni | 307 |
+| POST /api/purchases/booking-call without authorization | 401, verified application-specific session error |
+| GET /api/admin/booking-calls with a synthetic UUID, without authorization | 401 |
+| GET /api/purchases/my-leads without authorization | 401 |
+
+Re-ran 34 unit tests, 13 API handler tests, the 70-check foundation suite and
+186-check wallet/workflow suite successfully. These financial tests are
+isolated/mocked, not live purchases or email delivery. Read-only live readiness
+still reports schema 3, engine/workflow ready, enabled false, fee zero and zero
+booking rows. No live purchase, refund, compensation or email was created.
+
+### Remaining gates / security finding
+
+Authenticated remote PM/admin screens and a multi-connection PostgreSQL
+concurrency test are not yet verified. PGlite is serialized and does not replace
+that concurrency check. Do not label this as a completed live paid checkout.
+Review authenticated settings/templates without enabling the global booking
+flag; the preview uses the same operational database configuration.
+
+The build reported dependency audit warnings. A separate read-only
+`npm audit --omit=dev --json` reports 10 production dependency findings
+(2 critical, 5 high, 3 moderate); direct packages include Next.js (critical)
+and Zod (high). The current branch does not change package.json or its lockfile
+relative to production, so this is pre-existing, not a dependency introduced
+by booking. Exploitability in this deployment has not been established.
+Some proposed fixes include a major Zod upgrade; do not run automatic/forced
+audit fixes on the live platform. Assess advisories and test any remediation
+separately before production release/activation.

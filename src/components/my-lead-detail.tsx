@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { BookingCallNotice } from "@/components/booking-call-notice";
 import {
   formatDate,
   purchaseBadgeClassName,
@@ -102,7 +103,9 @@ export function MyLeadDetail({ leadId }: MyLeadDetailProps) {
   const { lead, ownerContact } = purchasedLead;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+    <>
+    {purchasedLead.bookingCall ? <BookingCallNotice booking={purchasedLead.bookingCall} detailed /> : null}
+    <div className={`${purchasedLead.bookingCall ? "mt-5 " : ""}grid gap-5 lg:grid-cols-[1fr_360px]`}>
       <article className="card p-5 sm:p-7">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -219,6 +222,7 @@ export function MyLeadDetail({ leadId }: MyLeadDetailProps) {
         </div>
       </aside>
     </div>
+    </>
   );
 }
 

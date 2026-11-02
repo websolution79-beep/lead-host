@@ -8,7 +8,7 @@ const requestSchema = z.object({
   leadAmountCents: positiveCents, bookingFeeCents: positiveCents,
   termsVersion: z.string().trim().min(1), requestId: z.string().uuid(),
 }).refine(value => value.leadAmountCents <= maxCents - value.bookingFeeCents, "Totale non valido.");
-const responseSchema = z.object({
+export const bookingCallWalletPurchaseSchema = z.object({
   bookingCallId: z.string().uuid(), purchaseId: z.string().uuid(), leadId: z.string().uuid(),
   leadAmountCents: positiveCents, bookingFeeCents: positiveCents, amountCents: positiveCents,
   balanceCents: z.number().int().min(0).max(maxCents), compensationCents: z.literal(BOOKING_CALL_COMPENSATION_CENTS),
@@ -19,7 +19,7 @@ type RpcClient = { rpc: (name: string, args: Record<string, unknown>) => Promise
   data: unknown; error: { code?: string; message?: string; details?: string } | null;
 }> };
 export type BookingCallWalletRequest = z.infer<typeof requestSchema>;
-export type BookingCallWalletPurchase = z.infer<typeof responseSchema>;
+export type BookingCallWalletPurchase = z.infer<typeof bookingCallWalletPurchaseSchema>;
 
 export class BookingCallWalletError extends Error {
   constructor(public readonly code: string, public readonly mayHaveCompleted: boolean, public readonly details?: string) {
@@ -45,7 +45,7 @@ export async function purchaseBookingCallWithWallet(client: unknown, input: Book
     const databaseRollback = /^[0-9A-Z]{5}$/.test(result.error.code ?? "") && !result.error.code?.startsWith("PGRST");
     throw new BookingCallWalletError(result.error.message ?? "BOOKING_PURCHASE_UNCONFIRMED", !databaseRollback, result.error.details);
   }
-  const parsed = responseSchema.safeParse(result.data);
+  const parsed = bookingCallWalletPurchaseSchema.safeParse(result.data);
   if (!parsed.success || parsed.data.bookingCallId !== request.requestId || parsed.data.leadId !== request.leadId ||
       parsed.data.leadAmountCents !== request.leadAmountCents || parsed.data.bookingFeeCents !== request.bookingFeeCents) {
     // The database may already have committed: do not turn a bad/empty response into a fresh purchase.

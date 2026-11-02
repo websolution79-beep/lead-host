@@ -15,6 +15,8 @@ import type { PurchaseMode } from "@/lib/domain/lead-state";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
 import { CURRENT_TERMS_VERSION } from "@/lib/legal/terms";
 import { dispatchBrowserTrackingEvent } from "@/lib/tracking/browser-events";
+import { BookingCallPurchaseAction, type BookingCallQuote } from "@/components/booking-call-purchase-action";
+import { BOOKING_CALL_WAIT_NOTICE } from "@/lib/booking-call/contracts";
 
 type LeadPurchaseActionsProps = {
   leadId: string;
@@ -24,12 +26,13 @@ type LeadPurchaseActionsProps = {
   sharedPriceCents: number;
   exclusivePriceCents: number;
   refreshAfterPurchase?: boolean;
+  bookingCall?: { quote: BookingCallQuote | null };
 };
 
 type PurchaseState =
   | { status: "idle" }
   | { status: "loading"; mode: PurchaseMode }
-  | { status: "success"; leadId: string; balanceCents: number }
+  | { status: "success"; leadId: string; balanceCents: number; bookingCall?: boolean }
   | {
       status: "error";
       message: string;
@@ -51,12 +54,14 @@ export function LeadPurchaseActions({
   sharedPriceCents,
   exclusivePriceCents,
   refreshAfterPurchase = true,
+  bookingCall,
 }: LeadPurchaseActionsProps) {
   const router = useRouter();
   const supabase = useMemo(() => createPublicSupabaseClient(), []);
   const [state, setState] = useState<PurchaseState>({ status: "idle" });
   const [confirmation, setConfirmation] =
     useState<PurchaseConfirmation | null>(null);
+  const [bookingBusy, setBookingBusy] = useState(Boolean(bookingCall));
 
   useEffect(() => {
     if (!confirmation) return;
@@ -178,14 +183,6 @@ export function LeadPurchaseActions({
     if (refreshAfterPurchase) router.refresh();
   }
 
-  if (!sharedAvailable && !exclusiveAvailable) {
-    return (
-      <div className="rounded-lg bg-fog p-4 text-sm font-semibold text-muted">
-        Questo lead non è più disponibile per l&apos;acquisto.
-      </div>
-    );
-  }
-
   if (state.status === "success") {
     return (
       <div className="rounded-xl border border-green/20 bg-green/10 p-4">
@@ -197,6 +194,7 @@ export function LeadPurchaseActions({
           Il credito e stato scalato dal wallet. Puoi aprire subito il dettaglio
           completo da I miei lead.
         </p>
+        {state.bookingCall ? <p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-950">{BOOKING_CALL_WAIT_NOTICE}</p> : null}
         <Link className="btn btn-primary mt-4 w-full" href={`/app/i-miei-lead/${leadId}`}>
           Apri lead sbloccato
         </Link>
@@ -208,11 +206,12 @@ export function LeadPurchaseActions({
 
   return (
     <div className="grid gap-3">
+      {!sharedAvailable && !exclusiveAvailable ? <div className="rounded-lg bg-fog p-4 text-sm font-semibold text-muted">Questo lead non e piu disponibile per l&apos;acquisto.</div> : null}
       {sharedAvailable ? (
         <button
           className="btn btn-primary w-full"
           type="button"
-          disabled={Boolean(loadingMode)}
+          disabled={Boolean(loadingMode) || Boolean(bookingCall && bookingBusy)}
           onClick={() => openConfirmation("shared")}
         >
           <ShoppingBag size={17} />
@@ -226,7 +225,7 @@ export function LeadPurchaseActions({
         <button
           className="btn btn-primary w-full"
           type="button"
-          disabled={Boolean(loadingMode)}
+          disabled={Boolean(loadingMode) || Boolean(bookingCall && bookingBusy)}
           onClick={() => openConfirmation("exclusive")}
         >
           <ShoppingBag size={17} />
@@ -235,6 +234,14 @@ export function LeadPurchaseActions({
             : `Acquista in esclusiva - ${formatCents(exclusivePriceCents)}`}
         </button>
       ) : null}
+
+      {bookingCall ? <BookingCallPurchaseAction leadId={leadId} leadTitle={leadTitle} quote={bookingCall.quote}
+        disabled={Boolean(loadingMode) || Boolean(confirmation)} onBusyChange={setBookingBusy}
+        onSuccess={receipt => {
+          setState({ status: "success", leadId, balanceCents: receipt.balanceCents, bookingCall: true });
+          dispatchBrowserTrackingEvent("lead_purchase", { eventId: `lead_purchase_${receipt.purchaseId}` });
+          if (refreshAfterPurchase) router.refresh();
+        }} /> : null}
 
       {state.status === "error" && !confirmation ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">

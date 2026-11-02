@@ -3,6 +3,7 @@ import {
   propertyManagerApiErrorResponse,
   requirePropertyManager,
 } from "@/lib/api/property-manager-auth";
+import { fetchPurchasedBookingSummaries } from "@/lib/booking-call/purchased-summaries";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -63,7 +64,7 @@ export async function GET(request: NextRequest) {
       new Set(leadRows.map((item) => item.owner_request_id)),
     );
 
-    const [propertiesResult, contactsResult] = await Promise.all([
+    const [propertiesResult, contactsResult, bookingsByPurchase] = await Promise.all([
       supabase
         .from("properties")
         .select(
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
         .from("owner_contacts")
         .select("owner_request_id,first_name,last_name,email,phone,precise_address")
         .in("owner_request_id", ownerRequestIds),
+      fetchPurchasedBookingSummaries(supabase, propertyManager.id, purchaseRows.map(purchase => purchase.id)),
     ]);
 
     if (propertiesResult.error || contactsResult.error) {
@@ -107,6 +109,7 @@ export async function GET(request: NextRequest) {
           status: purchase.status,
           purchasedAt: purchase.created_at,
           unlockedAt: purchase.unlocked_at ?? purchase.created_at,
+          bookingCall: bookingsByPurchase.get(purchase.id) ?? null,
           lead: {
             id: lead.id,
             title: lead.title,
@@ -139,7 +142,7 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean);
 
-    return NextResponse.json({ purchases: mappedPurchases });
+    return NextResponse.json({ purchases: mappedPurchases }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return propertyManagerApiErrorResponse(error);
   }

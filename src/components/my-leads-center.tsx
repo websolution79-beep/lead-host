@@ -12,6 +12,8 @@ import {
   UserRound,
 } from "lucide-react";
 import { createPublicSupabaseClient } from "@/lib/supabase/client";
+import { BookingCallNotice } from "@/components/booking-call-notice";
+import type { BookingCallSummary } from "@/lib/booking-call/contracts";
 
 export type PurchasedLeadItem = {
   purchaseId: string;
@@ -21,6 +23,7 @@ export type PurchasedLeadItem = {
   status: string;
   purchasedAt: string;
   unlockedAt: string;
+  bookingCall?: BookingCallSummary | null;
   lead: {
     id: string;
     title: string;
@@ -166,6 +169,8 @@ export function MyLeadsCenter() {
               </p>
             </div>
           </div>
+
+          {item.bookingCall ? <BookingCallNotice booking={item.bookingCall} /> : null}
 
           <div className="mt-5 flex items-center justify-between border-t border-slate-200 pt-4">
             <span className="text-sm font-semibold text-muted">

@@ -33,6 +33,7 @@ import { fetchCommercialSettings } from "@/lib/config/commercial-settings";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { MarketplaceLeadViewTracker } from "@/components/marketplace-lead-view-tracker";
 import { MarketplaceLeadFinancialEstimate } from "@/components/marketplace-lead-financial-estimate";
+import { fetchBookingCallWorkflowConfig, quoteBookingCall } from "@/lib/booking-call/config";
 
 type LeadDetailPageProps = {
   params: Promise<{
@@ -50,9 +51,10 @@ export default async function LeadDetailPage({
   const { leadId } = await params;
   const { session } = await requireMarketplacePageAccess();
   const supabase = createServiceSupabaseClient();
-  const [lead, { settings }] = await Promise.all([
+  const [lead, { settings }, booking] = await Promise.all([
     getPublishedMarketplaceLeadById(leadId),
     fetchCommercialSettings(supabase),
+    fetchBookingCallWorkflowConfig(supabase),
   ]);
 
   if (!lead) {
@@ -270,10 +272,14 @@ export default async function LeadDetailPage({
               </div>
             ) : (
               <LeadPurchaseActions
+                key={lead.id}
                 leadId={lead.id}
                 leadTitle={lead.title}
                 sharedAvailable={sharedPurchasesVisible && sharedAvailable}
                 exclusiveAvailable={exclusiveAvailable}
+                bookingCall={booking.workflowReady ? { quote: quoteBookingCall({ config: booking,
+                  leadAmountCents: lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS,
+                  visibilityMode: "public", exclusiveAvailable }) } : undefined}
                 sharedPriceCents={lead.sharedPriceCents ?? LEAD_SHARED_PRICE_CENTS}
                 exclusivePriceCents={
                   lead.exclusivePriceCents ?? LEAD_EXCLUSIVE_PRICE_CENTS

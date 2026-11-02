@@ -206,3 +206,63 @@ recovery UI, and the persistent PM notice in My Leads while retaining contacts.
 Then test the complete public purchase/refund flow and concurrent clients on
 an isolated staging database, preview, and controlled release. The production
 service remains disabled; the current staged code is not a finished PM rollout.
+
+## Step 4: public purchase UI and PM notices (prepared, not deployed)
+
+Migration 3 has been verified live read-only: readiness v3, engine/workflow
+ready, enabled false, fee zero, no booking rows; anonymous readiness execution
+is denied with 42501. No production setting, wallet or purchase was modified.
+
+The public Marketplace detail now passes an optional booking quote at the
+effective exclusive price. The gold action sits below the unchanged ordinary
+purchase action and itemizes lead price, booking supplement and wallet total.
+Private Prime Zone does not receive the prop and never renders the option.
+The server still independently authorizes public/exclusive availability and
+all prices; the browser quote is not a payment authorization.
+
+Before submission the browser stores only the attempt version, UUID and two
+component prices in sessionStorage, keyed by authenticated user and lead. A
+network failure or malformed success retains that same request across page
+reloads. Recovery can replay it even when the service is subsequently disabled
+or the lead has become unavailable. No replacement UUID or automatic retry is
+generated for an unconfirmed request. Confirmed SQL business failures can be
+corrected; a price change requires new explicit terms acceptance. An unreadable
+existing attempt blocks new purchase actions pending verification. A blocked
+browser store without evidence of an earlier attempt disables booking only,
+not the ordinary purchase path. An in-flight booking prevents simultaneous
+ordinary purchase from the same widget; the database remains the authority
+across tabs/devices. A confirmed receipt triggers one existing lead_purchase
+browser event, using the purchase UUID for event identity.
+
+My Leads reads booking summaries in batches of at most 100 purchase UUIDs,
+filtered by both server-authenticated PM and the purchases already owned by
+that PM. Only status/date/component prices are returned, not team contact or
+qualification details. Missing pre-foundation storage is compatible; real
+booking query failures produce an error instead of silently suppressing the
+wait-for-team notice. The list and detail both display the notice; detail puts
+it before property information so it is immediately visible on mobile.
+Phone and email links remain visible. A scheduled task shows the appointment
+in Europe/Rome time. Ordinary purchases keep their existing layout and endpoint.
+The success panel remains visible if a refresh marks a purchased lead sold.
+
+### Step 4 checks and remaining release gate
+
+- 34 unit tests across booking and existing pricing/template behavior;
+  13 actual-handler VM tests including owned-purchase filtering, contacts,
+  refund exclusion, unavailable booking storage and unchanged ordinary records.
+- Repeated isolated wallet/workflow suite: 186 PostgreSQL checks, no live
+  purchases, refunds, emails or compensation entries created.
+- Mocked Playwright at 1440, 390 and 320px: purchase/confirmation/list/detail,
+  visible contacts, single request/event, refresh after sale, lost and malformed
+  responses, replay with service disabled, corrupt/unavailable browser storage,
+  changed prices requiring acceptance, insufficient credit, ordinary purchase
+  and Prime Zone exclusion. No horizontal overflow in the checked views.
+- Scoped TypeScript and ESLint. Temporary QA page removed before commit.
+
+No additional migration is required for step 4. Next: preview/build validation,
+final staging purchase/refund and concurrent-client checks, followed by a
+controlled production release while keeping the setting disabled. Activation
+requires an explicit positive fee and admin action after approval. Disabling
+new bookings must retain the booking summaries/notices and processing of
+existing tasks/refunds; do not drop booking tables or roll back to a pre-booking
+UI after real bookings exist. No production release or activation performed.

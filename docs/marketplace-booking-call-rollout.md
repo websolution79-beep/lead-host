@@ -318,3 +318,39 @@ by booking. Exploitability in this deployment has not been established.
 Some proposed fixes include a major Zod upgrade; do not run automatic/forced
 audit fixes on the live platform. Assess advisories and test any remediation
 separately before production release/activation.
+
+## Step 6: authorized production release, 2 November 2026
+
+The user explicitly requested production publication after enabling booking and
+setting its supplement to EUR 19.00. Readiness was rechecked read-only before
+release: schema 3, engine/workflow ready, enabled true, fee 1900 cents,
+compensation 300 cents. No setting or database write was made by this release.
+
+After confirming production still matched the expected baseline and main had
+no unmerged changes, main was fast-forwarded to
+`917ef6d658ca015131cea040dcab2be9a67fca29`. Its application code is identical to
+the tested preview at `204d8a8`; the difference is rollout documentation only.
+Vercel rebuilt with production configuration and deployment
+`dpl_2vyoDkiUjZyh4jMfWy24HdLznVFm` reached READY. Project metadata confirms this
+deployment is now production and serves both www.leadhost.it and leadhost.it.
+
+Public-domain smoke checks passed after alias assignment:
+
+- /login: 200.
+- /app/marketplace without session: 307.
+- POST /api/purchases/booking-call without authorization: 401 with the expected
+  application session error, confirming the new route is live without buying.
+- GET /api/admin/booking-calls with a synthetic identifier, without session: 401.
+- GET /api/purchases/my-leads without session: 401.
+
+The 34 unit tests, 13 API tests and 186-check isolated wallet/workflow suite
+were rerun successfully before/during build. Final readiness still reports
+enabled true, supplement 1900 cents and compensation 300 cents. No real
+purchase, refund, payment or email was executed by the verification.
+
+This publication does not establish a completed live authenticated financial
+checkout or multi-connection PostgreSQL stress test. The previously recorded
+dependency-security findings were not remediated by this feature release;
+package and lock files remain unchanged. These limitations remain explicit.
+No new Stripe product, dependency upgrade, migration, environment change,
+cron schedule change or disabled protection is part of the production release.

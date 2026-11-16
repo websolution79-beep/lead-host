@@ -131,6 +131,9 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireSuperAdmin(request);
     const requestedProfileId = request.nextUrl.searchParams.get("profileId");
+    if (requestedProfileId && !z.string().uuid().safeParse(requestedProfileId).success) {
+      return NextResponse.json({ error: "Identificativo Property Manager non valido." }, { status: 400 });
+    }
     const search = normalizeSearchTerm(request.nextUrl.searchParams.get("search"));
     const managedPropertiesFilter = managedPropertiesFilterSchema
       .optional()
@@ -144,10 +147,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const { data: roleRows, error: rolesError } = await supabase
+    const rolesQuery = supabase
       .from("user_roles")
       .select("profile_id")
       .eq("role", "property_manager");
+    // Filter before fetching: an archive-wide role query is capped by PostgREST.
+    if (requestedProfileId) rolesQuery.eq("profile_id", requestedProfileId);
+    const { data: roleRows, error: rolesError } = await rolesQuery;
 
     if (rolesError) throw rolesError;
 
@@ -356,7 +362,6 @@ export async function GET(request: NextRequest) {
       { data: pmProfiles, error: pmProfilesError },
       { data: wallets, error: walletsError },
       { data: billingProfiles, error: billingProfilesError },
-      { data: authUsers },
     ] = await Promise.all([
       supabase
         .from("profiles")
@@ -372,9 +377,6 @@ export async function GET(request: NextRequest) {
       requestedProfileId
         ? supabase.from("billing_profiles").select("*").in("profile_id", profileIds)
         : Promise.resolve({ data: [], error: null }),
-      requestedProfileId
-        ? supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
-        : Promise.resolve({ data: { users: [] }, error: null }),
     ]);
 
     if (profilesError) throw profilesError;
@@ -383,6 +385,15 @@ export async function GET(request: NextRequest) {
     if (billingProfilesError && !isMissingRelationError(billingProfilesError)) {
       throw billingProfilesError;
     }
+
+    if (!profiles?.length) {
+      return NextResponse.json({ error: "Property Manager non trovato." }, { status: 404 });
+    }
+    const authUserId = profiles[0].auth_user_id;
+    const authResult = authUserId
+      ? await supabase.auth.admin.getUserById(authUserId)
+      : null;
+    const authUsers = authResult?.data.user ? [authResult.data.user] : [];
 
     const pmProfilesByProfileId = new Map(
       ((pmProfiles ?? []) as PropertyManagerProfileRow[]).map((item) => [
@@ -400,12 +411,12 @@ export async function GET(request: NextRequest) {
       ),
     );
     const metadataByAuthUserId = new Map(
-      (authUsers.users ?? []).map((user) => [
+      authUsers.map((user) => [
         user.id,
         (user.user_metadata ?? {}) as AuthMetadata,
       ]),
     );
-    const authUserById = new Map((authUsers.users ?? []).map((user) => [user.id, user]));
+    const authUserById = new Map(authUsers.map((user) => [user.id, user]));
     const pmProfileIds = ((pmProfiles ?? []) as PropertyManagerProfileRow[])
       .map((item) => item.id)
       .filter(Boolean);
